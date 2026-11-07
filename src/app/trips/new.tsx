@@ -1,12 +1,12 @@
 // Driver posts a trip: route, day (or weekly days), time, seats, price.
 
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { RouteCard } from '@/components/route-card';
 import { Body, Button, Chip, ChipRow, Choice, Field, Label, ListRow, Screen, Stepper, Title, ltr } from '@/components/ui';
-import { formatChipDay, formatLongDay, shortTime } from '@/lib/format';
+import { formatChipDay, formatDay, formatLongDay, shortTime } from '@/lib/format';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { goBack } from '@/lib/nav';
 import { askForPush } from '@/lib/push';
@@ -68,6 +68,18 @@ export default function NewTrip() {
   }, [t, lang]);
 
   const [origin, destination] = route.split('>') as [City, City];
+
+  // Riders who asked to be alerted on this route: the first day someone is waiting.
+  const [demand, setDemand] = useState<{ on_date: string; waiting: number } | null>(null);
+  useEffect(() => {
+    let gone = false;
+    supabase.rpc('alert_demand', { p_origin: origin, p_destination: destination }).then(({ data }) => {
+      if (!gone) setDemand(((data as { on_date: string; waiting: number }[] | null) ?? [])[0] ?? null);
+    });
+    return () => {
+      gone = true;
+    };
+  }, [origin, destination]);
 
   async function publish() {
     const priceIls = parsePrice(price);
@@ -134,6 +146,15 @@ export default function NewTrip() {
       ) : null}
 
       <RouteCard origin={origin} destination={destination} onSwap={() => setRoute(`${destination}>${origin}` as Route)} />
+
+      {demand ? (
+        <ListRow
+          last
+          icon="users"
+          title={`${t('demandWaiting')}: ${ltr(demand.waiting)} · ${formatDay(new Date(`${demand.on_date}T12:00:00`), lang)}`}
+          subtitle={t('demandHint')}
+        />
+      ) : null}
 
       <Choice
         value={repeat}
