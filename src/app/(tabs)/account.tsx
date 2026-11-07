@@ -1,68 +1,116 @@
-// Account: who you are, your language, your car (for drivers), sign out.
+// Account tab = "Your profile": who you are, your numbers, and everything that isn't a trip
+// (ID check, car, emergency contact, settings).
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { IconCircle, ListRow, Screen, SectionTitle, Title, ltr } from '@/components/ui';
+import { Icon } from '@/components/icon';
+import { IconCircle, ListRow, Screen, Title, ltr, useFont } from '@/components/ui';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
+import { formatStats, type PersonStats } from '@/lib/profile-stats';
 import { supabase } from '@/lib/supabase';
 import { useCheckStatus } from '@/lib/verification';
 import type { StringKey } from '@/i18n/strings';
+import { colors, space } from '@/theme/tokens';
+
+type Extra = { created_at: string; emergency_name: string | null };
 
 export default function Account() {
   const { t, lang } = useT();
-  const { profile, session, refreshProfile } = useSession();
-  const [car, setCar] = useState<{ car_model: string; car_color: string } | null>(null);
+  const { f, rtl } = useFont();
+  const { profile, session } = useSession();
+  const [car, setCar] = useState<{ car_model: string; car_color: string; plate: string } | null>(null);
+  const [extra, setExtra] = useState<Extra | null>(null);
+  const [stats, setStats] = useState<PersonStats | null>(null);
   const idCheck = useCheckStatus(session?.user.id, 'passenger').status;
   const driverCheck = useCheckStatus(session?.user.id, 'driver').status;
 
   useFocusEffect(
     useCallback(() => {
       if (!session) return;
+      const me = session.user.id;
       supabase
         .from('driver_details')
-        .select('car_model, car_color')
-        .eq('driver_id', session.user.id)
+        .select('car_model, car_color, plate')
+        .eq('driver_id', me)
         .maybeSingle()
         .then(({ data }) => setCar(data ?? null));
+      supabase
+        .from('profiles')
+        .select('created_at, emergency_name')
+        .eq('id', me)
+        .maybeSingle()
+        .then(({ data }) => setExtra((data as Extra | null) ?? null));
+      // Trips, reliability and rating come from trip day (slice 8-9). Until that is
+      // live the function doesn't exist yet, and the numbers simply don't show.
+      supabase.rpc('person_stats', { p_person: me }).then(({ data, error }) => {
+        const row = Array.isArray(data) ? data[0] : data;
+        setStats(error || !row ? null : (row as PersonStats));
+      });
     }, [session]),
   );
 
-  async function switchLanguage() {
-    if (!session) return;
-    await supabase.from('profiles').update({ language: lang === 'ar' ? 'en' : 'ar' }).eq('id', session.user.id);
-    await refreshProfile();
-  }
-
   const name = profile?.full_name ?? '';
+  const verified = !!profile?.id_verified_at;
+  const since = extra
+    ? new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', { month: 'long', year: 'numeric' }).format(
+        new Date(extra.created_at),
+      )
+    : null;
+  const role = car ? t('rolePassengerDriver') : t('rolePassenger');
+  const numbers = stats ? formatStats(stats) : null;
+  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
     <Screen scroll tab contentStyle={{ paddingTop: 72 }}>
-      <Title>{t('accountTitle')}</Title>
-      <ListRow
-        last
-        leading={<IconCircle letter={name.charAt(0)} size={56} />}
-        title={name}
-        subtitle={session?.user.phone ? ltr(formatPhone(session.user.phone)) : undefined}
-      />
+      <Title>{t('yourProfile')}</Title>
+
+      <View style={styles.header}>
+        <IconCircle letter={name.charAt(0)} size={72} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={styles.nameLine}>
+            <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>
+            {verified ? <Icon name="sealCheck" size={20} color={colors.statusOpen} /> : null}
+          </View>
+          <Text style={[styles.meta, { fontFamily: f.regular }, align]}>
+            {since ? `${role} · ${t('memberSince')} ${since}` : role}
+          </Text>
+          {session?.user.phone ? (
+            <Text style={[styles.meta, { fontFamily: f.regular }, align]}>{ltr(formatPhone(session.user.phone))}</Text>
+          ) : null}
+        </View>
+      </View>
+
+      {numbers ? (
+        <View style={styles.stats}>
+          {[
+            [numbers.trips, t('statTrips')],
+            [numbers.reliability, t('statReliable')],
+            [numbers.rating, t('statRating')],
+          ].map(([value, label], i) => (
+            <View key={label} style={[styles.stat, i > 0 && styles.statLine]}>
+              <Text style={[styles.statValue, { fontFamily: f.bold }]}>{ltr(value)}</Text>
+              <Text style={[styles.meta, { fontFamily: f.regular }]}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <View>
-        <ListRow icon="globe" title={t('languageRow')} subtitle={t('languageName')} onPress={switchLanguage} />
+        <ListRow
+          icon="carProfile"
+          title={car ? t('myCar') : t('addYourCar')}
+          subtitle={car ? `${car.car_model} · ${car.car_color} · ${ltr(car.plate)}` : undefined}
+          onPress={() => router.push('/car')}
+        />
         <ListRow
           icon="identificationCard"
           title={t('idCheckRow')}
           subtitle={idCheck ? t(`checkState_${idCheck.state}` as StringKey) : undefined}
           onPress={() => router.push({ pathname: '/verify', params: { kind: 'passenger' } })}
-        />
-        <SectionTitle>{t('forDrivers')}</SectionTitle>
-        <ListRow
-          icon="carProfile"
-          title={car ? t('yourCar') : t('addYourCar')}
-          subtitle={car ? `${car.car_model} · ${car.car_color}` : undefined}
-          onPress={() => router.push('/car')}
         />
         {car ? (
           <ListRow
@@ -72,6 +120,13 @@ export default function Account() {
             onPress={() => router.push({ pathname: '/verify', params: { kind: 'driver' } })}
           />
         ) : null}
+        <ListRow
+          icon="shieldCheck"
+          title={t('emergencyContact')}
+          subtitle={extra?.emergency_name ?? t('emergencyNone')}
+          onPress={() => router.push('/emergency')}
+        />
+        <ListRow icon="gear" title={t('settingsTitle')} subtitle={t('settingsSubtitle')} onPress={() => router.push('/settings')} />
         <ListRow
           last
           icon="signOut"
@@ -85,3 +140,19 @@ export default function Account() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { fontSize: 20, lineHeight: 26, color: colors.ink, flexShrink: 1 },
+  meta: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
+  stats: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
+  },
+  stat: { flex: 1, paddingVertical: space.md, alignItems: 'center', gap: 2 },
+  statLine: { borderStartWidth: 1, borderColor: colors.hairline },
+  statValue: { fontSize: 22, lineHeight: 28, color: colors.ink },
+});

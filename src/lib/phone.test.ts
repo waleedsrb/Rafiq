@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { formatPhone, normalizePhone, telLink } from './phone.ts';
+import { formatPhone, normalizeContactPhone, normalizePhone, telLink } from './phone.ts';
 
 test('local numbers get the +970 prefix', () => {
   assert.equal(normalizePhone('0591234567'), '+970591234567');
@@ -32,4 +32,13 @@ test('stored numbers display nicely and dial correctly', () => {
   assert.equal(formatPhone('970591234567'), '+970 59 123 4567');
   assert.equal(formatPhone('+972561234567'), '+972 56 123 4567');
   assert.equal(telLink('970591234567'), 'tel:+970591234567');
+});
+
+test('emergency contacts can be local or from any country', () => {
+  assert.equal(normalizeContactPhone('0591234567'), '+970591234567');
+  assert.equal(normalizeContactPhone('+962 79 123 4567'), '+962791234567');
+  assert.equal(normalizeContactPhone('00962791234567'), '+962791234567');
+  assert.equal(normalizeContactPhone('٠٥٩١٢٣٤٥٦٧'), '+970591234567');
+  assert.equal(normalizeContactPhone('12345'), null);
+  assert.equal(normalizeContactPhone('+0123456789'), null);
 });
