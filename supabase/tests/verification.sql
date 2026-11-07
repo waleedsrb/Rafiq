@@ -19,18 +19,26 @@ insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000d'),
   ('00000000-0000-0000-0000-0000000000a1'),
   ('00000000-0000-0000-0000-0000000000ad');
-insert into public.profiles (id, full_name) values
-  ('00000000-0000-0000-0000-00000000000d', 'Dana Haddad'),
-  ('00000000-0000-0000-0000-0000000000a1', 'Amir Saleh'),
-  ('00000000-0000-0000-0000-0000000000ad', 'Admin Person');
+insert into public.profiles (id, full_name, gender, language) values
+  ('00000000-0000-0000-0000-00000000000d', 'Dana Haddad', 'f', 'en'),
+  ('00000000-0000-0000-0000-0000000000a1', 'Amira Saleh', 'f', 'ar'),
+  ('00000000-0000-0000-0000-0000000000ad', 'Admin Person', null, 'en');
 insert into public.admins (user_id) values ('00000000-0000-0000-0000-0000000000ad');
 insert into public.driver_details (driver_id, car_model, car_color, plate)
 values ('00000000-0000-0000-0000-00000000000d', 'Kia Picanto', 'White', '7-1234-95');
 do $$ begin execute format('grant usage on schema %I to authenticated', pg_my_temp_schema()::regnamespace); end $$;
+-- Let these checks read the pg_net stand-in while acting as a signed-in user (rolled back at the end).
+grant usage on schema net to authenticated;
+grant select on net.sent to authenticated;
 set local role authenticated;
+
+-- Phones register (each person for themselves).
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+select public.register_push_token('ExponentPushToken[amira]');
 
 -- 1. Nobody can mark themselves verified.
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select public.register_push_token('ExponentPushToken[dana]');
 select pg_temp.expect_error($$update public.profiles set id_verified_at = now() where id = auth.uid()$$, 'set by a reviewer');
 select pg_temp.expect_error($$update public.driver_details set verified_at = now() where driver_id = auth.uid()$$, 'set by a reviewer');
 
@@ -77,7 +85,27 @@ end $$;
 select pg_temp.expect_error($$select public.review_verification(
   (select id from public.verifications where kind = 'passenger'), false, '')$$, 'Say why');
 select public.review_verification((select id from public.verifications where kind = 'passenger'), false, 'Photo is blurry');
+-- 4b. The decision reaches the person's phone, in their language (Amira: Arabic, female).
+do $$
+declare m jsonb;
+begin
+  select body -> 0 into m from net.sent order by id desc limit 1;
+  if m ->> 'to' <> 'ExponentPushToken[amira]' or m ->> 'title' <> 'نحتاج صورًا جديدة'
+     or m ->> 'body' <> 'السبب: Photo is blurry افتحي رفيق وأرسلي صورًا جديدة.'
+     or m -> 'data' ->> 'url' <> '/verify?kind=passenger' then
+    raise exception 'FAIL: reject push was %', m;
+  end if;
+end $$;
 select public.review_verification((select id from public.verifications where kind = 'driver'), true);
+do $$
+declare m jsonb;
+begin
+  select body -> 0 into m from net.sent order by id desc limit 1;
+  if m ->> 'to' <> 'ExponentPushToken[dana]' or m ->> 'title' <> 'Your driver check is approved'
+     or m -> 'data' ->> 'url' <> '/verify?kind=driver' then
+    raise exception 'FAIL: approve push was %', m;
+  end if;
+end $$;
 select pg_temp.expect_error($$select public.review_verification((select id from public.verifications where kind = 'driver'), true)$$, 'not waiting');
 
 -- 5. The approved driver can post; the rejected passenger still can't book.
