@@ -35,6 +35,9 @@ insert into public.profiles (id, full_name, gender) values
   ('00000000-0000-0000-0000-0000000000a1', 'Passenger Amir', 'm'),
   ('00000000-0000-0000-0000-0000000000a2', 'Passenger Aya', 'f');
 
+insert into public.driver_details (driver_id, car_model, car_color, plate)
+values ('00000000-0000-0000-0000-00000000000d', 'Kia Picanto', 'White', '7-1234-95');
+
 -- A trip with ONE seat, so the second accept must fail.
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
 values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d',

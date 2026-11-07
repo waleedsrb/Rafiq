@@ -19,3 +19,18 @@ export function normalizePhone(input: string): string | null {
 
   return null;
 }
+
+/**
+ * For display: "970591234567" or "+970591234567" -> "+970 59 123 4567".
+ * Supabase stores phone numbers without the plus.
+ */
+export function formatPhone(stored: string): string {
+  const d = stored.replace(/\D/g, '');
+  const m = d.match(/^(970|972)(5\d)(\d{3})(\d{4})$/);
+  return m ? `+${m[1]} ${m[2]} ${m[3]} ${m[4]}` : `+${d}`;
+}
+
+/** For a tel: link. */
+export function telLink(stored: string): string {
+  return `tel:+${stored.replace(/\D/g, '')}`;
+}

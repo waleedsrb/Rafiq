@@ -3,6 +3,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 
+import { ContactCard } from '@/components/contact-card';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
@@ -27,6 +28,7 @@ export default function TripDetails() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -39,11 +41,12 @@ export default function TripDetails() {
         .eq('id', id)
         .single(),
       supabase.rpc('seats_left', { p_trip_id: id }),
-      supabase.from('bookings').select('status').eq('trip_id', id).eq('passenger_id', session.user.id).maybeSingle(),
+      supabase.from('bookings').select('id, status').eq('trip_id', id).eq('passenger_id', session.user.id).maybeSingle(),
     ]);
     setTrip((tripRes.data as unknown as Trip | null) ?? null);
     setSeatsLeft((seatsRes.data as number | null) ?? null);
     setStatus(bookingRes.data?.status ?? null);
+    setBookingId(bookingRes.data?.id ?? null);
   }, [id, session]);
 
   useEffect(() => {
@@ -83,9 +86,10 @@ export default function TripDetails() {
       <Label>{t('driverLabel')}</Label>
       <Body>{driverFirstName}</Body>
 
-      {status ? (
-        <Body>{t(`status_${status}` as StringKey)}</Body>
-      ) : canRequest ? (
+      {status ? <Body>{t(`status_${status}` as StringKey)}</Body> : null}
+      {status === 'accepted' && bookingId ? <ContactCard bookingId={bookingId} /> : null}
+      {status === 'requested' ? <Body muted>{t('contactHidden')}</Body> : null}
+      {!status && canRequest ? (
         <Body muted>{t('requestHint')}</Body>
       ) : null}
       {error ? <Body error>{error}</Body> : null}

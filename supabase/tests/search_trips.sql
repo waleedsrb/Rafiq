@@ -8,6 +8,9 @@ insert into public.profiles (id, full_name) values
   ('00000000-0000-0000-0000-00000000000d', 'Dana Haddad'),
   ('00000000-0000-0000-0000-0000000000a1', 'Amir Saleh');
 
+insert into public.driver_details (driver_id, car_model, car_color, plate)
+values ('00000000-0000-0000-0000-00000000000d', 'Kia Picanto', 'White', '7-1234-95');
+
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils) values
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '2 hours', 3, 25),
   ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-00000000000d', 'nablus', 'ramallah', now() + interval '2 hours', 3, 25),

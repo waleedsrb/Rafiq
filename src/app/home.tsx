@@ -101,6 +101,7 @@ export default function Home() {
         );
       })}
 
+      <Button variant="plain" label={t('yourCar')} onPress={() => router.push('/car')} />
       <Button variant="plain" label={t('signOut')} onPress={() => supabase.auth.signOut()} />
     </Screen>
   );

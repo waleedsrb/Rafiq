@@ -65,6 +65,7 @@ function Routes() {
       </Stack.Protected>
       <Stack.Protected guard={ready}>
         <Stack.Screen name="home" />
+        <Stack.Screen name="car" />
         <Stack.Screen name="trips/new" />
         <Stack.Screen name="trips/search" />
         <Stack.Screen name="trips/[id]" />

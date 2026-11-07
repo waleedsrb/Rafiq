@@ -6,6 +6,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ContactCard } from '@/components/contact-card';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
@@ -93,6 +94,7 @@ export default function TripRequests() {
               {t(`status_${r.status}` as StringKey)}
             </Text>
           </View>
+          {r.status === 'accepted' ? <ContactCard bookingId={r.id} /> : null}
           {r.status === 'requested' ? (
             <View style={styles.actions}>
               <View style={styles.action}>
