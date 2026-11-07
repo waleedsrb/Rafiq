@@ -101,6 +101,95 @@ export const strings = {
   genderM: { ar_m: 'ذكر', en: 'Male' },
   genderF: { ar_m: 'أنثى', en: 'Female' },
 
+  // Home
+  greetingMorning: { ar_m: 'صباح الخير', en: 'Good morning' },
+  greetingEvening: { ar_m: 'مساء الخير', en: 'Good evening' },
+  quickSearch: { ar_m: 'ابحث', ar_f: 'ابحثي', en: 'Search' },
+  yourNextTrip: { ar_m: 'رحلتك القادمة', en: 'Your next trip' },
+  waitingForDriver: { ar_m: 'في انتظار قبول السائق', en: 'Waiting for the driver to accept' },
+  seatConfirmed: { ar_m: 'مقعدك مؤكد', en: 'Your seat is confirmed' },
+  requestsWaiting: { ar_m: 'طلبات مقاعد بانتظارك', en: 'Seat requests waiting for you' },
+  partMorning: { ar_m: 'صباحًا', en: 'Morning' },
+  partAfternoon: { ar_m: 'ظهرًا', en: 'Afternoon' },
+  partEvening: { ar_m: 'مساءً', en: 'Evening' },
+  am: { ar_m: 'صباحًا', en: 'AM' },
+  pm: { ar_m: 'مساءً', en: 'PM' },
+
+  // Where to
+  fromLabel: { ar_m: 'من', en: 'From' },
+  toLabel: { ar_m: 'إلى', en: 'To' },
+  swapDirection: { ar_m: 'اعكس الاتجاه', en: 'Swap direction' },
+  whenLabel: { ar_m: 'متى؟', en: 'When?' },
+  searchTrips: { ar_m: 'ابحث عن رحلة', ar_f: 'ابحثي عن رحلة', en: 'Search trips' },
+
+  // Results
+  tripsCount: { ar_m: 'رحلات', en: 'trips' },
+  earliestFirst: { ar_m: 'الأبكر أولًا', en: 'earliest first' },
+  seatsFree: { ar_m: 'مقاعد متاحة', en: 'seats free' },
+
+  // My trips and account
+  asPassenger: { ar_m: 'حجوزاتك', en: 'Your bookings' },
+  asDriver: { ar_m: 'رحلاتك كسائق', en: 'Your trips as a driver' },
+  noBookings: { ar_m: 'لم تحجز أي مقعد بعد', ar_f: 'لم تحجزي أي مقعد بعد', en: "You haven't booked a seat yet" },
+  accountTitle: { ar_m: 'حسابي', en: 'Account' },
+  languageRow: { ar_m: 'اللغة', en: 'Language' },
+  languageName: { ar_m: 'العربية', en: 'English' },
+  addYourCar: { ar_m: 'أضف سيارتك', ar_f: 'أضيفي سيارتك', en: 'Add your car' },
+  forDrivers: { ar_m: 'للسائقين', en: 'For drivers' },
+
+  // Trip details, waiting, ticket
+  sentRequestTo: { ar_m: 'أرسلت طلبك إلى', ar_f: 'أرسلتِ طلبك إلى', en: 'You sent your request to' },
+  seatIsConfirmed: { ar_m: 'تم تأكيد مقعدك', en: 'Your seat is confirmed' },
+  waitExplain: {
+    ar_m: 'إذا لم يرد السائق خلال هذا الوقت، يُلغى الطلب تلقائيًا ويمكنك طلب رحلة أخرى.',
+    ar_f: 'إذا لم يرد السائق خلال هذا الوقت، يُلغى الطلب تلقائيًا ويمكنكِ طلب رحلة أخرى.',
+    en: "If the driver doesn't answer in time, the request ends on its own and you can ask for another trip.",
+  },
+  carLabel: { ar_m: 'السيارة', en: 'Car' },
+  perSeat: { ar_m: 'للمقعد', en: 'per seat' },
+  plateLabel: { ar_m: 'اللوحة', en: 'Plate' },
+  shareTrip: { ar_m: 'شارك رحلتك مع العائلة', ar_f: 'شاركي رحلتك مع العائلة', en: 'Share your trip with family' },
+  shareMessage: {
+    ar_m: 'رحلتي مع رفيق: {route}، {when}. السائق {driver}، {car}، لوحة {plate}.',
+    en: 'My Rafiq trip: {route}, {when}. Driver {driver}, {car}, plate {plate}.',
+  },
+  detailsAfterAccept: {
+    ar_m: 'رقم السائق ولوحة السيارة يظهران بعد قبول طلبك.',
+    en: "The driver's number and plate appear once your request is accepted.",
+  },
+
+  // Driver screens
+  colorWhite: { ar_m: 'أبيض', en: 'White' },
+  colorSilver: { ar_m: 'فضي', en: 'Silver' },
+  colorGray: { ar_m: 'رمادي', en: 'Grey' },
+  colorBlack: { ar_m: 'أسود', en: 'Black' },
+  colorBlue: { ar_m: 'أزرق', en: 'Blue' },
+  colorRed: { ar_m: 'أحمر', en: 'Red' },
+  otherColor: { ar_m: 'لون آخر', en: 'Another colour' },
+  platePreviewHint: {
+    ar_m: 'هكذا تظهر لوحتك للراكب بعد القبول',
+    en: 'This is how passengers see your plate once accepted',
+  },
+  saveCar: { ar_m: 'احفظ السيارة', ar_f: 'احفظي السيارة', en: 'Save car' },
+  publishTrip: { ar_m: 'انشر الرحلة', ar_f: 'انشري الرحلة', en: 'Publish trip' },
+  departureTime: { ar_m: 'وقت الانطلاق', en: 'Departure time' },
+  seatPrice: { ar_m: 'سعر المقعد', en: 'Price per seat' },
+  suggestedPrice: { ar_m: 'المقترح لهذا الطريق', en: 'Suggested for this route' },
+  yourNextDrive: { ar_m: 'رحلتك القادمة كسائق', en: 'Your next trip as a driver' },
+  seatsBookedOf: { ar_m: 'من', en: 'of' },
+  seatsBooked: { ar_m: 'مقاعد محجوزة', en: 'seats booked' },
+  newRequestFrom: { ar_m: 'طلب جديد من', en: 'New request from' },
+  answerWithin: { ar_m: 'ردّ خلال', ar_f: 'ردّي خلال', en: 'answer within' },
+  passengers: { ar_m: 'الركّاب', en: 'Passengers' },
+  seatOne: { ar_m: 'مقعد', en: 'seat' },
+  declineSorry: { ar_m: 'اعتذر', ar_f: 'اعتذري', en: 'Decline' },
+  acceptRequest: { ar_m: 'اقبل الطلب', ar_f: 'اقبلي الطلب', en: 'Accept request' },
+  unanswered: {
+    ar_m: 'إذا لم ترد خلال الوقت، يُلغى الطلب تلقائيًا.',
+    ar_f: 'إذا لم تردي خلال الوقت، يُلغى الطلب تلقائيًا.',
+    en: "If you don't answer in time, the request ends on its own.",
+  },
+
   // Home (placeholder until the next slices)
   welcome: { ar_m: 'أهلاً', en: 'Welcome' },
   signOut: { ar_m: 'تسجيل الخروج', en: 'Sign out' },
@@ -155,7 +244,7 @@ export const strings = {
 
   // Your car (driver) and contact after acceptance
   yourCar: { ar_m: 'سيارتك', en: 'Your car' },
-  carTitle: { ar_m: 'أخبرنا عن سيارتك', ar_f: 'أخبرينا عن سيارتك', en: 'Tell us about your car' },
+  carTitle: { ar_m: 'سيارتك', en: 'Your car' },
   carHint: {
     ar_m: 'يراها الراكب فقط بعد قبول طلبه، ليجد سيارتك بسهولة.',
     en: 'Passengers see this only after you accept them, so they can spot your car.',

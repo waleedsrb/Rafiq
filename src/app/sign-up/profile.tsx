@@ -3,17 +3,11 @@ import { View } from 'react-native';
 
 import { Body, Button, Choice, Field, IconCircle, Label, ListRow, Screen, Title } from '@/components/ui';
 import { deviceLanguage, type Gender } from '@/i18n';
+import { shortName } from '@/lib/names';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { space } from '@/theme/tokens';
-
-/** "وليد" + "برغوثي" -> "وليد ب." (first name and last initial, as others see it). */
-export function shortName(first: string, last: string) {
-  const f = first.trim();
-  const l = last.trim();
-  return l ? `${f} ${l.charAt(0)}.` : f;
-}
 
 export default function ProfileStep() {
   const { t } = useT();
@@ -72,7 +66,7 @@ export default function ProfileStep() {
         <ListRow
           last
           leading={<IconCircle letter={first.trim().charAt(0)} />}
-          title={shortName(first, last)}
+          title={shortName(`${first} ${last}`)}
           subtitle={t('namePreviewHint')}
         />
       ) : null}

@@ -67,10 +67,14 @@ function Routes() {
         <Stack.Screen name="sign-up/profile" />
       </Stack.Protected>
       <Stack.Protected guard={ready}>
-        <Stack.Screen name="home" />
+        {/* The tab screens swap in place (the dock uses replace), without a slide. */}
+        <Stack.Screen name="home" options={{ animation: 'none' }} />
+        <Stack.Screen name="trips/mine" options={{ animation: 'none' }} />
+        <Stack.Screen name="account" options={{ animation: 'none' }} />
         <Stack.Screen name="car" />
         <Stack.Screen name="trips/new" />
         <Stack.Screen name="trips/search" />
+        <Stack.Screen name="trips/results" />
         <Stack.Screen name="trips/[id]" />
         <Stack.Screen name="trips/requests/[id]" />
       </Stack.Protected>

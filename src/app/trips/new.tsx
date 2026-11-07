@@ -2,14 +2,17 @@
 
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Body, Button, ChipRow, Field, Label, Screen, Stepper, Title } from '@/components/ui';
-import { formatDay } from '@/lib/format';
+import { RouteCard } from '@/components/route-card';
+import { Body, Button, ChipRow, Field, Label, ListRow, Screen, Stepper, Title, ltr } from '@/components/ui';
+import { formatChipDay } from '@/lib/format';
 import { useSession, useT } from '@/lib/session';
 import { goBack } from '@/lib/nav';
 import { askForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
-import { SEATS_MAX, SEATS_MIN, departureFrom, parsePrice, type City } from '@/lib/trip-form';
+import { SEATS_MAX, SEATS_MIN, SUGGESTED_PRICE, departureFrom, parsePrice, type City } from '@/lib/trip-form';
+import { colors, fonts, space } from '@/theme/tokens';
 
 type Route = `${City}>${City}`;
 
@@ -21,7 +24,7 @@ export default function NewTrip() {
   const [day, setDay] = useState(0);
   const [time, setTime] = useState('');
   const [seats, setSeats] = useState(3);
-  const [price, setPrice] = useState('');
+  const [price, setPrice] = useState(String(SUGGESTED_PRICE));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -44,13 +47,12 @@ export default function NewTrip() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(now);
       d.setDate(d.getDate() + i);
-      const label = i === 0 ? t('today') : i === 1 ? t('tomorrow') : formatDay(d, lang);
+      const label = i === 0 ? t('today') : i === 1 ? t('tomorrow') : formatChipDay(d, lang);
       return { value: i, label };
     });
   }, [t, lang]);
 
-  // Arabic reads right to left, so the arrow points left toward the destination.
-  const routeLabel = (from: City, to: City) => `${t(from)} ${lang === 'ar' ? '←' : '→'} ${t(to)}`;
+  const [origin, destination] = route.split('>') as [City, City];
 
   async function publish() {
     const departsAt = departureFrom(day, time, new Date());
@@ -59,7 +61,6 @@ export default function NewTrip() {
     if (priceIls === null) return setError(t('priceInvalid'));
     if (!session) return;
 
-    const [origin, destination] = route.split('>') as [City, City];
     setSaving(true);
     setError(null);
     const { error: err } = await supabase.from('trips').insert({
@@ -78,32 +79,84 @@ export default function NewTrip() {
   }
 
   return (
-    <Screen scroll footer={<Button label={t('publish')} onPress={publish} loading={saving} disabled={!time || !price} />}>
-      <Title>{t('postTripTitle')}</Title>
+    <Screen back scroll footer={<Button label={t('publishTrip')} onPress={publish} loading={saving} disabled={!time || !price} />}>
+      <Title>{t('postTrip')}</Title>
 
-      <Label>{t('routeLabel')}</Label>
-      <ChipRow
-        value={route}
-        onChange={setRoute}
-        options={[
-          { value: 'ramallah>nablus', label: routeLabel('ramallah', 'nablus') },
-          { value: 'nablus>ramallah', label: routeLabel('nablus', 'ramallah') },
-        ]}
+      <RouteCard origin={origin} destination={destination} onSwap={() => setRoute(`${destination}>${origin}` as Route)} />
+
+      <View style={{ gap: space.sm }}>
+        <Label>{t('dayLabel')}</Label>
+        <ChipRow value={day} onChange={setDay} options={days} />
+      </View>
+
+      <Field
+        label={t('departureTime')}
+        ltr
+        value={time}
+        onChangeText={(v) => {
+          setTime(v);
+          setError(null);
+        }}
+        placeholder="07:30"
+        keyboardType="numbers-and-punctuation"
+        maxLength={5}
       />
 
-      <Label>{t('dayLabel')}</Label>
-      <ChipRow value={day} onChange={setDay} options={days} />
-
-      <Label>{t('timeLabel')}</Label>
-      <Field ltr value={time} onChangeText={(v) => { setTime(v); setError(null); }} placeholder="07:30" keyboardType="numbers-and-punctuation" maxLength={5} />
-
-      <Label>{t('seatsLabel')}</Label>
-      <Stepper value={seats} min={SEATS_MIN} max={SEATS_MAX} onChange={setSeats} />
-
-      <Label>{t('priceLabel')}</Label>
-      <Field ltr value={price} onChangeText={(v) => { setPrice(v); setError(null); }} placeholder="25" keyboardType="decimal-pad" maxLength={6} />
+      <View>
+        <ListRow
+          icon="users"
+          title={t('seatsLabel')}
+          trailing={<Stepper value={seats} min={SEATS_MIN} max={SEATS_MAX} onChange={setSeats} />}
+        />
+        <ListRow
+          last
+          icon="currency"
+          title={t('seatPrice')}
+          subtitle={`${t('suggestedPrice')} ${ltr(`${SUGGESTED_PRICE}₪`)}`}
+          trailing={
+            <View style={styles.priceBox}>
+              <TextInput
+                value={price}
+                onChangeText={(v) => {
+                  setPrice(v);
+                  setError(null);
+                }}
+                keyboardType="decimal-pad"
+                maxLength={6}
+                style={styles.priceInput}
+                accessibilityLabel={t('seatPrice')}
+              />
+              <Text style={styles.priceUnit}>₪</Text>
+            </View>
+          }
+        />
+      </View>
 
       {error ? <Body error>{error}</Body> : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  priceBox: {
+    flexDirection: 'row',
+    direction: 'ltr',
+    alignItems: 'center',
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    gap: 2,
+  },
+  priceInput: {
+    fontFamily: fonts.en.bold,
+    fontSize: 18,
+    color: colors.ink,
+    minWidth: 32,
+    textAlign: 'right',
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', width: 40 } as object) : null),
+  },
+  priceUnit: { fontFamily: fonts.en.bold, fontSize: 18, color: colors.ink },
+});
