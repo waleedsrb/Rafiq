@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
+import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -111,7 +112,10 @@ export default function Home() {
       })}
 
       {hasCar ? <Button variant="plain" label={t('yourCar')} onPress={() => router.push('/car')} /> : null}
-      <Button variant="plain" label={t('signOut')} onPress={() => supabase.auth.signOut()} />
+      <Button variant="plain" label={t('signOut')} onPress={async () => {
+          await forgetPush();
+          await supabase.auth.signOut();
+        }} />
     </Screen>
   );
 }
