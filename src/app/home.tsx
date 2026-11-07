@@ -5,6 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { STATUS_LOOK, type Overview } from '@/components/checkpoint-badge';
 import { Icon } from '@/components/icon';
 import { SeatDots } from '@/components/seat-dots';
 import { TripHero } from '@/components/trip-hero';
@@ -44,6 +45,9 @@ type NextBooking = {
   };
 };
 
+/** A place you rode to before: one row per direction, newest first. */
+type Recent = { origin: City; destination: City; departs_at: string };
+
 type DriveBooking = {
   id: string;
   status: string;
@@ -68,6 +72,8 @@ export default function Home() {
   const [next, setNext] = useState<NextBooking | null>(null);
   const [waiting, setWaiting] = useState<{ count: number; tripId: string } | null>(null);
   const [drive, setDrive] = useState<NextDrive | null>(null);
+  const [recent, setRecent] = useState<Recent[]>([]);
+  const [checkpoints, setCheckpoints] = useState<Overview[]>([]);
   const [now, setNow] = useState(() => new Date());
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
@@ -109,6 +115,30 @@ export default function Home() {
         }
         setWaiting(count > 0 ? { count, tripId } : null);
       });
+    // Places you rode to before, so a repeat trip is one tap.
+    supabase
+      .from('bookings')
+      .select('trips!inner(origin, destination, departs_at)')
+      .eq('passenger_id', session.user.id)
+      .in('status', ['accepted', 'completed'])
+      .lt('trips.departs_at', nowIso)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        const rows = ((data as unknown as { trips: Recent }[] | null) ?? []).map((r) => r.trips);
+        rows.sort((a, b) => b.departs_at.localeCompare(a.departs_at));
+        const seen = new Set<string>();
+        setRecent(
+          rows.filter((r) => {
+            const key = `${r.origin}-${r.destination}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          }).slice(0, 2),
+        );
+      });
+    // The checkpoint strip under "Where to?".
+    supabase.rpc('checkpoint_overview').then(({ data }) => setCheckpoints((data as Overview[] | null) ?? []));
   }, [session]);
 
   // Reload when Home comes back into view and whenever one of your bookings changes.
@@ -161,6 +191,7 @@ export default function Home() {
       <View style={styles.quickRow}>
         <QuickAction icon="search" label={t('quickSearch')} onPress={() => router.push('/trips/search')} />
         <QuickAction icon="plus" label={t('postTrip')} onPress={() => router.push('/trips/new')} />
+        <QuickAction icon="barricade" label={t('tabCheckpoints')} onPress={() => router.replace('/checkpoints')} />
         <QuickAction icon="ticket" label={t('tabTrips')} onPress={() => router.replace('/trips/mine')} />
       </View>
 
@@ -172,6 +203,25 @@ export default function Home() {
           <Text style={[styles.dayPillText, { fontFamily: f.medium }]}>{t('today')}</Text>
         </View>
       </Pressable>
+
+      {recent.length > 0 ? (
+        <View>
+          {recent.map((r, i) => (
+            <ListRow
+              key={`${r.origin}-${r.destination}`}
+              last={i === recent.length - 1}
+              icon="clock"
+              title={t(r.destination)}
+              subtitle={`${t('fromCity')} ${t(r.origin)} · ${t('lastTrip')} ${formatLongDay(new Date(r.departs_at), lang)}`}
+              onPress={() =>
+                router.push({ pathname: '/trips/results', params: { origin: r.origin, destination: r.destination, day: '0' } })
+              }
+            />
+          ))}
+        </View>
+      ) : null}
+
+      <CheckpointStrip rows={checkpoints} />
 
       {waiting && !showDrive ? (
         <ListRow
@@ -189,6 +239,40 @@ export default function Home() {
 
       {showDrive && drive ? <Passengers trip={drive} /> : null}
     </Screen>
+  );
+}
+
+/** One line under "Where to?": the checkpoints with a recent report, as dot + name + status word. */
+function CheckpointStrip({ rows }: { rows: Overview[] }) {
+  const { t, lang } = useT();
+  const { f } = useFont();
+  // Closed first, then crowded, then open: the strip is for what could change your plans.
+  const order = { closed: 0, crowded: 1, open: 2 } as const;
+  const shown = rows
+    .filter((r) => r.status)
+    .sort((a, b) => order[a.status!] - order[b.status!])
+    .slice(0, 2);
+  if (shown.length === 0) return null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('tabCheckpoints')}
+      onPress={() => router.replace('/checkpoints')}
+      style={({ pressed }) => [styles.strip, pressed && { opacity: 0.6 }]}
+    >
+      <Text style={[styles.stripLabel, { fontFamily: f.medium }]}>{t('tabCheckpoints')}</Text>
+      {shown.map((r) => {
+        const look = STATUS_LOOK[r.status!];
+        return (
+          <View key={r.id} style={styles.stripItem}>
+            <View style={[styles.stripDot, { backgroundColor: r.status === 'crowded' ? colors.statusCrowdedDot : look.color }]} />
+            <Text style={[styles.stripName, { fontFamily: f.medium }]}>
+              {lang === 'ar' ? r.name_ar : r.name_en} <Text style={{ color: look.color }}>{t(look.word)}</Text>
+            </Text>
+          </View>
+        );
+      })}
+    </Pressable>
   );
 }
 
@@ -342,6 +426,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
   },
   dayPillText: { fontSize: 13, color: colors.ink },
+  strip: { flexDirection: 'row', alignItems: 'center', gap: 18, minHeight: 40, flexWrap: 'wrap' },
+  stripLabel: { fontSize: 12, letterSpacing: 0.2, color: colors.inkSecondary },
+  stripItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stripDot: { width: 8, height: 8, borderRadius: 4 },
+  stripName: { fontSize: 14, color: colors.ink },
   badge: {
     minWidth: 24,
     height: 24,

@@ -209,6 +209,8 @@ export const strings = {
   tomorrow: { ar_m: 'غداً', en: 'Tomorrow' },
   ramallah: { ar_m: 'رام الله', en: 'Ramallah' },
   nablus: { ar_m: 'نابلس', en: 'Nablus' },
+  fromCity: { ar_m: 'من', en: 'From' },
+  lastTrip: { ar_m: 'آخر رحلة', en: 'last trip' },
   myTrips: { ar_m: 'رحلاتك القادمة', en: 'Your upcoming trips' },
   noTrips: { ar_m: 'لا رحلات بعد', en: 'No trips yet' },
   seatsCount: { ar_m: 'مقاعد', en: 'seats' },
