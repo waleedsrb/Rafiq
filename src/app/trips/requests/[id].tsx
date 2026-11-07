@@ -11,7 +11,7 @@ import { SeatDots } from '@/components/seat-dots';
 import { TripHero } from '@/components/trip-hero';
 import { Body, Button, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
-import { confirm } from '@/lib/confirm';
+import { confirm } from '@/lib/dialog';
 import { formatCountdown } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
@@ -98,7 +98,7 @@ export default function TripRequests() {
 
   async function cancelTrip() {
     if (!trip) return;
-    const ok = await confirm(t('cancelTripTitle'), t('cancelTripBody'), t('yesCancel'), t('keep'));
+    const ok = await confirm({ title: t('cancelTripTitle'), body: t('cancelTripBody'), yes: t('yesCancel'), no: t('keep'), tone: 'danger' });
     if (!ok) return;
     setBusy('trip');
     setError(null);

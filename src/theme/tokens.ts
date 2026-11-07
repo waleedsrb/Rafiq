@@ -14,6 +14,8 @@ export const colors = {
   onInk: '#FFFFFF',
   clay: '#B4583B', // signal: ONLY for "something needs you"
   claySoft: '#F0E4DE',
+  clayPressed: '#9C4B32',
+  veil: 'rgba(23,25,28,0.32)', // behind pop-ups
   glassFill: 'rgba(255,255,255,0.72)',
   glassEdge: 'rgba(255,255,255,0.90)',
   glassLens: 'rgba(23,25,28,0.07)', // the selected tab's pill

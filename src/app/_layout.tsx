@@ -14,6 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { DialogHost } from '@/components/dialog-host';
 import { usePush } from '@/lib/push';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/theme/tokens';
@@ -37,6 +38,8 @@ export default function RootLayout() {
     <SessionProvider>
       <StatusBar style="dark" />
       {fontsLoaded ? <Routes /> : null}
+      {/* Rafiq's own pop-ups (src/lib/dialog.ts), drawn above every screen. */}
+      {fontsLoaded ? <DialogHost /> : null}
     </SessionProvider>
   );
 }

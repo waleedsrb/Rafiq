@@ -11,7 +11,7 @@ import { RouteMap } from '@/components/route-map';
 import { TripHero } from '@/components/trip-hero';
 import { Body, Button, Countdown, IconCircle, ListRow, Screen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
-import { confirm } from '@/lib/confirm';
+import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
@@ -117,12 +117,14 @@ export default function TripDetails() {
   async function cancel() {
     if (!trip || !bookingId) return;
     const late = status === 'accepted' && !freeCancel(new Date(), new Date(trip.departs_at), acceptedAt ? new Date(acceptedAt) : null);
-    const ok = await confirm(
-      t(late ? 'lateCancelTitle' : 'cancelConfirmTitle'),
-      t(late ? 'lateCancelBody' : 'cancelConfirmBody'),
-      t('yesCancel'),
-      t('keep'),
-    );
+    const ok = await confirm({
+      title: t(late ? 'lateCancelTitle' : 'cancelConfirmTitle'),
+      body: t(late ? 'lateCancelBody' : 'cancelConfirmBody'),
+      yes: t('yesCancel'),
+      no: t('keep'),
+      // A late cancel costs money: that's a warning. A free one is just a question.
+      tone: late ? 'warning' : 'neutral',
+    });
     if (!ok) return;
     setSending(true);
     setError(null);
