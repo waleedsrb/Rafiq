@@ -17,6 +17,10 @@ test('international numbers keep their prefix', () => {
   assert.equal(normalizePhone('00970591234567'), '+970591234567');
 });
 
+test('Arabic-Indic digits work too', () => {
+  assert.equal(normalizePhone('٠٥٩١٢٣٤٥٦٧'), '+970591234567');
+});
+
 test('anything else is rejected', () => {
   assert.equal(normalizePhone(''), null);
   assert.equal(normalizePhone('12345'), null);
