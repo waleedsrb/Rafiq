@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Body, Button, ChipRow, Field, Label, Screen, Stepper, Title } from '@/components/ui';
 import { formatDay } from '@/lib/format';
 import { useSession, useT } from '@/lib/session';
+import { goBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
 import { SEATS_MAX, SEATS_MIN, departureFrom, parsePrice, type City } from '@/lib/trip-form';
 
@@ -32,7 +33,7 @@ export default function NewTrip() {
       .eq('driver_id', session.user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (!data) router.replace('/car');
+        if (!data) router.push('/car');
       });
   }, [session]);
 
@@ -70,7 +71,7 @@ export default function NewTrip() {
     });
     setSaving(false);
     if (err) return setError(t('somethingWrong'));
-    router.back();
+    goBack();
   }
 
   return (
