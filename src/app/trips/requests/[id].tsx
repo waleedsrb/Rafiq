@@ -10,17 +10,27 @@ import { ContactCard } from '@/components/contact-card';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
+import { confirm } from '@/lib/confirm';
+import { formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { colors, fonts, space } from '@/theme/tokens';
 
-type Trip = { id: string; origin: City; destination: City; departs_at: string; price_ils: number };
+type Trip = {
+  id: string;
+  origin: City;
+  destination: City;
+  departs_at: string;
+  price_ils: number;
+  cancelled_at: string | null;
+};
 type Request = {
   id: string;
   status: string;
   seats: number;
+  respond_by: string | null;
   profiles: { full_name: string }; // the passenger
 };
 
@@ -36,10 +46,10 @@ export default function TripRequests() {
   const load = useCallback(async () => {
     if (!id) return;
     const [tripRes, reqRes, seatsRes] = await Promise.all([
-      supabase.from('trips').select('id, origin, destination, departs_at, price_ils').eq('id', id).single(),
+      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at').eq('id', id).single(),
       supabase
         .from('bookings')
-        .select('id, status, seats, profiles!bookings_passenger_id_fkey(full_name)')
+        .select('id, status, seats, respond_by, profiles!bookings_passenger_id_fkey(full_name)')
         .eq('trip_id', id)
         .order('created_at'),
       supabase.rpc('seats_left', { p_trip_id: id }),
@@ -63,17 +73,49 @@ export default function TripRequests() {
     setBusy(null);
     if (err) {
       // The database's own message tells us which rule stopped it.
-      setError(err.message.includes('Not enough seats') ? t('noSeatsLeft') : t('somethingWrong'));
+      setError(
+        err.message.includes('Not enough seats')
+          ? t('noSeatsLeft')
+          : err.message.includes('expired')
+            ? t('status_expired')
+            : t('somethingWrong'),
+      );
     }
+    await load();
+  }
+
+  async function cancelTrip() {
+    if (!trip) return;
+    const ok = await confirm(t('cancelTripTitle'), t('cancelTripBody'), t('yesCancel'), t('keep'));
+    if (!ok) return;
+    setBusy('trip');
+    setError(null);
+    const { error: err } = await supabase.rpc('cancel_trip', { p_trip_id: trip.id });
+    setBusy(null);
+    if (err) setError(t('somethingWrong'));
     await load();
   }
 
   if (!trip) return <Screen>{null}</Screen>;
   const f = fonts[lang];
+  const when = (iso: string) => {
+    const d = new Date(iso);
+    const time = formatTime(d, lang);
+    return d.toDateString() === new Date().toDateString() ? time : `${formatDay(d, lang)} ${time}`;
+  };
+  const canCancelTrip = !trip.cancelled_at && new Date(trip.departs_at) > new Date();
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      footer={
+        canCancelTrip ? (
+          <Button variant="plain" label={t('cancelTrip')} onPress={cancelTrip} loading={busy === 'trip'} />
+        ) : undefined
+      }
+    >
       <Title>{t('requestsTitle')}</Title>
+      {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
       <TripRow
         origin={trip.origin}
         destination={trip.destination}
@@ -96,6 +138,7 @@ export default function TripRequests() {
               ]}
             >
               {t(`status_${r.status}` as StringKey)}
+              {r.status === 'requested' && r.respond_by ? ` · ${t('answerByDriver')} ${when(r.respond_by)}` : ''}
             </Text>
           </View>
           {r.status === 'accepted' ? <ContactCard bookingId={r.id} /> : null}
