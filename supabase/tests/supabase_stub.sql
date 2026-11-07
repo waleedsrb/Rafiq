@@ -15,3 +15,6 @@ grant usage on schema public, auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
 alter default privileges in schema public grant all on tables to anon, authenticated;
 alter default privileges in schema public grant all on sequences to anon, authenticated;
+
+-- Supabase Realtime broadcasts changes for the tables in this publication.
+create publication supabase_realtime;

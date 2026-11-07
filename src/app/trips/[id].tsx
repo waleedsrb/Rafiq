@@ -7,6 +7,7 @@ import { ContactCard } from '@/components/contact-card';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
+import { useBookingChanges } from '@/lib/live';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -52,6 +53,9 @@ export default function TripDetails() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // When the driver accepts, the status and contact card appear right away.
+  useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
 
   async function request() {
     if (!session || !trip) return;
