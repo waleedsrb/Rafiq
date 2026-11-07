@@ -14,6 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -28,21 +29,43 @@ export default function RootLayout() {
     IBMPlexSansArabic_600SemiBold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
-  }, [fontsLoaded]);
+  return (
+    <SessionProvider>
+      <StatusBar style="dark" />
+      {fontsLoaded ? <Routes /> : null}
+    </SessionProvider>
+  );
+}
 
-  if (!fontsLoaded) return null;
+// Which screens exist depends on where the person is in sign up.
+// Stack.Protected hides a group of screens unless its guard is true, so a
+// signed-out person can never land on "home", and a signed-in one never sees "phone".
+function Routes() {
+  const { loading, session, profile } = useSession();
+
+  useEffect(() => {
+    if (!loading) SplashScreen.hideAsync();
+  }, [loading]);
+
+  if (loading) return null;
+
+  const signedOut = !session;
+  const needsProfile = !!session && !profile;
+  const ready = !!session && !!profile;
 
   return (
-    <>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.surface },
-        }}
-      />
-    </>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
+      <Stack.Protected guard={signedOut}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="sign-up/phone" />
+        <Stack.Screen name="sign-up/code" />
+      </Stack.Protected>
+      <Stack.Protected guard={needsProfile}>
+        <Stack.Screen name="sign-up/profile" />
+      </Stack.Protected>
+      <Stack.Protected guard={ready}>
+        <Stack.Screen name="home" />
+      </Stack.Protected>
+    </Stack>
   );
 }

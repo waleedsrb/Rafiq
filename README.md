@@ -31,6 +31,25 @@ Apply migrations with the Supabase CLI (`supabase db push`) or paste them into t
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/booking_rules.sql
 ```
 
+## Fake SMS during development
+
+Sign up uses Supabase phone sign-in. So we don't send real SMS while building, add **test phone numbers** in the Supabase dashboard (Authentication → Providers → Phone → Test phone numbers and OTPs), for example:
+
+```
+970591111111=123456   # a "driver"
+970592222222=123456   # a "passenger"
+```
+
+Type `0591111111` in the app and use code `123456`. A real SMS provider comes later, behind its own adapter.
+
+## Tests
+
+```bash
+npm test   # app logic (node:test)
+```
+
+The database checks in `supabase/tests/` run in CI on plain Postgres.
+
 ## How we work
 
 - One thin slice at a time. **Slice 1:** sign up → post trip → request seat → driver accepts.

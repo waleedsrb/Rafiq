@@ -7,7 +7,7 @@ on:
 
 jobs:
   app:
-    name: Typecheck app
+    name: Typecheck and test app
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
 
   database:
     name: Database rules
@@ -39,5 +40,5 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql
       - name: Apply migrations
         run: for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
-      - name: Check booking rules
-        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/booking_rules.sql
+      - name: Run database checks
+        run: for f in supabase/tests/*.sql; do [ "$f" = supabase/tests/supabase_stub.sql ] || psql -v ON_ERROR_STOP=1 -f "$f"; done
