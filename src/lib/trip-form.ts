@@ -8,6 +8,7 @@ export type City = (typeof CITIES)[number];
 export const SEATS_MIN = 1;
 export const SEATS_MAX = 6;
 export const PRICE_MAX = 200; // ILS; anything above is almost certainly a typo
+export const SUGGESTED_PRICE = 25; // ILS, Ramallah <-> Nablus (shown as a hint and the starting value)
 
 /** Parse "7:30" or "07:30" (24-hour) into hours and minutes, or null. */
 export function parseTime(input: string): { h: number; m: number } | null {

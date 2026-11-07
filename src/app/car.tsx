@@ -2,21 +2,39 @@
 // (the database refuses a trip without one: see require_car()).
 
 import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
+import { Plate } from '@/components/plate';
 import { Body, Button, Field, Label, Screen, Title } from '@/components/ui';
+import type { StringKey } from '@/i18n/strings';
+import { goBack } from '@/lib/nav';
 import { normalizePlate } from '@/lib/plate';
 import { useSession, useT } from '@/lib/session';
-import { goBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
+import { colors, space } from '@/theme/tokens';
+
+// Common car colours as swatches; "another colour" opens a text field.
+const SWATCHES: { key: StringKey; hex: string }[] = [
+  { key: 'colorWhite', hex: '#FFFFFF' },
+  { key: 'colorSilver', hex: '#C9CCD1' },
+  { key: 'colorGray', hex: '#6E7178' },
+  { key: 'colorBlack', hex: '#1B1C1F' },
+  { key: 'colorBlue', hex: '#2D4F8F' },
+  { key: 'colorRed', hex: '#9E2B2B' },
+];
 
 export default function Car() {
   const { t } = useT();
   const { session } = useSession();
   const [model, setModel] = useState('');
   const [color, setColor] = useState('');
+  const [otherColor, setOtherColor] = useState(false);
   const [plate, setPlate] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const swatchNames = SWATCHES.map((s) => t(s.key));
 
   // Fill in the form if the car is already saved.
   useEffect(() => {
@@ -34,11 +52,17 @@ export default function Car() {
       });
   }, [session]);
 
+  // A saved colour that isn't one of the swatches shows in the text field.
+  useEffect(() => {
+    if (color && !swatchNames.includes(color)) setOtherColor(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [color === '']);
+
+  const normalized = normalizePlate(plate);
   const valid = model.trim().length >= 2 && color.trim().length >= 2 && plate.trim().length > 0;
 
   async function save() {
     if (!session) return;
-    const normalized = normalizePlate(plate);
     if (!normalized) return setError(t('plateInvalid'));
     setSaving(true);
     setError(null);
@@ -56,18 +80,59 @@ export default function Car() {
   }
 
   return (
-    <Screen scroll footer={<Button label={t('save')} onPress={save} loading={saving} disabled={!valid} />}>
+    <Screen back scroll footer={<Button label={t('saveCar')} onPress={save} loading={saving} disabled={!valid} />}>
       <Title>{t('carTitle')}</Title>
       <Body muted>{t('carHint')}</Body>
 
-      <Label>{t('carModel')}</Label>
-      <Field value={model} onChangeText={setModel} placeholder={t('carModelPlaceholder')} maxLength={60} />
+      <Field label={t('carModel')} value={model} onChangeText={setModel} placeholder={t('carModelPlaceholder')} maxLength={60} />
 
-      <Label>{t('carColor')}</Label>
-      <Field value={color} onChangeText={setColor} placeholder={t('carColorPlaceholder')} maxLength={30} />
+      <View style={{ gap: space.sm }}>
+        <Label>{t('carColor')}</Label>
+        <View style={styles.swatches}>
+          {SWATCHES.map((s, i) => {
+            const selected = !otherColor && color === swatchNames[i];
+            return (
+              <Pressable
+                key={s.key}
+                accessibilityRole="radio"
+                accessibilityLabel={swatchNames[i]}
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  setOtherColor(false);
+                  setColor(swatchNames[i]);
+                }}
+                style={[styles.swatchRing, selected && styles.swatchRingOn]}
+              >
+                <View style={[styles.swatch, { backgroundColor: s.hex }]} />
+              </Pressable>
+            );
+          })}
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityLabel={t('otherColor')}
+            accessibilityState={{ selected: otherColor }}
+            onPress={() => {
+              setOtherColor(true);
+              if (swatchNames.includes(color)) setColor('');
+            }}
+            style={[styles.swatchRing, otherColor && styles.swatchRingOn]}
+          >
+            <View style={[styles.swatch, styles.swatchOther]}>
+              <Icon name="plus" size={16} />
+            </View>
+          </Pressable>
+        </View>
+        {otherColor ? (
+          <Field value={color} onChangeText={setColor} placeholder={t('otherColor')} maxLength={30} />
+        ) : color ? (
+          <Body muted small>
+            {color}
+          </Body>
+        ) : null}
+      </View>
 
-      <Label>{t('plate')}</Label>
       <Field
+        label={t('plate')}
         ltr
         value={plate}
         onChangeText={(v) => {
@@ -79,8 +144,25 @@ export default function Car() {
         autoCorrect={false}
         maxLength={14}
       />
+      {normalized ? (
+        <View style={styles.preview}>
+          <Plate plate={normalized} />
+          <Body muted small>
+            {t('platePreviewHint')}
+          </Body>
+        </View>
+      ) : null}
 
       {error ? <Body error>{error}</Body> : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  swatchRing: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
+  swatchRingOn: { borderColor: colors.ink },
+  swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.lineStrong },
+  swatchOther: { backgroundColor: colors.sunken, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  preview: { alignItems: 'center', gap: space.sm, marginTop: space.sm },
+});

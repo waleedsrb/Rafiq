@@ -158,6 +158,38 @@ export const strings = {
     en: "The driver's number and plate appear once your request is accepted.",
   },
 
+  // Driver screens
+  colorWhite: { ar_m: 'أبيض', en: 'White' },
+  colorSilver: { ar_m: 'فضي', en: 'Silver' },
+  colorGray: { ar_m: 'رمادي', en: 'Grey' },
+  colorBlack: { ar_m: 'أسود', en: 'Black' },
+  colorBlue: { ar_m: 'أزرق', en: 'Blue' },
+  colorRed: { ar_m: 'أحمر', en: 'Red' },
+  otherColor: { ar_m: 'لون آخر', en: 'Another colour' },
+  platePreviewHint: {
+    ar_m: 'هكذا تظهر لوحتك للراكب بعد القبول',
+    en: 'This is how passengers see your plate once accepted',
+  },
+  saveCar: { ar_m: 'احفظ السيارة', ar_f: 'احفظي السيارة', en: 'Save car' },
+  publishTrip: { ar_m: 'انشر الرحلة', ar_f: 'انشري الرحلة', en: 'Publish trip' },
+  departureTime: { ar_m: 'وقت الانطلاق', en: 'Departure time' },
+  seatPrice: { ar_m: 'سعر المقعد', en: 'Price per seat' },
+  suggestedPrice: { ar_m: 'المقترح لهذا الطريق', en: 'Suggested for this route' },
+  yourNextDrive: { ar_m: 'رحلتك القادمة كسائق', en: 'Your next trip as a driver' },
+  seatsBookedOf: { ar_m: 'من', en: 'of' },
+  seatsBooked: { ar_m: 'مقاعد محجوزة', en: 'seats booked' },
+  newRequestFrom: { ar_m: 'طلب جديد من', en: 'New request from' },
+  answerWithin: { ar_m: 'ردّ خلال', ar_f: 'ردّي خلال', en: 'answer within' },
+  passengers: { ar_m: 'الركّاب', en: 'Passengers' },
+  seatOne: { ar_m: 'مقعد', en: 'seat' },
+  declineSorry: { ar_m: 'اعتذر', ar_f: 'اعتذري', en: 'Decline' },
+  acceptRequest: { ar_m: 'اقبل الطلب', ar_f: 'اقبلي الطلب', en: 'Accept request' },
+  unanswered: {
+    ar_m: 'إذا لم ترد خلال الوقت، يُلغى الطلب تلقائيًا.',
+    ar_f: 'إذا لم تردي خلال الوقت، يُلغى الطلب تلقائيًا.',
+    en: "If you don't answer in time, the request ends on its own.",
+  },
+
   // Home (placeholder until the next slices)
   welcome: { ar_m: 'أهلاً', en: 'Welcome' },
   signOut: { ar_m: 'تسجيل الخروج', en: 'Sign out' },
@@ -212,7 +244,7 @@ export const strings = {
 
   // Your car (driver) and contact after acceptance
   yourCar: { ar_m: 'سيارتك', en: 'Your car' },
-  carTitle: { ar_m: 'أخبرنا عن سيارتك', ar_f: 'أخبرينا عن سيارتك', en: 'Tell us about your car' },
+  carTitle: { ar_m: 'سيارتك', en: 'Your car' },
   carHint: {
     ar_m: 'يراها الراكب فقط بعد قبول طلبه، ليجد سيارتك بسهولة.',
     en: 'Passengers see this only after you accept them, so they can spot your car.',
