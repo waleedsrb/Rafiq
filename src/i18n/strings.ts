@@ -117,6 +117,33 @@ export const strings = {
     en: 'The phone number and car appear once the request is accepted.',
   },
 
+  // Deadlines and cancelling
+  answerBy: { ar_m: 'يردّ السائق قبل', en: 'The driver answers by' },
+  answerByDriver: { ar_m: 'الرد قبل', en: 'Answer by' },
+  withdrawRequest: { ar_m: 'اسحب الطلب', ar_f: 'اسحبي الطلب', en: 'Withdraw request' },
+  cancelSeat: { ar_m: 'ألغِ حجزك', ar_f: 'ألغي حجزك', en: 'Cancel my seat' },
+  freeCancelUntil: { ar_m: 'الإلغاء مجاني حتى', en: 'Free to cancel until' },
+  lateCancelNote: {
+    ar_m: 'بقي أقل من 12 ساعة، الإلغاء الآن متأخر.',
+    en: 'Less than 12 hours to go, so cancelling now counts as late.',
+  },
+  cancelConfirmTitle: { ar_m: 'إلغاء الحجز؟', en: 'Cancel your seat?' },
+  cancelConfirmBody: { ar_m: 'سنخبر السائق.', en: "We'll let the driver know." },
+  lateCancelTitle: { ar_m: 'إلغاء متأخر', en: 'This is a late cancel' },
+  lateCancelBody: {
+    ar_m: 'بقي أقل من 12 ساعة على الرحلة. الإلغاء المتأخر يُحسب عليك، وعند بدء الدفع لن يُسترد المبلغ.',
+    en: "It's less than 12 hours before the trip. Late cancels count against you, and once payments start they aren't refunded.",
+  },
+  yesCancel: { ar_m: 'نعم، ألغِ', ar_f: 'نعم، ألغي', en: 'Yes, cancel' },
+  keep: { ar_m: 'تراجع', ar_f: 'تراجعي', en: 'Keep it' },
+  cancelTrip: { ar_m: 'ألغِ الرحلة', ar_f: 'ألغي الرحلة', en: 'Cancel trip' },
+  cancelTripTitle: { ar_m: 'إلغاء الرحلة؟', en: 'Cancel this trip?' },
+  cancelTripBody: {
+    ar_m: 'سنخبر كل من حجز أو طلب مقعداً. لا يمكن التراجع عن هذا.',
+    en: "Everyone with a seat or a request will be told. This can't be undone.",
+  },
+  tripCancelled: { ar_m: 'أُلغيت هذه الرحلة', en: 'This trip was cancelled' },
+
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
 

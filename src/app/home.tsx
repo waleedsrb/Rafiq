@@ -46,6 +46,7 @@ export default function Home() {
       .from('trips')
       .select('id, origin, destination, departs_at, seats_total, price_ils, bookings(status)')
       .eq('driver_id', session.user.id)
+      .is('cancelled_at', null)
       .gte('departs_at', now)
       .order('departs_at')
       .then(({ data }) => setTrips((data as DriverTrip[] | null) ?? []));
