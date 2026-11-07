@@ -8,6 +8,7 @@ import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useBookingChanges } from '@/lib/live';
+import { askForPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -65,6 +66,8 @@ export default function TripDetails() {
     const { error: err } = await supabase.from('bookings').insert({ trip_id: trip.id, passenger_id: session.user.id });
     setSending(false);
     if (err) return setError(t('somethingWrong'));
+    // Now is when notifications make sense: "tell me when the driver answers".
+    await askForPush();
     await load();
   }
 

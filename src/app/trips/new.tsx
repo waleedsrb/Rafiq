@@ -7,6 +7,7 @@ import { Body, Button, ChipRow, Field, Label, Screen, Stepper, Title } from '@/c
 import { formatDay } from '@/lib/format';
 import { useSession, useT } from '@/lib/session';
 import { goBack } from '@/lib/nav';
+import { askForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 import { SEATS_MAX, SEATS_MIN, departureFrom, parsePrice, type City } from '@/lib/trip-form';
 
@@ -71,6 +72,8 @@ export default function NewTrip() {
     });
     setSaving(false);
     if (err) return setError(t('somethingWrong'));
+    // Now is when notifications make sense: "tell me when someone asks for a seat".
+    await askForPush();
     goBack();
   }
 
