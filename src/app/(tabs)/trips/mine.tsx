@@ -4,7 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
 import { TripRow } from '@/components/trip-row';
-import { Body, Dock, Screen, SectionTitle, Title } from '@/components/ui';
+import { Body, Screen, SectionTitle, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useBookingChanges } from '@/lib/live';
 import { useSession, useT } from '@/lib/session';
@@ -54,10 +54,9 @@ export default function MyTrips() {
   useFocusEffect(load);
   useBookingChanges(load);
 
-  const waiting = trips.some((trip) => trip.bookings.some((b) => b.status === 'requested'));
 
   return (
-    <Screen scroll overlay={<Dock current="trips" tripsDot={waiting} />} contentStyle={{ paddingTop: 72 }}>
+    <Screen scroll tab contentStyle={{ paddingTop: 72 }}>
       <Title>{t('tabTrips')}</Title>
 
       <SectionTitle>{t('asPassenger')}</SectionTitle>

@@ -71,11 +71,8 @@ function Routes() {
         <Stack.Screen name="sign-up/profile" />
       </Stack.Protected>
       <Stack.Protected guard={ready}>
-        {/* The tab screens swap in place (the dock uses replace), without a slide. */}
-        <Stack.Screen name="home" options={{ animation: 'none' }} />
-        <Stack.Screen name="trips/mine" options={{ animation: 'none' }} />
-        <Stack.Screen name="account" options={{ animation: 'none' }} />
-        <Stack.Screen name="checkpoints/index" options={{ animation: "none" }} />
+        {/* Home, My trips, Checkpoints and Account: the system tab bar. */}
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="checkpoints/map" />
         <Stack.Screen name="checkpoints/[id]" />
         <Stack.Screen name="car" />

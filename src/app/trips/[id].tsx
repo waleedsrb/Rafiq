@@ -199,7 +199,13 @@ export default function TripDetails() {
       back
       scroll
       hero={
-        <RouteMap origin={trip.origin} destination={trip.destination} height={insets.top + 300} topInset={insets.top + 60} />
+        <RouteMap
+          origin={trip.origin}
+          destination={trip.destination}
+          height={insets.top + 300}
+          topInset={insets.top + 60}
+          onExpand={() => router.push({ pathname: '/checkpoints/map', params: { origin: trip.origin } })}
+        />
       }
       footer={
         canRequest ? (

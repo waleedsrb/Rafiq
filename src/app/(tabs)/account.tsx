@@ -4,7 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
-import { Dock, IconCircle, ListRow, Screen, SectionTitle, Title, ltr } from '@/components/ui';
+import { IconCircle, ListRow, Screen, SectionTitle, Title, ltr } from '@/components/ui';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
@@ -40,7 +40,7 @@ export default function Account() {
   const name = profile?.full_name ?? '';
 
   return (
-    <Screen scroll overlay={<Dock current="profile" />} contentStyle={{ paddingTop: 72 }}>
+    <Screen scroll tab contentStyle={{ paddingTop: 72 }}>
       <Title>{t('accountTitle')}</Title>
       <ListRow
         last
