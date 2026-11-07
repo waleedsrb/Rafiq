@@ -274,11 +274,11 @@ export const strings = {
     en: 'Less than 12 hours to go, so cancelling now counts as late.',
   },
   cancelConfirmTitle: { ar_m: 'إلغاء الحجز؟', en: 'Cancel your seat?' },
-  cancelConfirmBody: { ar_m: 'سنخبر السائق.', en: "We'll let the driver know." },
+  cancelConfirmBody: { ar_m: 'سنخبر السائق ونعيد لك المبلغ كاملاً.', en: "We'll let the driver know and refund you in full." },
   lateCancelTitle: { ar_m: 'إلغاء متأخر', en: 'This is a late cancel' },
   lateCancelBody: {
-    ar_m: 'بقي أقل من 12 ساعة على الرحلة. الإلغاء المتأخر يُحسب عليك، وعند بدء الدفع لن يُسترد المبلغ.',
-    en: "It's less than 12 hours before the trip. Late cancels count against you, and once payments start they aren't refunded.",
+    ar_m: 'بقي أقل من 12 ساعة على الرحلة، لذلك لن يُسترد المبلغ.',
+    en: "It's less than 12 hours before the trip, so the seat isn't refunded.",
   },
   yesCancel: { ar_m: 'نعم، ألغِ', ar_f: 'نعم، ألغي', en: 'Yes, cancel' },
   keep: { ar_m: 'تراجع', ar_f: 'تراجعي', en: 'Keep it' },
@@ -345,6 +345,35 @@ export const strings = {
     en: 'Your driver check is not approved yet.',
   },
 
+
+  // Payments (slice 6)
+  checkoutTitle: { ar_m: 'ادفع واطلب مقعدك', ar_f: 'ادفعي واطلبي مقعدك', en: 'Pay and request' },
+  checkoutHint: {
+    ar_m: 'نحجز المبلغ على بطاقتك الآن، ولا يُخصم إلا إذا قبل السائق طلبك.',
+    en: "We hold the amount on your card now. You're only charged if the driver accepts.",
+  },
+  fareLine: { ar_m: 'المقعد', en: 'Seat' },
+  feeLine: { ar_m: 'رسوم الخدمة', en: 'Service fee' },
+  totalLine: { ar_m: 'المجموع', en: 'Total' },
+  cardNumber: { ar_m: 'رقم البطاقة', en: 'Card number' },
+  cardExpiry: { ar_m: 'تاريخ الانتهاء', en: 'Expiry' },
+  cardCvc: { ar_m: 'رمز الأمان', en: 'CVC' },
+  payAndRequest: { ar_m: 'ادفع واطلب', ar_f: 'ادفعي واطلبي', en: 'Pay and request' },
+  testMode: {
+    ar_m: 'وضع التجربة: لا تُدفع أموال حقيقية. استخدم ⁦4242 4242 4242 4242⁩ وأي تاريخ قادم وأي 3 أرقام.',
+    ar_f: 'وضع التجربة: لا تُدفع أموال حقيقية. استخدمي ⁦4242 4242 4242 4242⁩ وأي تاريخ قادم وأي 3 أرقام.',
+    en: 'Test mode: no real money moves. Use 4242 4242 4242 4242, any future date and any 3 digits.',
+  },
+  cardProblem_number: { ar_m: 'تحقق من رقم البطاقة', ar_f: 'تحققي من رقم البطاقة', en: 'Check the card number' },
+  cardProblem_expiry: { ar_m: 'تحقق من تاريخ الانتهاء', ar_f: 'تحققي من تاريخ الانتهاء', en: 'Check the expiry date' },
+  cardProblem_cvc: { ar_m: 'تحقق من رمز الأمان', ar_f: 'تحققي من رمز الأمان', en: 'Check the security code' },
+  cardDeclined: { ar_m: 'رُفضت البطاقة. جرّب بطاقة أخرى.', ar_f: 'رُفضت البطاقة. جرّبي بطاقة أخرى.', en: 'Your card was declined. Try another card.' },
+  paymentLabel: { ar_m: 'الدفع', en: 'Payment' },
+  payment_held: { ar_m: 'محجوز، يُخصم عند القبول', en: 'On hold, charged when accepted' },
+  payment_charged: { ar_m: 'مدفوع', en: 'Paid' },
+  payment_released: { ar_m: 'أُلغي الحجز، لم يُخصم شيء', en: 'Hold released, nothing charged' },
+  payment_refunded: { ar_m: 'تم استرداد المبلغ', en: 'Refunded' },
+  youEarn: { ar_m: 'ستحصل على', ar_f: 'ستحصلين على', en: "You'll get" },
 
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;

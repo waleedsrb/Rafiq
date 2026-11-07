@@ -1,5 +1,7 @@
 -- Checks slice 4: response deadlines, expiry, and the cancel rules.
 begin;
+-- Slice 6: these tests create bookings directly, as if each had gone through request_seat().
+select set_config('rafiq.paying', 'on', false);
 
 create or replace function pg_temp.act_as(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claim.sub', coalesce(uid::text, ''), true);

@@ -131,6 +131,11 @@ export default function TripRequests() {
         destination={trip.destination}
       />
       {total > 0 ? <SeatDots total={total} booked={booked} pending={Math.min(pending, total - booked)} /> : null}
+      {booked > 0 && !trip.cancelled_at ? (
+        <Body muted small>
+          {t('youEarn')} {ltr(`${booked * Number(trip.price_ils)}₪`)}
+        </Body>
+      ) : null}
       {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
 
       <SectionTitle>{t('passengers')}</SectionTitle>

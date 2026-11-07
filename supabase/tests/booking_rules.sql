@@ -5,6 +5,8 @@
 -- Any failed check raises an error and stops the script.
 
 begin;
+-- Slice 6: these tests create bookings directly, as if each had gone through request_seat().
+select set_config('rafiq.paying', 'on', false);
 
 -- Pretend to be a signed-in user: Supabase's auth.uid() reads this setting.
 create or replace function pg_temp.act_as(uid uuid) returns void language sql as $$
