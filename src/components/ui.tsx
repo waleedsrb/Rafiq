@@ -480,7 +480,7 @@ export function Dock({ current, tripsDot }: { current: DockTab; tripsDot?: boole
   const tabs: { id: DockTab; icon: IconName; fill: IconName; label: string; href?: string }[] = [
     { id: 'home', icon: 'house', fill: 'houseFill', label: t('tabHome'), href: '/home' },
     { id: 'trips', icon: 'ticket', fill: 'ticketFill', label: t('tabTrips'), href: '/trips/mine' },
-    { id: 'checkpoints', icon: 'barricade', fill: 'barricadeFill', label: t('tabCheckpoints') },
+    { id: 'checkpoints', icon: 'barricade', fill: 'barricadeFill', label: t('tabCheckpoints'), href: '/checkpoints' },
     { id: 'profile', icon: 'user', fill: 'userFill', label: t('tabProfile'), href: '/account' },
   ];
   return (
