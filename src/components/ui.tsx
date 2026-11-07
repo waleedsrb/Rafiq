@@ -27,6 +27,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { isRTL } from '@/i18n';
 import { goBack } from '@/lib/nav';
 import { useT } from '@/lib/session';
+import { selectFeel, tapFeel } from '@/lib/haptics';
 import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
 import { Icon, type IconName } from './icon';
@@ -225,9 +226,13 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled: disabled || loading }}
       disabled={disabled || loading}
-      onPress={onPress}
+      onPress={() => {
+        if (primary) tapFeel();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.button,
+        pressed && { transform: [{ scale: 0.98 }] },
         primary && styles.buttonPrimary,
         variant === 'secondary' && styles.buttonSecondary,
         primary && pressed && { backgroundColor: colors.inkPressed },
@@ -337,7 +342,10 @@ export function ChipRow<T extends string | number>({
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
       {options.map((o) => (
-        <Chip key={String(o.value)} label={o.label} selected={o.value === value} onPress={() => onChange(o.value)} />
+        <Chip key={String(o.value)} label={o.label} selected={o.value === value} onPress={() => {
+            selectFeel();
+            onChange(o.value);
+          }} />
       ))}
     </ScrollView>
   );
@@ -363,7 +371,10 @@ export function Choice<T extends string>({
             key={o.value}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
-            onPress={() => onChange(o.value)}
+            onPress={() => {
+              selectFeel();
+              onChange(o.value);
+            }}
             style={[styles.segmentItem, selected && styles.segmentSelected]}
           >
             <Text style={[styles.segmentText, { fontFamily: f.medium }, !selected && { color: colors.inkSecondary }]}>
@@ -393,7 +404,10 @@ export function Stepper({
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      onPress={() => onChange(next)}
+      onPress={() => {
+        selectFeel();
+        onChange(next);
+      }}
       style={[styles.stepBtn, disabled && { opacity: 0.3 }]}
     >
       <Icon name={icon} size={18} />
@@ -467,7 +481,11 @@ export function ListRow({
 export function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   const { f } = useFont();
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.quick, pressed && { opacity: 0.6 }]}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.quick, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
+    >
       <View style={styles.quickCircle}>
         <Icon name={icon} />
       </View>
@@ -519,7 +537,11 @@ export function Dock({ current, tripsDot }: { current: DockTab; tripsDot?: boole
               accessibilityState={{ selected, disabled }}
               accessibilityLabel={tab.label}
               disabled={disabled || selected}
-              onPress={() => tab.href && router.replace(tab.href as never)}
+              onPress={() => {
+                if (!tab.href) return;
+                selectFeel();
+                router.replace(tab.href as never);
+              }}
               style={[styles.tab, selected && styles.tabSelected, disabled && { opacity: 0.4 }]}
             >
               <Icon name={selected ? tab.fill : tab.icon} color={color} />
