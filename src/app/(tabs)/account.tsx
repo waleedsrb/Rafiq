@@ -10,7 +10,7 @@ import { IconCircle, ListRow, Screen, Title, ltr, useFont } from '@/components/u
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
-import { formatStats, type PersonStats } from '@/lib/stats';
+import { formatStats, type PersonStats } from '@/lib/profile-stats';
 import { supabase } from '@/lib/supabase';
 import { useCheckStatus } from '@/lib/verification';
 import type { StringKey } from '@/i18n/strings';

@@ -1,4 +1,5 @@
-// A person's numbers, from person_stats() in the database (built with trip day, slice 8-9).
+// A person's numbers for Your profile, from person_stats() (trip day, slice 8-9). Named apart from
+// lib/stats.ts on the trip day branch so the two PRs merge cleanly; fold together after both land.
 
 export type PersonStats = {
   completed_trips: number;

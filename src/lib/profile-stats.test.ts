@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { formatStats } from './stats.ts';
+import { formatStats } from './profile-stats.ts';
 
 const base = { completed_trips: 12, rating_avg: '4.857', rating_count: 7, reliability: '1.0', founding_driver: false };
 
