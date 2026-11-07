@@ -1,16 +1,14 @@
-// Home: your upcoming trips as a driver, and a button to post one.
-// PR 4 adds the passenger side (find and book a seat).
+// Home: your bookings as a passenger, your trips as a driver, and the two main actions.
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
 
+import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
-import { formatDay, formatTime } from '@/lib/format';
+import type { StringKey } from '@/i18n/strings';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors, fonts, space } from '@/theme/tokens';
 
 type Trip = {
   id: string;
@@ -21,76 +19,89 @@ type Trip = {
   price_ils: number;
 };
 
+type DriverTrip = Trip & { bookings: { status: string }[] };
+
+type Booking = {
+  id: string;
+  status: string;
+  trips: Trip; // joined through bookings.trip_id
+};
+
 export default function Home() {
-  const { t, lang } = useT();
+  const { t } = useT();
   const { profile, session } = useSession();
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<DriverTrip[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
-  // Reload every time Home comes back into view (e.g. after posting a trip).
+  // Reload every time Home comes back into view (e.g. after posting or booking).
   useFocusEffect(
     useCallback(() => {
       if (!session) return;
+      const now = new Date().toISOString();
       supabase
         .from('trips')
-        .select('id, origin, destination, departs_at, seats_total, price_ils')
+        .select('id, origin, destination, departs_at, seats_total, price_ils, bookings(status)')
         .eq('driver_id', session.user.id)
-        .gte('departs_at', new Date().toISOString())
+        .gte('departs_at', now)
         .order('departs_at')
-        .then(({ data }) => setTrips((data as Trip[] | null) ?? []));
+        .then(({ data }) => setTrips((data as DriverTrip[] | null) ?? []));
+      supabase
+        .from('bookings')
+        .select('id, status, trips!inner(id, origin, destination, departs_at, seats_total, price_ils)')
+        .eq('passenger_id', session.user.id)
+        .gte('trips.departs_at', now)
+        .then(({ data }) => setBookings((data as unknown as Booking[] | null) ?? []));
     }, [session]),
   );
-
-  const arrow = lang === 'ar' ? '←' : '→';
-  const f = fonts[lang];
 
   return (
     <Screen
       scroll
       footer={
         <>
-          <Button label={t('postTrip')} onPress={() => router.push('/trips/new')} />
-          <Button variant="plain" label={t('signOut')} onPress={() => supabase.auth.signOut()} />
+          <Button label={t('findSeat')} onPress={() => router.push('/trips/search')} />
+          <Button variant="plain" label={t('postTrip')} onPress={() => router.push('/trips/new')} />
         </>
       }
     >
       <Title>
         {t('welcome')} {firstName}
       </Title>
-      <Body muted>{t('homeSoon')}</Body>
+
+      {bookings.length > 0 ? <Label>{t('myBookings')}</Label> : null}
+      {bookings.map((b) => (
+        <TripRow
+          key={b.id}
+          origin={b.trips.origin}
+          destination={b.trips.destination}
+          departsAt={b.trips.departs_at}
+          priceIls={b.trips.price_ils}
+          signal={b.status === 'requested' ? t('status_requested') : undefined}
+          detail={b.status === 'requested' ? undefined : t(`status_${b.status}` as StringKey)}
+          onPress={() => router.push({ pathname: '/trips/[id]', params: { id: b.trips.id } })}
+        />
+      ))}
 
       <Label>{t('myTrips')}</Label>
       {trips.length === 0 ? <Body muted>{t('noTrips')}</Body> : null}
       {trips.map((trip) => {
-        const d = new Date(trip.departs_at);
+        const pending = trip.bookings.filter((b) => b.status === 'requested').length;
         return (
-          <View key={trip.id} style={styles.row}>
-            <View style={styles.rowMain}>
-              <Text style={[styles.route, { fontFamily: f.medium }]}>
-                {t(trip.origin)} {arrow} {t(trip.destination)}
-              </Text>
-              <Text style={[styles.meta, { fontFamily: f.regular }]}>
-                {formatDay(d, lang)} · {formatTime(d, lang)} · {trip.seats_total} {t('seatsCount')}
-              </Text>
-            </View>
-            <Text style={[styles.price, { fontFamily: fonts.en.medium }]}>₪{trip.price_ils}</Text>
-          </View>
+          <TripRow
+            key={trip.id}
+            origin={trip.origin}
+            destination={trip.destination}
+            departsAt={trip.departs_at}
+            priceIls={trip.price_ils}
+            detail={`${trip.seats_total} ${t('seatsCount')}`}
+            signal={pending > 0 ? `${pending} ${t('pendingRequests')}` : undefined}
+            onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
+          />
         );
       })}
+
+      <Button variant="plain" label={t('signOut')} onPress={() => supabase.auth.signOut()} />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth * 2,
-    borderBottomColor: colors.hairline,
-  },
-  rowMain: { flex: 1, gap: 2 },
-  route: { fontSize: 17, color: colors.ink },
-  meta: { fontSize: 14, color: colors.inkSecondary },
-  price: { fontSize: 17, color: colors.ink },
-});
