@@ -13,6 +13,7 @@ export const strings = {
     ar_m: 'مشوارك بين المدن، مضمون',
     en: 'Your ride between cities, guaranteed',
   },
+  haveAccount: { ar_m: 'لديّ حساب', en: 'I have an account' },
   getStarted: { ar_m: 'ابدأ', ar_f: 'ابدئي', en: 'Get started' },
   continue: { ar_m: 'تابع', ar_f: 'تابعي', en: 'Continue' },
   back: { ar_m: 'رجوع', en: 'Back' },
