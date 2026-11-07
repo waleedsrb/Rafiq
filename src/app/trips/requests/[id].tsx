@@ -11,6 +11,7 @@ import { StyleSheet, View } from 'react-native';
 import { BookingContact } from '@/components/contact-card';
 import { SeatDots } from '@/components/seat-dots';
 import { TripHero } from '@/components/trip-hero';
+import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
 import { Body, Button, Chip, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
@@ -42,6 +43,7 @@ type Request = {
   created_at: string;
   here_at: string | null;
   boarded_at: string | null;
+  passenger_id: string;
   profiles: { full_name: string }; // the passenger
 };
 
@@ -63,7 +65,7 @@ export default function TripRequests() {
       supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at').eq('id', id).single(),
       supabase
         .from('bookings')
-        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, profiles!bookings_passenger_id_fkey(full_name)')
+        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name)')
         .eq('trip_id', id)
         .order('created_at'),
       supabase.rpc('seats_left', { p_trip_id: id }),
@@ -87,6 +89,8 @@ export default function TripRequests() {
   );
 
   // Tick once a second while someone is waiting for your answer.
+  const passengerStats = usePeopleStats(requests.map((r) => r.passenger_id));
+
   // On trip day, tick every 15 seconds so Start and No-show appear on time.
   const waiting = requests.some((r) => r.status === 'requested');
   const confirmed = requests.some((r) => r.status === 'accepted');
@@ -217,7 +221,17 @@ export default function TripRequests() {
             {r.status === 'accepted' ? (
               <BookingContact bookingId={r.id} />
             ) : (
-              <ListRow last leading={<IconCircle letter={name.charAt(0)} />} title={name} subtitle={statusText} />
+              <ListRow
+                last
+                leading={<IconCircle letter={name.charAt(0)} />}
+                title={name}
+                subtitle={
+                  <View style={{ gap: 2 }}>
+                    <Body muted small>{statusText}</Body>
+                    {r.status === 'requested' ? <StatsLine stats={passengerStats[r.passenger_id]} /> : null}
+                  </View>
+                }
+              />
             )}
             {r.status === 'accepted' && atPickup ? (
               <View style={styles.pickup}>

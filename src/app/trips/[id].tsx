@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ContactCard, useContact } from '@/components/contact-card';
 import { Plate } from '@/components/plate';
 import { RouteCheckpoints } from '@/components/route-checkpoints';
+import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
 import { Icon } from '@/components/icon';
 import { RouteMap } from '@/components/route-map';
@@ -115,6 +116,7 @@ export default function TripDetails() {
   }, [status]);
 
   const contact = useContact(status === 'accepted' ? bookingId : null);
+  const stats = usePeopleStats(trip ? [trip.driver_id] : []);
 
   // When the driver accepts, the status and contact card appear right away.
   useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
@@ -182,6 +184,7 @@ export default function TripDetails() {
           : t('lateCancelNote');
 
   const driverName = shortName(trip.profiles.full_name);
+  const driverStats = stats[trip.driver_id];
   const canRequest =
     status === null && !trip.cancelled_at && (seatsLeft ?? 0) > 0 && trip.driver_id !== session?.user.id;
   const state = tripState(trip);
@@ -320,7 +323,12 @@ export default function TripDetails() {
           <ListRow
             leading={<IconCircle letter={driverName.charAt(0)} />}
             title={driverName}
-            subtitle={driverVerified ? <VerifiedLine /> : t('driverLabel')}
+            subtitle={
+              <View style={{ gap: 2 }}>
+                {driverVerified ? <VerifiedLine /> : <Body muted small>{t('driverLabel')}</Body>}
+                <StatsLine stats={driverStats} />
+              </View>
+            }
           />
           <ListRow
             last

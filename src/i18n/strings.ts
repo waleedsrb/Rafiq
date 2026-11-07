@@ -301,6 +301,17 @@ export const strings = {
   thanksRating: { ar_m: 'شكرًا على تقييمك', en: 'Thanks for rating' },
   notNow: { ar_m: 'ليس الآن', en: 'Not now' },
   starsWord: { ar_m: 'نجوم', en: 'stars' },
+  // Trust you can see (slice 9)
+  tripsWord: { ar_m: 'رحلة', en: 'trips' }, // Arabic 3-10 uses tripsWordFew
+  tripsWordFew: { ar_m: 'رحلات', en: 'trips' },
+  showUpWord: { ar_m: 'التزام', en: 'show up' },
+  foundingDriver: { ar_m: 'سائق مؤسس', en: 'Founding driver' },
+  newOnRafiq: { ar_m: 'لا رحلات بعد', en: 'No trips yet' },
+  tabUpcoming: { ar_m: 'القادمة', en: 'Upcoming' },
+  tabPast: { ar_m: 'السابقة', en: 'Past' },
+  tabAsDriver: { ar_m: 'كسائق', en: 'As driver' },
+  noDrives: { ar_m: 'لا رحلات قادمة كسائق.', en: 'No upcoming trips as a driver.' },
+  noPastTrips: { ar_m: 'لا رحلات سابقة بعد.', en: 'No past trips yet.' },
   ratingClosed: { ar_m: 'أُغلق التقييم بعد 7 أيام من الرحلة.', en: 'Ratings close 7 days after the trip.' },
 
   // Driver reviews requests
