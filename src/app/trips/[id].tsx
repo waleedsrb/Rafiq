@@ -1,6 +1,6 @@
 // Trip details for a passenger, with "Request a seat" or the status of their request.
 
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 
@@ -18,7 +18,7 @@ import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { fonts } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 type Trip = {
   id: string;
@@ -34,9 +34,10 @@ type Trip = {
 export default function TripDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, lang } = useT();
-  const { session } = useSession();
+  const { session, profile } = useSession();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
+  const [driverVerified, setDriverVerified] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [respondBy, setRespondBy] = useState<string | null>(null);
@@ -57,7 +58,9 @@ export default function TripDetails() {
       supabase.rpc('seats_left', { p_trip_id: id }),
       supabase.from('bookings').select('id, status, respond_by, accepted_at, created_at').eq('trip_id', id).eq('passenger_id', session.user.id).maybeSingle(),
     ]);
-    setTrip((tripRes.data as unknown as Trip | null) ?? null);
+    const loaded = (tripRes.data as unknown as Trip | null) ?? null;
+    setTrip(loaded);
+    if (loaded) supabase.rpc('is_verified_driver', { p_driver_id: loaded.driver_id }).then(({ data }) => setDriverVerified(data === true));
     setSeatsLeft((seatsRes.data as number | null) ?? null);
     setStatus(bookingRes.data?.status ?? null);
     setBookingId(bookingRes.data?.id ?? null);
@@ -84,6 +87,11 @@ export default function TripDetails() {
 
   async function request() {
     if (!session || !trip) return;
+    // First booking? Verify your ID first (the database would refuse the booking anyway).
+    if (!profile?.id_verified_at) {
+      router.push({ pathname: '/verify', params: { kind: 'passenger' } });
+      return;
+    }
     setSending(true);
     setError(null);
     // The database sets status = 'requested' and logs the event (see guard_booking).
@@ -216,7 +224,7 @@ export default function TripDetails() {
           <ListRow
             leading={<IconCircle letter={driverName.charAt(0)} />}
             title={driverName}
-            subtitle={t('driverLabel')}
+            subtitle={driverVerified ? <VerifiedLine /> : t('driverLabel')}
           />
           <ListRow
             last
@@ -229,6 +237,19 @@ export default function TripDetails() {
       {cancelNote ? <Body muted small>{cancelNote}</Body> : null}
       {error ? <Body error>{error}</Body> : null}
     </Screen>
+  );
+}
+
+/** "Verified driver" with the seal, under the driver's name. */
+function VerifiedLine() {
+  const { t } = useT();
+  return (
+    <View style={styles.labelRow}>
+      <Icon name="sealCheck" size={14} color={colors.statusOpen} />
+      <Body muted small>
+        {t('verifiedDriver')}
+      </Body>
+    </View>
   );
 }
 

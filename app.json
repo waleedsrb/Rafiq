@@ -41,7 +41,14 @@
           "supportsRTL": true
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Rafiq uses your photos so you can add your ID, licence and car for verification.",
+          "cameraPermission": "Rafiq uses the camera so you can photograph your ID, licence and car for verification."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

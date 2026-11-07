@@ -15,6 +15,8 @@ export type Profile = {
   full_name: string;
   gender: Gender | null;
   language: Language;
+  /** Set by an admin after the ID check (slice 5). Needed before booking. */
+  id_verified_at: string | null;
 };
 
 type SessionState = {
@@ -42,7 +44,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, gender, language')
+      .select('id, full_name, gender, language, id_verified_at')
       .eq('id', userId)
       .maybeSingle();
     setProfile((data as Profile | null) ?? null);

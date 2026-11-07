@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { RouteCard } from '@/components/route-card';
-import { Body, Chip, IconCircle, ListRow, Screen, ltr } from '@/components/ui';
+import { Icon } from '@/components/icon';
+import { Body, Chip, IconCircle, ListRow, Screen, ltr, useFont } from '@/components/ui';
 import { dayPart, formatLongDay, shortTime, type DayPart } from '@/lib/format';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -22,6 +23,7 @@ type Result = {
   driver_first_name: string;
   driver_last_initial: string;
   car_model: string | null;
+  driver_verified: boolean;
 };
 
 const PARTS: DayPart[] = ['morning', 'afternoon', 'evening'];
@@ -29,6 +31,7 @@ const partLabel = { morning: 'partMorning', afternoon: 'partAfternoon', evening:
 
 export default function Results() {
   const { t, lang } = useT();
+  const { f, rtl } = useFont();
   const params = useLocalSearchParams<{ origin: City; destination: City; day: string; part?: DayPart }>();
   const origin: City = params.origin === 'nablus' ? 'nablus' : 'ramallah';
   const destination: City = origin === 'ramallah' ? 'nablus' : 'ramallah';
@@ -86,7 +89,16 @@ export default function Results() {
               key={r.id}
               last={i === shown.length - 1}
               leading={<IconCircle letter={r.driver_first_name.charAt(0)} />}
-              title={name}
+              title={
+                <View style={[styles.nameRow, { flexDirection: 'row' }]}>
+                  <Text style={[styles.name, { fontFamily: f.medium }]}>{name}</Text>
+                  {r.driver_verified ? (
+                    <View accessible accessibilityLabel={t('verifiedDriver')}>
+                      <Icon name="sealCheck" size={16} color={colors.statusOpen} />
+                    </View>
+                  ) : null}
+                </View>
+              }
               subtitle={meta}
               trailing={<Text style={[styles.time, r.seats_left === 0 && { color: colors.inkSecondary }]}>{shortTime(new Date(r.departs_at))}</Text>}
               onPress={() => router.push({ pathname: '/trips/[id]', params: { id: r.id } })}
@@ -100,5 +112,7 @@ export default function Results() {
 
 const styles = StyleSheet.create({
   chips: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
+  nameRow: { alignItems: 'center', gap: 6 },
+  name: { fontSize: 16, lineHeight: 22, color: colors.ink },
   time: { fontFamily: fonts.en.bold, fontSize: 24, color: colors.ink, minWidth: 64, textAlign: 'right' },
 });
