@@ -47,10 +47,29 @@ export const strings = {
   // Home (placeholder until the next slices)
   welcome: { ar_m: 'أهلاً', en: 'Welcome' },
   homeSoon: {
-    ar_m: 'قريباً: انشر رحلة أو احجز مقعداً',
-    en: 'Coming next: post a trip or book a seat',
+    ar_m: 'قريباً: ابحث عن مقعد واحجزه',
+    en: 'Coming next: find and book a seat',
   },
   signOut: { ar_m: 'تسجيل الخروج', en: 'Sign out' },
+
+  // Post a trip (driver)
+  postTrip: { ar_m: 'انشر رحلة', ar_f: 'انشري رحلة', en: 'Post a trip' },
+  postTripTitle: { ar_m: 'رحلة جديدة', en: 'New trip' },
+  routeLabel: { ar_m: 'الطريق', en: 'Route' },
+  dayLabel: { ar_m: 'اليوم', en: 'Day' },
+  timeLabel: { ar_m: 'وقت الانطلاق (24 ساعة)', en: 'Departure time (24h)' },
+  timeInvalid: { ar_m: 'أدخل وقتاً قادماً مثل 07:30', en: 'Enter an upcoming time like 07:30' },
+  seatsLabel: { ar_m: 'المقاعد المتاحة', en: 'Free seats' },
+  priceLabel: { ar_m: 'سعر المقعد (₪)', en: 'Price per seat (₪)' },
+  priceInvalid: { ar_m: 'أدخل سعراً بين 1 و200 شيكل', en: 'Enter a price between 1 and 200 ILS' },
+  publish: { ar_m: 'انشر', ar_f: 'انشري', en: 'Publish' },
+  today: { ar_m: 'اليوم', en: 'Today' },
+  tomorrow: { ar_m: 'غداً', en: 'Tomorrow' },
+  ramallah: { ar_m: 'رام الله', en: 'Ramallah' },
+  nablus: { ar_m: 'نابلس', en: 'Nablus' },
+  myTrips: { ar_m: 'رحلاتك القادمة', en: 'Your upcoming trips' },
+  noTrips: { ar_m: 'لا رحلات بعد', en: 'No trips yet' },
+  seatsCount: { ar_m: 'مقاعد', en: 'seats' },
 
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;

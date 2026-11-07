@@ -4,8 +4,10 @@
 // Palestinian mobiles: 059x (Jawwal) and 056x (Ooredoo), 10 digits starting with 0.
 // Both are reachable as +970 and +972, so we accept either prefix as typed.
 
+import { toWesternDigits } from './digits.ts';
+
 export function normalizePhone(input: string): string | null {
-  const digits = input.replace(/[\s\-()]/g, '');
+  const digits = toWesternDigits(input).replace(/[\s\-()]/g, '');
 
   // Already international: +970 / +972 / 00970 / 00972, then 9 digits starting with 5.
   const intl = digits.match(/^(?:\+|00)(970|972)(5\d{8})$/);

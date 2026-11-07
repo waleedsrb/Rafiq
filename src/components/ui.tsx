@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,7 +26,15 @@ function useFont() {
 }
 
 /** Full-screen page: safe area, porcelain background, content on top, actions at the bottom. */
-export function Screen({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+export function Screen({
+  children,
+  footer,
+  scroll,
+}: {
+  children: ReactNode;
+  footer?: ReactNode;
+  scroll?: boolean;
+}) {
   const { direction } = useFont();
   return (
     <SafeAreaView style={styles.safe}>
@@ -33,7 +42,13 @@ export function Screen({ children, footer }: { children: ReactNode; footer?: Rea
         style={[styles.flex, { direction }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.content}>{children}</View>
+        {scroll ? (
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={styles.content}>{children}</View>
+        )}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -153,10 +168,82 @@ export function Choice<T extends string>({
   );
 }
 
+/** Small uppercase-ish label above a form control. */
+export function Label({ children }: { children: ReactNode }) {
+  const { f } = useFont();
+  return <Text style={[styles.label, { fontFamily: f.medium }]}>{children}</Text>;
+}
+
+/** A row of capsule chips that scrolls sideways when it doesn't fit (e.g. days). */
+export function ChipRow<T extends string | number>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  const { f } = useFont();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
+      {options.map((o) => {
+        const selected = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(o.value)}
+            style={[styles.chip, selected && styles.choiceSelected]}
+          >
+            <Text style={[styles.choiceText, { fontFamily: f.medium }, selected && { color: colors.onInk }]}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/** − 3 + control for small whole numbers. */
+export function Stepper({
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onChange: (n: number) => void;
+}) {
+  const btn = (label: string, next: number, disabled: boolean) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label === '+' ? 'increase' : 'decrease'}
+      disabled={disabled}
+      onPress={() => onChange(next)}
+      style={[styles.stepBtn, disabled && { opacity: 0.3 }]}
+    >
+      <Text style={[styles.stepText, { fontFamily: fonts.en.medium }]}>{label}</Text>
+    </Pressable>
+  );
+  // Steppers keep − on the left and + on the right in both languages, like a number line.
+  return (
+    <View style={[styles.stepper, { direction: 'ltr' }]}>
+      {btn('−', value - 1, value <= min)}
+      <Text style={[styles.stepValue, { fontFamily: fonts.en.bold }]}>{value}</Text>
+      {btn('+', value + 1, value >= max)}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.md },
+  content: { flexGrow: 1, paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.md },
   footer: { paddingHorizontal: space.lg, paddingBottom: space.md, gap: space.sm },
   title: { fontSize: 28, color: colors.ink },
   body: { fontSize: 16, lineHeight: 24, color: colors.ink },
@@ -183,4 +270,28 @@ const styles = StyleSheet.create({
   },
   choiceSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
   choiceText: { fontSize: 16, color: colors.ink },
+  label: { fontSize: 14, color: colors.inkSecondary, marginTop: space.sm },
+  chipScroll: { flexGrow: 0 },
+  chipRow: { gap: space.sm },
+  chip: {
+    height: 40,
+    paddingHorizontal: space.md,
+    borderRadius: radii.capsule,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: space.lg, alignSelf: 'flex-start' },
+  stepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.capsule,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepText: { fontSize: 22, color: colors.ink },
+  stepValue: { fontSize: 28, color: colors.ink, minWidth: 32, textAlign: 'center' },
 });
