@@ -4,7 +4,7 @@
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Share, StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContactCard, useContact } from '@/components/contact-card';
@@ -24,6 +24,7 @@ import { shortName } from '@/lib/names';
 import { telLink } from '@/lib/phone';
 import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
+import { openEmergency, shareTrip } from '@/lib/share-trip';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { startOpen, tripState } from '@/lib/trip-day';
@@ -208,7 +209,7 @@ export default function TripDetails() {
       .replace('{driver}', contact.first_name)
       .replace('{car}', [contact.car_model, contact.car_color].filter(Boolean).join(' '))
       .replace('{plate}', contact.plate ?? '');
-    await Share.share({ message }).catch(() => {});
+    await shareTrip(trip.id, message, lang, t);
   }
 
   // The small line above the big time says where things stand.
@@ -259,7 +260,15 @@ export default function TripDetails() {
             {contact?.phone ? <Button variant={hereAt ? 'secondary' : 'plain'} label={t('cantFindCar')} icon="phone" onPress={callDriver} /> : null}
           </>
         ) : onRoad ? (
-          contact ? <Button variant="secondary" label={t('shareTrip')} icon="shareNetwork" onPress={share} /> : undefined
+          <>
+            {contact ? <Button variant="secondary" label={t('shareTrip')} icon="shareNetwork" onPress={share} /> : null}
+            <Button
+              variant="plain"
+              label={t('emergencyButton')}
+              icon="warning"
+              onPress={() => session && openEmergency(trip.id, session.user.id, lang, t)}
+            />
+          </>
         ) : arrived && myStars === null && bookingId ? (
           <Button label={t('rateTrip')} icon="star" onPress={() => router.push({ pathname: '/trips/rate/[bookingId]', params: { bookingId } })} />
         ) : canRequest ? (
