@@ -34,5 +34,6 @@ call `review_verification()`. Someone who copies this site gets an empty screen.
 
 ## Deploy
 
-`npm run build` writes a static site to `admin/dist/`. Any static host works (Vercel,
+It is published automatically to **https://waleedsrb.github.io/Rafiq/** on every push to `main`
+(see `.github/workflows/admin-site.yml`). `npm run build` writes the static site to `admin/dist/`; any static host works (Vercel,
 Netlify, Cloudflare Pages). Set the two `VITE_` variables in the host's settings.
