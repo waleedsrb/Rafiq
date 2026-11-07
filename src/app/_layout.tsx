@@ -76,6 +76,7 @@ function Routes() {
         <Stack.Screen name="trips/mine" options={{ animation: 'none' }} />
         <Stack.Screen name="account" options={{ animation: 'none' }} />
         <Stack.Screen name="checkpoints/index" options={{ animation: "none" }} />
+        <Stack.Screen name="checkpoints/map" />
         <Stack.Screen name="checkpoints/[id]" />
         <Stack.Screen name="car" />
         <Stack.Screen name="verify" />
