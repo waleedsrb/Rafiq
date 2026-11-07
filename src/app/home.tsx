@@ -32,6 +32,9 @@ export default function Home() {
   const { profile, session } = useSession();
   const [trips, setTrips] = useState<DriverTrip[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  // Only drivers who already added a car see "Your car" (to edit it).
+  // Everyone else is asked for a car only when they tap "Post a trip".
+  const [hasCar, setHasCar] = useState(false);
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
   // Reload every time Home comes back into view (e.g. after posting or booking).
@@ -52,6 +55,12 @@ export default function Home() {
         .eq('passenger_id', session.user.id)
         .gte('trips.departs_at', now)
         .then(({ data }) => setBookings((data as unknown as Booking[] | null) ?? []));
+      supabase
+        .from('driver_details')
+        .select('driver_id')
+        .eq('driver_id', session.user.id)
+        .maybeSingle()
+        .then(({ data }) => setHasCar(!!data));
     }, [session]),
   );
 
@@ -101,7 +110,7 @@ export default function Home() {
         );
       })}
 
-      <Button variant="plain" label={t('yourCar')} onPress={() => router.push('/car')} />
+      {hasCar ? <Button variant="plain" label={t('yourCar')} onPress={() => router.push('/car')} /> : null}
       <Button variant="plain" label={t('signOut')} onPress={() => supabase.auth.signOut()} />
     </Screen>
   );
