@@ -20,7 +20,9 @@ type Trip = {
   price_ils: number;
 };
 type DriverTrip = Trip & { bookings: { status: string }[] };
-type Booking = { id: string; status: string; trips: Trip };
+type Booking = { id: string; status: string; trips: Trip & { finished_at: string | null } };
+
+const LOOKBACK_MS = 5 * 60 * 60 * 1000;
 
 export default function MyTrips() {
   const { t } = useT();
@@ -30,10 +32,12 @@ export default function MyTrips() {
 
   const load = useCallback(() => {
     if (!session) return;
-    const now = new Date().toISOString();
+    // Trips that left in the last few hours stay here until they finish (trip day).
+    const now = new Date(Date.now() - LOOKBACK_MS).toISOString();
     supabase
       .from('trips')
       .select('id, origin, destination, departs_at, seats_total, price_ils, bookings(status)')
+      .is('finished_at', null)
       .eq('driver_id', session.user.id)
       .is('cancelled_at', null)
       .gte('departs_at', now)
@@ -41,11 +45,12 @@ export default function MyTrips() {
       .then(({ data }) => setTrips((data as DriverTrip[] | null) ?? []));
     supabase
       .from('bookings')
-      .select('id, status, trips!inner(id, origin, destination, departs_at, seats_total, price_ils)')
+      .select('id, status, trips!inner(id, origin, destination, departs_at, seats_total, price_ils, finished_at)')
       .eq('passenger_id', session.user.id)
       .gte('trips.departs_at', now)
       .then(({ data }) => {
-        const list = (data as unknown as Booking[] | null) ?? [];
+        // A finished trip stays only as "Completed", so you can open it and rate.
+        const list = ((data as unknown as Booking[] | null) ?? []).filter((b) => !b.trips.finished_at || b.status === 'completed');
         list.sort((a, b) => a.trips.departs_at.localeCompare(b.trips.departs_at));
         setBookings(list);
       });

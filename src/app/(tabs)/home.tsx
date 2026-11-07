@@ -77,14 +77,17 @@ export default function Home() {
   const load = useCallback(() => {
     if (!session) return;
     const nowIso = new Date().toISOString();
+    // A trip that left a few hours ago is still "next" until it finishes (trip day).
+    const sinceIso = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
     // Your next seat (asked for or confirmed).
     supabase
       .from('bookings')
       .select('id, status, created_at, respond_by, trips!inner(id, origin, destination, departs_at, cancelled_at, driver:profiles(full_name))')
       .eq('passenger_id', session.user.id)
       .in('status', ['requested', 'accepted'])
-      .gte('trips.departs_at', nowIso)
+      .gte('trips.departs_at', sinceIso)
       .is('trips.cancelled_at', null)
+      .is('trips.finished_at', null)
       .then(({ data }) => {
         const list = (data as unknown as NextBooking[] | null) ?? [];
         list.sort((a, b) => a.trips.departs_at.localeCompare(b.trips.departs_at));
@@ -98,7 +101,8 @@ export default function Home() {
       )
       .eq('driver_id', session.user.id)
       .is('cancelled_at', null)
-      .gte('departs_at', nowIso)
+      .is('finished_at', null)
+      .gte('departs_at', sinceIso)
       .order('departs_at')
       .then(({ data }) => {
         const trips = (data as unknown as NextDrive[] | null) ?? [];
