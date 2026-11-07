@@ -1,20 +1,30 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 
-import { Body, Button, Choice, Field, Screen, Title } from '@/components/ui';
+import { Body, Button, Choice, Field, IconCircle, Label, ListRow, Screen, Title } from '@/components/ui';
 import { deviceLanguage, type Gender } from '@/i18n';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/lib/track';
+import { space } from '@/theme/tokens';
+
+/** "وليد" + "برغوثي" -> "وليد ب." (first name and last initial, as others see it). */
+export function shortName(first: string, last: string) {
+  const f = first.trim();
+  const l = last.trim();
+  return l ? `${f} ${l.charAt(0)}.` : f;
+}
 
 export default function ProfileStep() {
   const { t } = useT();
-  const { session, refreshProfile } = useSession();
-  const [name, setName] = useState('');
+  const { session, refreshProfile, chosenLanguage } = useSession();
+  const [first, setFirst] = useState('');
+  const [last, setLast] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const valid = name.trim().length >= 2 && gender !== null;
+  const valid = first.trim().length >= 2 && last.trim().length >= 2 && gender !== null;
 
   async function submit() {
     if (!valid || !session) return;
@@ -22,9 +32,9 @@ export default function ProfileStep() {
     setError(null);
     const { error: err } = await supabase.from('profiles').insert({
       id: session.user.id,
-      full_name: name.trim(),
+      full_name: `${first.trim()} ${last.trim()}`,
       gender,
-      language: deviceLanguage(),
+      language: chosenLanguage ?? deviceLanguage(),
     });
     if (err) {
       setSaving(false);
@@ -36,27 +46,47 @@ export default function ProfileStep() {
   }
 
   return (
-    <Screen footer={<Button label={t('continue')} onPress={submit} loading={saving} disabled={!valid} />}>
+    <Screen scroll footer={<Button label={t('continue')} onPress={submit} loading={saving} disabled={!valid} />}>
       <Title>{t('nameTitle')}</Title>
       <Body muted>{t('nameHint')}</Body>
-      <Field
-        autoFocus
-        value={name}
-        onChangeText={setName}
-        placeholder={t('namePlaceholder')}
-        textContentType="name"
-        autoComplete="name"
-        maxLength={80}
-      />
-      <Body>{t('genderLabel')}</Body>
-      <Choice
-        value={gender}
-        onChange={setGender}
-        options={[
-          { value: 'm', label: t('genderM') },
-          { value: 'f', label: t('genderF') },
-        ]}
-      />
+      <View style={{ gap: space.md, marginTop: space.md }}>
+        <Field
+          label={t('firstName')}
+          autoFocus
+          value={first}
+          onChangeText={setFirst}
+          textContentType="givenName"
+          autoComplete="name-given"
+          maxLength={40}
+        />
+        <Field
+          label={t('lastName')}
+          value={last}
+          onChangeText={setLast}
+          textContentType="familyName"
+          autoComplete="name-family"
+          maxLength={40}
+        />
+      </View>
+      {first.trim() ? (
+        <ListRow
+          last
+          leading={<IconCircle letter={first.trim().charAt(0)} />}
+          title={shortName(first, last)}
+          subtitle={t('namePreviewHint')}
+        />
+      ) : null}
+      <View style={{ gap: space.sm }}>
+        <Label>{t('genderLabel')}</Label>
+        <Choice
+          value={gender}
+          onChange={setGender}
+          options={[
+            { value: 'm', label: t('genderM') },
+            { value: 'f', label: t('genderF') },
+          ]}
+        />
+      </View>
       {error ? <Body error>{error}</Body> : null}
     </Screen>
   );
