@@ -79,6 +79,9 @@ function Routes() {
         <Stack.Screen name="checkpoints/[id]" />
         <Stack.Screen name="car" />
         <Stack.Screen name="verify" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="emergency" />
         <Stack.Screen name="trips/new" />
         <Stack.Screen name="trips/search" />
         <Stack.Screen name="trips/results" />
