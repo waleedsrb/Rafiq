@@ -5,6 +5,6 @@ import { View } from 'react-native';
 import type { City } from '@/lib/trip-form';
 import { colors } from '@/theme/tokens';
 
-export function RouteMap({ height = 300 }: { origin: City; destination: City; height?: number; topInset?: number; labels?: boolean }) {
+export function RouteMap({ height = 300 }: { origin: City; destination: City; height?: number; topInset?: number; labels?: boolean; interactive?: boolean; onExpand?: () => void }) {
   return <View style={{ height, backgroundColor: colors.sunken }} />;
 }

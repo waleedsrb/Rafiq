@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { StatusCircle, StatusWord } from '@/components/checkpoint-badge';
-import { Body, Dock, GlassButton, ListRow, Screen, Title, TopBar, ltr } from '@/components/ui';
+import { Body, GlassButton, ListRow, Screen, Title, TopBar, ltr } from '@/components/ui';
 import { useAgo, type Overview } from '@/components/checkpoint-badge';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -37,8 +37,8 @@ export default function Checkpoints() {
   return (
     <Screen
       scroll
-      top={<TopBar end={<GlassButton icon="mapPin" label={t('checkpointsMap')} onPress={() => router.push('/checkpoints/map')} />} />}
-      overlay={<Dock current="checkpoints" />}
+      top={<TopBar end={<GlassButton icon="mapTrifold" label={t('checkpointsMap')} onPress={() => router.push('/checkpoints/map')} />} />}
+      tab
     >
       <Title>{t('tabCheckpoints')}</Title>
       <Body muted small>

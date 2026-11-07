@@ -12,14 +12,11 @@ import { TripHero } from '@/components/trip-hero';
 import {
   Body,
   Countdown,
-  Dock,
-  GlassButton,
   IconCircle,
   ListRow,
   QuickAction,
   Screen,
   SectionTitle,
-  TopBar,
   ltr,
   useFont,
 } from '@/components/ui';
@@ -160,16 +157,9 @@ export default function Home() {
   return (
     <Screen
       scroll
-      top={
-        <TopBar
-          start={
-            <GlassButton label={t('accountTitle')} onPress={() => router.replace('/account')}>
-              <Text style={[styles.avatarLetter, { fontFamily: f.bold }]}>{firstName.charAt(0)}</Text>
-            </GlassButton>
-          }
-        />
-      }
-      overlay={<Dock current="home" tripsDot={!!waiting} />}
+      tab
+      // No avatar button: Account is already a tab, so it would be a second way to the same place.
+      contentStyle={{ paddingTop: 72 }}
     >
       {showDrive && drive ? (
         <NextDriveHero trip={drive} now={now} />
@@ -191,8 +181,8 @@ export default function Home() {
       <View style={styles.quickRow}>
         <QuickAction icon="search" label={t('quickSearch')} onPress={() => router.push('/trips/search')} />
         <QuickAction icon="plus" label={t('postTrip')} onPress={() => router.push('/trips/new')} />
-        <QuickAction icon="barricade" label={t('tabCheckpoints')} onPress={() => router.replace('/checkpoints')} />
-        <QuickAction icon="ticket" label={t('tabTrips')} onPress={() => router.replace('/trips/mine')} />
+        <QuickAction icon="barricade" label={t('tabCheckpoints')} onPress={() => router.navigate('/checkpoints')} />
+        <QuickAction icon="ticket" label={t('tabTrips')} onPress={() => router.navigate('/trips/mine')} />
       </View>
 
       <Pressable accessibilityRole="button" onPress={() => router.push('/trips/search')} style={styles.whereTo}>
@@ -257,7 +247,7 @@ function CheckpointStrip({ rows }: { rows: Overview[] }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t('tabCheckpoints')}
-      onPress={() => router.replace('/checkpoints')}
+      onPress={() => router.navigate('/checkpoints')}
       style={({ pressed }) => [styles.strip, pressed && { opacity: 0.6 }]}
     >
       <Text style={[styles.stripLabel, { fontFamily: f.medium }]}>{t('tabCheckpoints')}</Text>
@@ -393,7 +383,6 @@ function NextTrip({ booking, now }: { booking: NextBooking; now: Date }) {
 }
 
 const styles = StyleSheet.create({
-  avatarLetter: { fontSize: 16, color: colors.ink },
   greeting: { fontSize: 34, lineHeight: 42, color: colors.ink, letterSpacing: -0.5 },
   timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
   heroTime: { fontFamily: fonts.en.bold, fontSize: 56, lineHeight: 62, color: colors.ink, letterSpacing: -1.6 },

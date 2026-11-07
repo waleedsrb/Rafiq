@@ -5,17 +5,17 @@
 // gets its muted standard map instead.
 
 import { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, type MapStyleElement } from 'react-native-maps';
 
 import { STATUS_LOOK } from '@/components/checkpoint-badge';
-import { useFont } from '@/components/ui';
+import { GlassButton, useFont } from '@/components/ui';
 import type { CheckpointStatus } from '@/lib/checkpoints';
 import { CITY_POINT, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors } from '@/theme/tokens';
+import { colors, radii, space } from '@/theme/tokens';
 
 export type MapCheckpoint = LatLng & { id: string; name: string; status: CheckpointStatus | null; order: number };
 
@@ -56,7 +56,13 @@ export function RouteMap({
   height = 300,
   topInset = 0,
   labels,
+  interactive,
+  onExpand,
 }: {
+  /** Pan and zoom (the full-screen map). */
+  interactive?: boolean;
+  /** Tap the map (or its expand button) to open it full screen. */
+  onExpand?: () => void;
   /** Show each checkpoint's name and status under its dot (the full-screen map). */
   labels?: boolean;
   origin: City;
@@ -66,7 +72,7 @@ export function RouteMap({
   topInset?: number;
 }) {
   const { t } = useT();
-  const { f } = useFont();
+  const { f, rtl } = useFont();
   const ref = useRef<MapView>(null);
   const checkpoints = useMapCheckpoints();
   const from = CITY_POINT[origin];
@@ -94,9 +100,9 @@ export function RouteMap({
         onMapReady={fit}
         customMapStyle={Platform.OS === 'android' ? GRAPHITE : undefined}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
-        // A picture of the route, not a map to explore: the page scrolls over it.
-        scrollEnabled={false}
-        zoomEnabled={false}
+        // Small maps are a picture of the route (tap to expand); the full-screen one moves.
+        scrollEnabled={!!interactive}
+        zoomEnabled={!!interactive}
         rotateEnabled={false}
         pitchEnabled={false}
         toolbarEnabled={false}
@@ -140,6 +146,19 @@ export function RouteMap({
           </Marker>
         ))}
       </MapView>
+      {onExpand ? (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('openMap')}
+            onPress={onExpand}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={[styles.expand, rtl ? { left: space.screen } : { right: space.screen }]}>
+            <GlassButton icon="arrowsOut" label={t('openMap')} onPress={onExpand} />
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -148,6 +167,8 @@ const styles = StyleSheet.create({
   // Start: hollow ring. End: solid square. Same marks as the route card.
   end: { width: 14, height: 14, borderRadius: 3, backgroundColor: colors.ink, borderWidth: 2, borderColor: colors.card },
   start: { borderRadius: 7, backgroundColor: colors.card, borderColor: colors.ink, borderWidth: 3 },
+  // Sits just above the sheet that overlaps the bottom of the map.
+  expand: { position: 'absolute', bottom: radii.sheet + 12 },
   pin: { alignItems: 'center', gap: 4 },
   label: {
     paddingHorizontal: 8,

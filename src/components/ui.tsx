@@ -5,6 +5,7 @@
 // content from the top, the main action pinned at the bottom.
 
 import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import {
@@ -51,8 +52,11 @@ export function Screen({
   overlay,
   contentStyle,
   hero,
+  tab,
 }: {
   children: ReactNode;
+  /** A tab's root screen: the system tab bar floats over the bottom, so leave room for it. */
+  tab?: boolean;
   /** Full-bleed picture at the very top (e.g. a map). The top bar floats over it and
    *  the content sits on a sheet with rounded corners that overlaps its bottom edge. */
   hero?: ReactNode;
@@ -84,12 +88,12 @@ export function Screen({
     );
   }
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={tab ? ['top'] : ['top', 'bottom']}>
       <KeyboardAvoidingView style={[styles.flex, { direction }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {topBar}
         {scroll ? (
           <ScrollView
-            contentContainerStyle={[styles.content, overlay ? { paddingBottom: 120 } : null, contentStyle]}
+            contentContainerStyle={[styles.content, overlay || tab ? { paddingBottom: 120 } : null, contentStyle]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -115,6 +119,9 @@ export function TopBar({ start, end }: { start?: ReactNode; end?: ReactNode }) {
   );
 }
 
+// iOS 26+: Apple's own Liquid Glass. Older iOS and Android: a frosted blur that imitates it.
+const LIQUID_GLASS = isLiquidGlassAvailable();
+
 /** Frosted circle button for the navigation layer (the only place glass is used). */
 export function GlassButton({
   icon,
@@ -136,10 +143,17 @@ export function GlassButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [styles.glassButton, pressed && { opacity: 0.7 }]}
+      // Real glass reacts to the touch itself; the blur fallback dims instead.
+      style={({ pressed }) => [styles.glassButton, LIQUID_GLASS && styles.glassButtonLiquid, !LIQUID_GLASS && pressed && { opacity: 0.7 }]}
     >
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-      <View style={styles.glassFill} />
+      {LIQUID_GLASS ? (
+        <GlassView style={[StyleSheet.absoluteFill, { borderRadius: sizes.touch / 2 }]} glassEffectStyle="regular" isInteractive />
+      ) : (
+        <>
+          <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.glassFill} />
+        </>
+      )}
       <View style={styles.glassContent}>{icon ? <Icon name={icon} flip={flip} /> : children}</View>
       {dot ? <View style={styles.glassDot} /> : null}
     </Pressable>
@@ -510,51 +524,6 @@ export function Countdown({ label, remaining, progress }: { label: string; remai
   );
 }
 
-/** The frosted tab bar at the bottom. Selected tab = Fill icon on a soft pill. */
-export type DockTab = 'home' | 'trips' | 'checkpoints' | 'profile';
-export function Dock({ current, tripsDot }: { current: DockTab; tripsDot?: boolean }) {
-  const { t } = useT();
-  const { f } = useFont();
-  const tabs: { id: DockTab; icon: IconName; fill: IconName; label: string; href?: string }[] = [
-    { id: 'home', icon: 'house', fill: 'houseFill', label: t('tabHome'), href: '/home' },
-    { id: 'trips', icon: 'ticket', fill: 'ticketFill', label: t('tabTrips'), href: '/trips/mine' },
-    { id: 'checkpoints', icon: 'barricade', fill: 'barricadeFill', label: t('tabCheckpoints'), href: '/checkpoints' },
-    { id: 'profile', icon: 'user', fill: 'userFill', label: t('tabProfile'), href: '/account' },
-  ];
-  return (
-    <View style={styles.dockWrap} pointerEvents="box-none">
-      <View style={styles.dock}>
-        <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-        <View style={styles.dockFill} />
-        {tabs.map((tab) => {
-          const selected = tab.id === current;
-          const disabled = !tab.href;
-          const color = selected ? colors.ink : colors.inkSecondary;
-          return (
-            <Pressable
-              key={tab.id}
-              accessibilityRole="tab"
-              accessibilityState={{ selected, disabled }}
-              accessibilityLabel={tab.label}
-              disabled={disabled || selected}
-              onPress={() => {
-                if (!tab.href) return;
-                selectFeel();
-                router.replace(tab.href as never);
-              }}
-              style={[styles.tab, selected && styles.tabSelected, disabled && { opacity: 0.4 }]}
-            >
-              <Icon name={selected ? tab.fill : tab.icon} color={color} />
-              <Text style={[styles.tabLabel, { fontFamily: f.medium, color }]}>{tab.label}</Text>
-              {tab.id === 'trips' && tripsDot ? <View style={styles.tabDot} /> : null}
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
@@ -590,6 +559,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     ...shadows.float,
   },
+  // Liquid Glass draws its own edge and depth: no border or drop shadow on top of it.
+  glassButtonLiquid: { borderWidth: 0, shadowOpacity: 0, elevation: 0, overflow: 'visible' },
   glassContent: { zIndex: 1, alignItems: 'center', justifyContent: 'center' },
   glassFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.glassFill },
   glassDot: {
@@ -718,22 +689,4 @@ const styles = StyleSheet.create({
   countdownTrack: { height: 2, borderRadius: 1, backgroundColor: colors.claySoft, overflow: 'hidden' },
   countdownBar: { height: '100%', backgroundColor: colors.clay },
 
-  dockWrap: { position: 'absolute', left: space.screen, right: space.screen, bottom: 24 },
-  dock: {
-    height: sizes.dock,
-    borderRadius: sizes.dock / 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.sm,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.glassEdge,
-    ...shadows.glass,
-  },
-  dockFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.74)' },
-  tab: { width: 80, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  tabSelected: { backgroundColor: colors.glassLens },
-  tabLabel: { fontSize: 11 },
-  tabDot: { position: 'absolute', top: 8, left: 24, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.clay },
 });
