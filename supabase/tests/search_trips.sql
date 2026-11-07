@@ -30,6 +30,8 @@ begin
   select * into r from public.search_trips('ramallah', 'nablus', now() - interval '1 day', now() + interval '1 day');
   if r.seats_left <> 1 then raise exception 'FAIL: expected 1 seat left, got %', r.seats_left; end if;
   if r.driver_first_name <> 'Dana' then raise exception 'FAIL: expected first name only, got %', r.driver_first_name; end if;
+  if r.driver_last_initial <> 'H' then raise exception 'FAIL: expected last initial H, got %', r.driver_last_initial; end if;
+  if r.car_model <> 'Kia Picanto' then raise exception 'FAIL: expected the car model, got %', r.car_model; end if;
 end $$;
 
 -- As the driver: their own trips are hidden.

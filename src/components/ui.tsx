@@ -421,10 +421,10 @@ export function ListRow({
     <>
       {leading ?? (icon ? <IconCircle icon={icon} /> : null)}
       <View style={styles.rowText}>
-        {typeof title === 'string' ? <Text style={[styles.rowTitle, { fontFamily: f.medium }]}>{title}</Text> : title}
+        {typeof title === 'string' ? <Text style={[styles.rowTitle, { fontFamily: f.medium, textAlign: rtl ? 'right' : 'left' }]}>{title}</Text> : title}
         {subtitle ? (
           typeof subtitle === 'string' ? (
-            <Text style={[styles.rowSubtitle, { fontFamily: f.regular }]}>{subtitle}</Text>
+            <Text style={[styles.rowSubtitle, { fontFamily: f.regular, textAlign: rtl ? 'right' : 'left' }]}>{subtitle}</Text>
           ) : (
             subtitle
           )

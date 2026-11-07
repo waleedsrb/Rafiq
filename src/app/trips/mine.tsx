@@ -1,0 +1,96 @@
+// My trips: every seat you booked and every trip you drive, soonest first.
+
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+
+import { TripRow } from '@/components/trip-row';
+import { Body, Dock, Screen, SectionTitle, Title } from '@/components/ui';
+import type { StringKey } from '@/i18n/strings';
+import { useBookingChanges } from '@/lib/live';
+import { useSession, useT } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
+import type { City } from '@/lib/trip-form';
+
+type Trip = {
+  id: string;
+  origin: City;
+  destination: City;
+  departs_at: string;
+  seats_total: number;
+  price_ils: number;
+};
+type DriverTrip = Trip & { bookings: { status: string }[] };
+type Booking = { id: string; status: string; trips: Trip };
+
+export default function MyTrips() {
+  const { t } = useT();
+  const { session } = useSession();
+  const [trips, setTrips] = useState<DriverTrip[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+
+  const load = useCallback(() => {
+    if (!session) return;
+    const now = new Date().toISOString();
+    supabase
+      .from('trips')
+      .select('id, origin, destination, departs_at, seats_total, price_ils, bookings(status)')
+      .eq('driver_id', session.user.id)
+      .is('cancelled_at', null)
+      .gte('departs_at', now)
+      .order('departs_at')
+      .then(({ data }) => setTrips((data as DriverTrip[] | null) ?? []));
+    supabase
+      .from('bookings')
+      .select('id, status, trips!inner(id, origin, destination, departs_at, seats_total, price_ils)')
+      .eq('passenger_id', session.user.id)
+      .gte('trips.departs_at', now)
+      .then(({ data }) => {
+        const list = (data as unknown as Booking[] | null) ?? [];
+        list.sort((a, b) => a.trips.departs_at.localeCompare(b.trips.departs_at));
+        setBookings(list);
+      });
+  }, [session]);
+
+  useFocusEffect(load);
+  useBookingChanges(load);
+
+  const waiting = trips.some((trip) => trip.bookings.some((b) => b.status === 'requested'));
+
+  return (
+    <Screen scroll overlay={<Dock current="trips" tripsDot={waiting} />} contentStyle={{ paddingTop: 72 }}>
+      <Title>{t('tabTrips')}</Title>
+
+      <SectionTitle>{t('asPassenger')}</SectionTitle>
+      {bookings.length === 0 ? <Body muted>{t('noBookings')}</Body> : null}
+      {bookings.map((b) => (
+        <TripRow
+          key={b.id}
+          origin={b.trips.origin}
+          destination={b.trips.destination}
+          departsAt={b.trips.departs_at}
+          priceIls={b.trips.price_ils}
+          signal={b.status === 'requested' ? t('status_requested') : undefined}
+          detail={b.status === 'requested' ? undefined : t(`status_${b.status}` as StringKey)}
+          onPress={() => router.push({ pathname: '/trips/[id]', params: { id: b.trips.id } })}
+        />
+      ))}
+
+      {trips.length > 0 ? <SectionTitle>{t('asDriver')}</SectionTitle> : null}
+      {trips.map((trip) => {
+        const pending = trip.bookings.filter((b) => b.status === 'requested').length;
+        return (
+          <TripRow
+            key={trip.id}
+            origin={trip.origin}
+            destination={trip.destination}
+            departsAt={trip.departs_at}
+            priceIls={trip.price_ils}
+            detail={`${trip.seats_total} ${t('seatsCount')}`}
+            signal={pending > 0 ? `${pending} ${t('pendingRequests')}` : undefined}
+            onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
+          />
+        );
+      })}
+    </Screen>
+  );
+}
