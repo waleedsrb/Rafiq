@@ -15,7 +15,7 @@ import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
 import { Body, Button, Chip, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
-import { confirm } from '@/lib/confirm';
+import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
@@ -124,12 +124,12 @@ export default function TripRequests() {
   }
   const board = (r: Request) => act(r.id, () => supabase.rpc('mark_boarded', { p_booking_id: r.id, p_boarded: !r.boarded_at }));
   async function noShow(r: Request) {
-    const ok = await confirm(t('noShowConfirmTitle'), t('noShowConfirmBody'), t('yesNoShow'), t('keep'));
+    const ok = await confirm({ title: t('noShowConfirmTitle'), body: t('noShowConfirmBody'), yes: t('yesNoShow'), no: t('keep'), tone: 'warning' });
     if (ok) await act(r.id, () => supabase.rpc('mark_no_show', { p_booking_id: r.id }));
   }
   const start = () => act('trip', () => supabase.rpc('start_trip', { p_trip_id: id }));
   async function finish() {
-    const ok = await confirm(t('finishConfirmTitle'), t('finishConfirmBody'), t('yesArrived'), t('keep'));
+    const ok = await confirm({ title: t('finishConfirmTitle'), body: t('finishConfirmBody'), yes: t('yesArrived'), no: t('keep') });
     if (ok) await act('trip', () => supabase.rpc('finish_trip', { p_trip_id: id }));
   }
 
@@ -164,27 +164,29 @@ export default function TripRequests() {
       );
       if (closed.length > 0) {
         const names = closed.map((c) => (lang === 'ar' ? c.name_ar : c.name_en)).join('، ');
-        const excused = await confirm(
-          t('closedCheckpointTitle'),
-          `${t('closedCheckpointBody')} ${names}\n\n${t('closedCheckpointNote')}`,
-          t('yesClosed'),
-          t('otherReason'),
-        );
+        const excused = await confirm({
+          title: t('closedCheckpointTitle'),
+          body: `${t('closedCheckpointBody')} ${names}\n\n${t('closedCheckpointNote')}`,
+          yes: t('yesClosed'),
+          no: t('otherReason'),
+          tone: 'warning',
+        });
         if (excused) reason = 'checkpoint_closed';
       }
       if (!reason) {
         const { data: record } = await supabase.rpc('my_driving_record');
         const count = (record as { late_cancels_30d: number }[] | null)?.[0]?.late_cancels_30d ?? 0;
-        const ok = await confirm(
-          t('driverLateCancelTitle'),
-          `${t('driverLateCancelBody')} ${ltr(count)}`,
-          t('yesCancel'),
-          t('keep'),
-        );
+        const ok = await confirm({
+          title: t('driverLateCancelTitle'),
+          body: `${t('driverLateCancelBody')} ${ltr(count)}`,
+          yes: t('yesCancel'),
+          no: t('keep'),
+          tone: 'danger',
+        });
         if (!ok) return;
       }
     } else {
-      const ok = await confirm(t('cancelTripTitle'), t('cancelTripBody'), t('yesCancel'), t('keep'));
+      const ok = await confirm({ title: t('cancelTripTitle'), body: t('cancelTripBody'), yes: t('yesCancel'), no: t('keep'), tone: 'danger' });
       if (!ok) return;
     }
     setBusy('trip');

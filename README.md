@@ -12,6 +12,7 @@ Book a seat in a verified driver's car between West Bank cities. First route: Ra
 | `src/lib/supabase.ts` | Database client |
 | `supabase/migrations/` | Database schema, rules and permissions (SQL) |
 | `supabase/tests/` | SQL checks for the booking rules |
+| `bot/` | Python job that reads public Telegram channels into checkpoint reports |
 | `docs/decisions/` | Why we chose what we chose (one short file per decision) |
 
 ## Run it
