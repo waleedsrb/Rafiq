@@ -16,3 +16,7 @@ export function selectFeel() {
 export function successFeel() {
   if (on) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 }
+
+export function warnFeel() {
+  if (on) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+}
