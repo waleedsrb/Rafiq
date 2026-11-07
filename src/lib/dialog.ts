@@ -1,0 +1,137 @@
+// Rafiq's own pop-ups, instead of the plain system alerts.
+//
+// Any screen can ask a question and wait for the answer:
+//   if (await confirm({ title, body, yes, no, tone: 'danger' })) { ... }
+//   const from = await choose({ title, options: [...], cancel })
+//   await notify({ title, body, ok, tone: 'warning' })
+//
+// This file only keeps the queue (one pop-up at a time, the rest wait their turn).
+// <DialogHost /> in the root layout draws whatever is at the front of the queue.
+// No React Native imports here, so the queue logic can be tested on its own.
+
+/**
+ * How serious the message is. It picks the icon and the main button's color:
+ * neutral = graphite info, success = green check,
+ * warning and danger = clay (clay is only for "something needs you").
+ */
+export type DialogTone = 'neutral' | 'success' | 'warning' | 'danger';
+
+export type DialogAction<T> = {
+  label: string;
+  value: T;
+  /** primary = graphite (or clay when the tone is warning/danger), plain = text only. */
+  style?: 'primary' | 'plain';
+  /** Phosphor icon name, used in list layout. */
+  icon?: string;
+};
+
+export type DialogSpec<T> = {
+  title: string;
+  body?: string;
+  tone?: DialogTone;
+  /** 'buttons': stacked capsules (questions). 'list': rows with icons (pick one of several). */
+  layout?: 'buttons' | 'list';
+  actions: DialogAction<T>[];
+  /** Label of the quiet button at the bottom. Leave out for a single-button message. */
+  cancelLabel?: string;
+  /** What the promise gives back when the person cancels, taps outside or presses Back. */
+  cancelValue: T;
+};
+
+export type DialogEntry = {
+  id: number;
+  spec: DialogSpec<unknown>;
+  resolve: (value: unknown) => void;
+};
+
+let queue: DialogEntry[] = [];
+let nextId = 1;
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const l of listeners) l();
+}
+
+/** For the host: listen for changes (useSyncExternalStore). */
+export function subscribeDialogs(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** For the host: the pop-up to show now, or null. */
+export function currentDialog(): DialogEntry | null {
+  return queue[0] ?? null;
+}
+
+/** Show a pop-up and wait for the answer. */
+export function showDialog<T>(spec: DialogSpec<T>): Promise<T> {
+  return new Promise<T>((resolve) => {
+    queue = [...queue, { id: nextId++, spec: spec as DialogSpec<unknown>, resolve: resolve as (v: unknown) => void }];
+    emit();
+  });
+}
+
+/** For the host: close the pop-up with this id and hand back the answer. */
+export function answerDialog(id: number, value: unknown) {
+  const entry = queue.find((e) => e.id === id);
+  if (!entry) return; // already answered (e.g. a double tap)
+  queue = queue.filter((e) => e.id !== id);
+  emit();
+  entry.resolve(value);
+}
+
+/** Close the front pop-up as if the person cancelled. */
+export function cancelDialog(id: number) {
+  const entry = queue.find((e) => e.id === id);
+  if (entry) answerDialog(id, entry.spec.cancelValue);
+}
+
+// ─── The three shapes screens actually use ───────────────────────────────────
+
+/** A yes/no question, e.g. before something that can't be undone. Resolves true on yes. */
+export function confirm(o: { title: string; body?: string; yes: string; no: string; tone?: DialogTone }) {
+  return showDialog<boolean>({
+    title: o.title,
+    body: o.body,
+    tone: o.tone ?? 'neutral',
+    actions: [{ label: o.yes, value: true, style: 'primary' }],
+    cancelLabel: o.no,
+    cancelValue: false,
+  });
+}
+
+/** Pick one of a few options, shown as rows. Resolves the chosen value, or null if cancelled. */
+export function choose<T>(o: {
+  title: string;
+  body?: string;
+  options: { label: string; value: T; icon?: string }[];
+  cancel: string;
+}) {
+  return showDialog<T | null>({
+    title: o.title,
+    body: o.body,
+    layout: 'list',
+    actions: o.options.map((x) => ({ ...x, style: 'plain' as const })),
+    cancelLabel: o.cancel,
+    cancelValue: null,
+  });
+}
+
+/** A message with one button, e.g. a warning the person should read. */
+export function notify(o: { title: string; body?: string; ok: string; tone?: DialogTone }) {
+  return showDialog<void>({
+    title: o.title,
+    body: o.body,
+    tone: o.tone ?? 'neutral',
+    actions: [{ label: o.ok, value: undefined, style: 'primary' }],
+    cancelValue: undefined,
+  });
+}
+
+/** Only for tests: forget everything. */
+export function resetDialogs() {
+  queue = [];
+  nextId = 1;
+}

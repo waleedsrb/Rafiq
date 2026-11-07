@@ -15,7 +15,7 @@ import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
 import { Body, Button, Chip, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
-import { confirm } from '@/lib/confirm';
+import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
@@ -123,12 +123,12 @@ export default function TripRequests() {
   }
   const board = (r: Request) => act(r.id, () => supabase.rpc('mark_boarded', { p_booking_id: r.id, p_boarded: !r.boarded_at }));
   async function noShow(r: Request) {
-    const ok = await confirm(t('noShowConfirmTitle'), t('noShowConfirmBody'), t('yesNoShow'), t('keep'));
+    const ok = await confirm({ title: t('noShowConfirmTitle'), body: t('noShowConfirmBody'), yes: t('yesNoShow'), no: t('keep'), tone: 'warning' });
     if (ok) await act(r.id, () => supabase.rpc('mark_no_show', { p_booking_id: r.id }));
   }
   const start = () => act('trip', () => supabase.rpc('start_trip', { p_trip_id: id }));
   async function finish() {
-    const ok = await confirm(t('finishConfirmTitle'), t('finishConfirmBody'), t('yesArrived'), t('keep'));
+    const ok = await confirm({ title: t('finishConfirmTitle'), body: t('finishConfirmBody'), yes: t('yesArrived'), no: t('keep') });
     if (ok) await act('trip', () => supabase.rpc('finish_trip', { p_trip_id: id }));
   }
 
@@ -152,7 +152,7 @@ export default function TripRequests() {
 
   async function cancelTrip() {
     if (!trip) return;
-    const ok = await confirm(t('cancelTripTitle'), t('cancelTripBody'), t('yesCancel'), t('keep'));
+    const ok = await confirm({ title: t('cancelTripTitle'), body: t('cancelTripBody'), yes: t('yesCancel'), no: t('keep'), tone: 'danger' });
     if (!ok) return;
     setBusy('trip');
     setError(null);
