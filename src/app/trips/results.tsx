@@ -7,6 +7,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { RouteCard } from '@/components/route-card';
 import { Icon } from '@/components/icon';
+import { StatsLine, useTripDriverStats } from '@/components/stats-line';
 import { Body, Chip, IconCircle, ListRow, Screen, ltr, useFont } from '@/components/ui';
 import { dayPart, formatLongDay, shortTime, type DayPart } from '@/lib/format';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
@@ -67,6 +68,7 @@ export default function Results() {
   const shown = (results ?? []).filter(
     (r) => (!part || dayPart(new Date(r.departs_at)) === part) && (!womenOnly || r.women_only),
   );
+  const driverStats = useTripDriverStats((results ?? []).map((r) => r.id));
 
   return (
     <Screen back scroll>
@@ -90,6 +92,7 @@ export default function Results() {
 
       <View>
         {shown.map((r, i) => {
+          const st = driverStats[r.id];
           const name = r.driver_last_initial ? `${r.driver_first_name} ${r.driver_last_initial}.` : r.driver_first_name;
           const seats = r.seats_left > 0 ? `${ltr(r.seats_left)} ${t('seatsFree')}` : t('full');
           const meta = [r.women_only ? t('womenOnly') : null, r.car_model, seats, ltr(`${r.price_ils}₪`)]
@@ -110,7 +113,12 @@ export default function Results() {
                   ) : null}
                 </View>
               }
-              subtitle={meta}
+              subtitle={
+                <View style={{ gap: 2 }}>
+                  <Text style={[styles.meta, { fontFamily: f.regular }]}>{meta}</Text>
+                  <StatsLine stats={st} showReliability={false} />
+                </View>
+              }
               trailing={<Text style={[styles.time, r.seats_left === 0 && { color: colors.inkSecondary }]}>{shortTime(new Date(r.departs_at))}</Text>}
               onPress={() => router.push({ pathname: '/trips/[id]', params: { id: r.id } })}
             />
@@ -125,5 +133,6 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   nameRow: { alignItems: 'center', gap: 6 },
   name: { fontSize: 16, lineHeight: 22, color: colors.ink },
+  meta: { fontSize: 14, lineHeight: 20, color: colors.inkSecondary },
   time: { fontFamily: fonts.en.bold, fontSize: 24, color: colors.ink, minWidth: 64, textAlign: 'right' },
 });
