@@ -235,6 +235,11 @@ export const strings = {
     en: "We'll cancel your upcoming trips and seats under the usual cancel rules, and delete your name, number and ID photos. This can't be undone.",
   },
   deleteAccountYes: { ar_m: 'نعم، احذف', ar_f: 'نعم، احذفي', en: 'Yes, delete' },
+  finishTripFirst: {
+    ar_m: 'أنهِ رحلتك الحالية أولًا، ثم احذف حسابك.',
+    ar_f: 'أنهي رحلتك الحالية أولًا، ثم احذفي حسابك.',
+    en: 'Finish the trip you are on first, then delete your account.',
+  },
   keepAccount: { ar_m: 'لا، أبقِه', ar_f: 'لا، أبقيه', en: 'No, keep it' },
 
   // Emergency contact

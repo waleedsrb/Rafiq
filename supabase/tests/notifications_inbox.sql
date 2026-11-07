@@ -158,7 +158,20 @@ begin
   end if;
 end $$;
 
--- 8. A driver deleting their account cancels their upcoming trips.
+-- 8. Not while driving: a started trip blocks deleting the account.
+select set_config('request.jwt.claim.sub', '', true);
+update public.trips set started_at = now() where id = '00000000-0000-0000-0000-0000000001c1';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000010d', true);
+do $$ begin
+  perform public.delete_my_account();
+  raise exception 'FAIL: deleted the account mid-trip';
+exception when raise_exception then
+  if sqlerrm <> 'Finish your trip first' then raise; end if;
+end $$;
+select set_config('request.jwt.claim.sub', '', true);
+update public.trips set started_at = null where id = '00000000-0000-0000-0000-0000000001c1';
+
+-- 9. A driver deleting their account cancels their upcoming trips.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000010d', true);
 select public.delete_my_account();
 do $$ begin

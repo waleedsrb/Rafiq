@@ -286,6 +286,29 @@ $$;
 -- trip history; from now on it leaves the anonymous profile behind.
 alter table public.profiles drop constraint profiles_id_fkey;
 
+-- Not in the middle of a trip: someone is sitting in that car. The app asks this first,
+-- before it removes the ID photos.
+create or replace function public.delete_my_account_check()
+returns void
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+begin
+  if exists (select 1 from trips where driver_id = me and started_at is not null and finished_at is null and cancelled_at is null)
+     or exists (select 1 from bookings b join trips tr on tr.id = b.trip_id
+                 where b.passenger_id = me and b.status = 'accepted'
+                   and tr.started_at is not null and tr.finished_at is null) then
+    raise exception 'Finish your trip first';
+  end if;
+end;
+$$;
+revoke execute on function public.delete_my_account_check() from public, anon;
+grant execute on function public.delete_my_account_check() to authenticated;
+
 create or replace function public.delete_my_account()
 returns void
 language plpgsql
@@ -299,16 +322,17 @@ begin
   if me is null then
     raise exception 'Sign in first';
   end if;
+  perform delete_my_account_check();
 
   -- 1. Close what is still open, through the normal rules, so refunds and
   --    the other side's pushes happen exactly as if they had cancelled by hand.
   for t in select id from trips
-            where driver_id = me and cancelled_at is null and departs_at > now() loop
+            where driver_id = me and cancelled_at is null and started_at is null and departs_at > now() loop
     perform cancel_trip(t.id);
   end loop;
   update bookings b set status = 'cancelled'
    where b.passenger_id = me and b.status in ('requested', 'accepted')
-     and exists (select 1 from trips tr where tr.id = b.trip_id and tr.departs_at > now());
+     and exists (select 1 from trips tr where tr.id = b.trip_id and tr.started_at is null and tr.departs_at > now());
 
   -- 2. Forget the person.
   delete from push_tokens    where user_id = me;

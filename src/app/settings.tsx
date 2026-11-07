@@ -60,11 +60,11 @@ export default function Settings() {
     if (!sure) return;
     setDeleting(true);
     setError(null);
-    const { ok } = await deleteMyAccount(session.user.id);
+    const { ok, midTrip } = await deleteMyAccount(session.user.id);
     // On success the sign-in is gone: the guards in _layout.tsx take you to the intro.
     if (!ok) {
       setDeleting(false);
-      setError(t('somethingWrong'));
+      setError(midTrip ? t('finishTripFirst') : t('somethingWrong'));
     }
   }
 
