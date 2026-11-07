@@ -1,12 +1,12 @@
 // Driver: add or edit your car. Required before posting a trip
 // (the database refuses a trip without one: see require_car()).
 
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { Body, Button, Field, Label, Screen, Title } from '@/components/ui';
 import { normalizePlate } from '@/lib/plate';
 import { useSession, useT } from '@/lib/session';
+import { goBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
 
 export default function Car() {
@@ -52,7 +52,7 @@ export default function Car() {
     });
     setSaving(false);
     if (err) return setError(t('somethingWrong'));
-    router.back();
+    goBack();
   }
 
   return (
