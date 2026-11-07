@@ -88,6 +88,14 @@ export const strings = {
   status_completed: { ar_m: 'تمت', en: 'Completed' },
   status_no_show: { ar_m: 'لم يحضر', en: 'No-show' },
 
+  // Driver reviews requests
+  requestsTitle: { ar_m: 'طلبات المقاعد', en: 'Seat requests' },
+  noRequests: { ar_m: 'لا طلبات بعد', en: 'No requests yet' },
+  pendingRequests: { ar_m: 'طلبات بانتظارك', en: 'requests waiting for you' },
+  accept: { ar_m: 'قبول', en: 'Accept' },
+  decline: { ar_m: 'رفض', en: 'Decline' },
+  noSeatsLeft: { ar_m: 'لا مقاعد متبقية لهذا الطلب', en: 'Not enough seats left for this request' },
+
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
 

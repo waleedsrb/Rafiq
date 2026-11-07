@@ -19,6 +19,8 @@ type Trip = {
   price_ils: number;
 };
 
+type DriverTrip = Trip & { bookings: { status: string }[] };
+
 type Booking = {
   id: string;
   status: string;
@@ -28,7 +30,7 @@ type Booking = {
 export default function Home() {
   const { t } = useT();
   const { profile, session } = useSession();
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<DriverTrip[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
@@ -39,11 +41,11 @@ export default function Home() {
       const now = new Date().toISOString();
       supabase
         .from('trips')
-        .select('id, origin, destination, departs_at, seats_total, price_ils')
+        .select('id, origin, destination, departs_at, seats_total, price_ils, bookings(status)')
         .eq('driver_id', session.user.id)
         .gte('departs_at', now)
         .order('departs_at')
-        .then(({ data }) => setTrips((data as Trip[] | null) ?? []));
+        .then(({ data }) => setTrips((data as DriverTrip[] | null) ?? []));
       supabase
         .from('bookings')
         .select('id, status, trips!inner(id, origin, destination, departs_at, seats_total, price_ils)')
@@ -83,16 +85,21 @@ export default function Home() {
 
       <Label>{t('myTrips')}</Label>
       {trips.length === 0 ? <Body muted>{t('noTrips')}</Body> : null}
-      {trips.map((trip) => (
-        <TripRow
-          key={trip.id}
-          origin={trip.origin}
-          destination={trip.destination}
-          departsAt={trip.departs_at}
-          priceIls={trip.price_ils}
-          detail={`${trip.seats_total} ${t('seatsCount')}`}
-        />
-      ))}
+      {trips.map((trip) => {
+        const pending = trip.bookings.filter((b) => b.status === 'requested').length;
+        return (
+          <TripRow
+            key={trip.id}
+            origin={trip.origin}
+            destination={trip.destination}
+            departsAt={trip.departs_at}
+            priceIls={trip.price_ils}
+            detail={`${trip.seats_total} ${t('seatsCount')}`}
+            signal={pending > 0 ? `${pending} ${t('pendingRequests')}` : undefined}
+            onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
+          />
+        );
+      })}
 
       <Button variant="plain" label={t('signOut')} onPress={() => supabase.auth.signOut()} />
     </Screen>

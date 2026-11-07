@@ -68,6 +68,7 @@ function Routes() {
         <Stack.Screen name="trips/new" />
         <Stack.Screen name="trips/search" />
         <Stack.Screen name="trips/[id]" />
+        <Stack.Screen name="trips/requests/[id]" />
       </Stack.Protected>
     </Stack>
   );
