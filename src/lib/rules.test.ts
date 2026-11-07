@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { freeCancel, respondBy } from './rules.ts';
+import { freeCancel, isLateTripCancel, respondBy } from './rules.ts';
 
 const at = (iso: string) => new Date(iso);
 const now = at('2026-11-07T08:00:00Z');
@@ -29,4 +29,15 @@ test('late bookings get 15 free minutes after acceptance', () => {
   const accepted = at('2026-11-07T09:00:00Z');
   assert.equal(freeCancel(at('2026-11-07T09:15:00Z'), departs, accepted), true);
   assert.equal(freeCancel(at('2026-11-07T09:16:00Z'), departs, accepted), false);
+});
+
+test('a driver cancel is late only inside 12h and only with booked seats', () => {
+  // 10 hours away with a passenger: late
+  assert.equal(isLateTripCancel(now, at('2026-11-07T18:00:00Z'), 1), true);
+  // 10 hours away, nobody booked: not late
+  assert.equal(isLateTripCancel(now, at('2026-11-07T18:00:00Z'), 0), false);
+  // 2 days away with passengers: not late
+  assert.equal(isLateTripCancel(now, at('2026-11-09T08:00:00Z'), 2), false);
+  // exactly 12 hours away: not late yet
+  assert.equal(isLateTripCancel(now, at('2026-11-07T20:00:00Z'), 1), false);
 });

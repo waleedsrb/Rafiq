@@ -1,5 +1,7 @@
 // Checkout: pay (hold) and request a seat in one step.
 // The card details stay on the phone; only a token goes to the database (see lib/payments.ts).
+// Cash pilot: while settings.cash_only is on, there is no card and no fee. The passenger
+// just asks for the seat (request_seat_cash) and pays the driver in the car.
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -31,6 +33,7 @@ export default function Checkout() {
   const [cvc, setCvc] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [cash, setCash] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -46,7 +49,19 @@ export default function Checkout() {
       .eq('key', 'service_fee_ils')
       .maybeSingle()
       .then(({ data }) => setFee(Number(data?.value ?? 0)));
+    supabase.rpc('cash_only').then(({ data, error: err }) => setCash(err ? false : data === true));
   }, [id]);
+
+  async function requestCash() {
+    if (!trip) return;
+    setPaying(true);
+    setError(null);
+    const { error: err } = await supabase.rpc('request_seat_cash', { p_trip_id: trip.id });
+    setPaying(false);
+    if (err) return setError(err.message.includes('women only') ? t('womenOnlyTrip') : t('somethingWrong'));
+    await askForPush();
+    router.back();
+  }
 
   async function pay() {
     if (!trip) return;
@@ -64,14 +79,34 @@ export default function Checkout() {
       p_card_last4: tok.last4,
     });
     setPaying(false);
-    if (err) return setError(err.message.includes('declined') ? t('cardDeclined') : t('somethingWrong'));
+    if (err) {
+      if (err.message.includes('women only')) return setError(t('womenOnlyTrip'));
+      return setError(err.message.includes('declined') ? t('cardDeclined') : t('somethingWrong'));
+    }
     // Now is when notifications make sense: "tell me when the driver answers".
     await askForPush();
     router.back();
   }
 
-  if (!trip || fee === null) return <Screen back>{null}</Screen>;
+  if (!trip || fee === null || cash === null) return <Screen back>{null}</Screen>;
   const total = Number(trip.price_ils) + fee;
+
+  if (cash) {
+    return (
+      <Screen back scroll footer={<Button label={t('requestSeat')} onPress={requestCash} loading={paying} />}>
+        <Title>{t('cashTitle')}</Title>
+        <TripHero departsAt={trip.departs_at} origin={trip.origin} destination={trip.destination} />
+        <View>
+          <ListRow icon="armchair" title={t('fareLine')} trailing={<Body>{money(Number(trip.price_ils))}</Body>} />
+          <ListRow last icon="wallet" title={t('cashLine')} />
+        </View>
+        <Body muted small>
+          {t('cashHint')}
+        </Body>
+        {error ? <Body error>{error}</Body> : null}
+      </Screen>
+    );
+  }
 
   return (
     <Screen

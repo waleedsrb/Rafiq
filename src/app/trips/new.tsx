@@ -2,12 +2,12 @@
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { RouteCard } from '@/components/route-card';
 import { Body, Button, ChipRow, Field, Label, ListRow, Screen, Stepper, Title, ltr } from '@/components/ui';
-import { formatChipDay } from '@/lib/format';
-import { useSession, useT } from '@/lib/session';
+import { formatChipDay, formatLongDay, shortTime } from '@/lib/format';
+import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { goBack } from '@/lib/nav';
 import { askForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
@@ -18,7 +18,8 @@ type Route = `${City}>${City}`;
 
 export default function NewTrip() {
   const { t, lang } = useT();
-  const { session } = useSession();
+  const { session, profile } = useSession();
+  const canWomenOnly = isVerifiedWoman(profile);
 
   const [route, setRoute] = useState<Route>('ramallah>nablus');
   const [day, setDay] = useState(0);
@@ -27,6 +28,9 @@ export default function NewTrip() {
   const [price, setPrice] = useState(String(SUGGESTED_PRICE));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [womenOnly, setWomenOnly] = useState(false);
+  // After 3 late cancels in 30 days, posting pauses for a week (see my_driving_record()).
+  const [pausedUntil, setPausedUntil] = useState<Date | null>(null);
 
   // No car yet? Add it first. Car not checked yet? Send the driver check first.
   // (The database would refuse the trip anyway: see require_car().)
@@ -42,6 +46,10 @@ export default function NewTrip() {
           if (!data) router.push('/car');
           else if (!data.verified_at) router.replace({ pathname: '/verify', params: { kind: 'driver' } });
         });
+      supabase.rpc('my_driving_record').then(({ data }) => {
+        const until = (data as { paused_until: string | null }[] | null)?.[0]?.paused_until;
+        setPausedUntil(until ? new Date(until) : null);
+      });
     }, [session]),
   );
 
@@ -74,17 +82,31 @@ export default function NewTrip() {
       departs_at: departsAt.toISOString(), // stored in UTC, shown in local time
       seats_total: seats,
       price_ils: priceIls,
+      women_only: canWomenOnly && womenOnly,
     });
     setSaving(false);
-    if (err) return setError(err.message.includes('not approved') ? t('driverCheckNeeded') : t('somethingWrong'));
+    if (err) {
+      if (err.message.includes('Posting is paused')) {
+        const { data } = await supabase.rpc('my_driving_record');
+        const until = (data as { paused_until: string | null }[] | null)?.[0]?.paused_until;
+        return setPausedUntil(until ? new Date(until) : null);
+      }
+      return setError(err.message.includes('not approved') ? t('driverCheckNeeded') : t('somethingWrong'));
+    }
     // Now is when notifications make sense: "tell me when someone asks for a seat".
     await askForPush();
     goBack();
   }
 
   return (
-    <Screen back scroll footer={<Button label={t('publishTrip')} onPress={publish} loading={saving} disabled={!time || !price} />}>
+    <Screen back scroll footer={<Button label={t('publishTrip')} onPress={publish} loading={saving} disabled={!time || !price || !!pausedUntil} />}>
       <Title>{t('postTrip')}</Title>
+
+      {pausedUntil ? (
+        <Body error>
+          {t('postingPausedUntil')} {formatLongDay(pausedUntil, lang)} {ltr(shortTime(pausedUntil))} {t('postingPausedWhy')}
+        </Body>
+      ) : null}
 
       <RouteCard origin={origin} destination={destination} onSwap={() => setRoute(`${destination}>${origin}` as Route)} />
 
@@ -113,7 +135,7 @@ export default function NewTrip() {
           trailing={<Stepper value={seats} min={SEATS_MIN} max={SEATS_MAX} onChange={setSeats} />}
         />
         <ListRow
-          last
+          last={!canWomenOnly}
           icon="currency"
           title={t('seatPrice')}
           subtitle={`${t('suggestedPrice')} ${ltr(`${SUGGESTED_PRICE}₪`)}`}
@@ -134,6 +156,15 @@ export default function NewTrip() {
             </View>
           }
         />
+        {canWomenOnly ? (
+          <ListRow
+            last
+            icon="shieldCheck"
+            title={t('womenOnly')}
+            subtitle={t('womenOnlyHint')}
+            trailing={<Switch value={womenOnly} onValueChange={setWomenOnly} accessibilityLabel={t('womenOnly')} />}
+          />
+        ) : null}
       </View>
 
       {error ? <Body error>{error}</Body> : null}
