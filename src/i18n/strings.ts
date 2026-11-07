@@ -101,6 +101,42 @@ export const strings = {
   genderM: { ar_m: 'ذكر', en: 'Male' },
   genderF: { ar_m: 'أنثى', en: 'Female' },
 
+  // Home
+  greetingMorning: { ar_m: 'صباح الخير', en: 'Good morning' },
+  greetingEvening: { ar_m: 'مساء الخير', en: 'Good evening' },
+  quickSearch: { ar_m: 'ابحث', ar_f: 'ابحثي', en: 'Search' },
+  yourNextTrip: { ar_m: 'رحلتك القادمة', en: 'Your next trip' },
+  waitingForDriver: { ar_m: 'في انتظار قبول السائق', en: 'Waiting for the driver to accept' },
+  seatConfirmed: { ar_m: 'مقعدك مؤكد', en: 'Your seat is confirmed' },
+  requestsWaiting: { ar_m: 'طلبات مقاعد بانتظارك', en: 'Seat requests waiting for you' },
+  partMorning: { ar_m: 'صباحًا', en: 'Morning' },
+  partAfternoon: { ar_m: 'ظهرًا', en: 'Afternoon' },
+  partEvening: { ar_m: 'مساءً', en: 'Evening' },
+  am: { ar_m: 'صباحًا', en: 'AM' },
+  pm: { ar_m: 'مساءً', en: 'PM' },
+
+  // Where to
+  fromLabel: { ar_m: 'من', en: 'From' },
+  toLabel: { ar_m: 'إلى', en: 'To' },
+  swapDirection: { ar_m: 'اعكس الاتجاه', en: 'Swap direction' },
+  whenLabel: { ar_m: 'متى؟', en: 'When?' },
+  searchTrips: { ar_m: 'ابحث عن رحلة', ar_f: 'ابحثي عن رحلة', en: 'Search trips' },
+
+  // Results
+  tripsCount: { ar_m: 'رحلات', en: 'trips' },
+  earliestFirst: { ar_m: 'الأبكر أولًا', en: 'earliest first' },
+  seatsFree: { ar_m: 'مقاعد متاحة', en: 'seats free' },
+
+  // My trips and account
+  asPassenger: { ar_m: 'حجوزاتك', en: 'Your bookings' },
+  asDriver: { ar_m: 'رحلاتك كسائق', en: 'Your trips as a driver' },
+  noBookings: { ar_m: 'لم تحجز أي مقعد بعد', ar_f: 'لم تحجزي أي مقعد بعد', en: "You haven't booked a seat yet" },
+  accountTitle: { ar_m: 'حسابي', en: 'Account' },
+  languageRow: { ar_m: 'اللغة', en: 'Language' },
+  languageName: { ar_m: 'العربية', en: 'English' },
+  addYourCar: { ar_m: 'أضف سيارتك', ar_f: 'أضيفي سيارتك', en: 'Add your car' },
+  forDrivers: { ar_m: 'للسائقين', en: 'For drivers' },
+
   // Home (placeholder until the next slices)
   welcome: { ar_m: 'أهلاً', en: 'Welcome' },
   signOut: { ar_m: 'تسجيل الخروج', en: 'Sign out' },
