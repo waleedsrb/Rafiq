@@ -46,10 +46,6 @@ export const strings = {
 
   // Home (placeholder until the next slices)
   welcome: { ar_m: 'أهلاً', en: 'Welcome' },
-  homeSoon: {
-    ar_m: 'قريباً: ابحث عن مقعد واحجزه',
-    en: 'Coming next: find and book a seat',
-  },
   signOut: { ar_m: 'تسجيل الخروج', en: 'Sign out' },
 
   // Post a trip (driver)
@@ -70,6 +66,27 @@ export const strings = {
   myTrips: { ar_m: 'رحلاتك القادمة', en: 'Your upcoming trips' },
   noTrips: { ar_m: 'لا رحلات بعد', en: 'No trips yet' },
   seatsCount: { ar_m: 'مقاعد', en: 'seats' },
+
+  // Find and request a seat (passenger)
+  findSeat: { ar_m: 'ابحث عن مقعد', ar_f: 'ابحثي عن مقعد', en: 'Find a seat' },
+  findSeatTitle: { ar_m: 'إلى أين؟', en: 'Where to?' },
+  noResults: { ar_m: 'لا رحلات في هذا اليوم بعد', en: 'No trips on this day yet' },
+  seatsLeft: { ar_m: 'مقاعد متبقية', en: 'seats left' },
+  full: { ar_m: 'ممتلئة', en: 'Full' },
+  driverLabel: { ar_m: 'السائق', en: 'Driver' },
+  requestSeat: { ar_m: 'اطلب مقعداً', ar_f: 'اطلبي مقعداً', en: 'Request a seat' },
+  requestHint: {
+    ar_m: 'سيراجع السائق طلبك. ستظهر تفاصيل التواصل بعد القبول.',
+    en: 'The driver will review your request. Contact details appear once accepted.',
+  },
+  myBookings: { ar_m: 'حجوزاتك', en: 'Your bookings' },
+  status_requested: { ar_m: 'بانتظار السائق', en: 'Waiting for driver' },
+  status_accepted: { ar_m: 'مقبول', en: 'Accepted' },
+  status_declined: { ar_m: 'مرفوض', en: 'Declined' },
+  status_expired: { ar_m: 'انتهت المهلة', en: 'Expired' },
+  status_cancelled: { ar_m: 'ملغى', en: 'Cancelled' },
+  status_completed: { ar_m: 'تمت', en: 'Completed' },
+  status_no_show: { ar_m: 'لم يحضر', en: 'No-show' },
 
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
