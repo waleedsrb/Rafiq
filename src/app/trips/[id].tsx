@@ -1,11 +1,17 @@
 // Trip details for a passenger, with "Request a seat" or the status of their request.
+// On the day it follows the trip: Find the car (from 30 min before), On the road
+// (after the driver taps Start), then Arrived & rate.
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Share, StyleSheet, View } from 'react-native';
+import { Linking, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContactCard, useContact } from '@/components/contact-card';
+import { Plate } from '@/components/plate';
+import { RouteCheckpoints } from '@/components/route-checkpoints';
+import { StatsLine, usePeopleStats } from '@/components/stats-line';
+import { Stars } from '@/components/stars';
 import { Icon } from '@/components/icon';
 import { RouteMap } from '@/components/route-map';
 import { TripHero } from '@/components/trip-hero';
@@ -13,12 +19,14 @@ import { Body, Button, Countdown, IconCircle, ListRow, Screen, ltr } from '@/com
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatDay, formatTime } from '@/lib/format';
-import { useBookingChanges } from '@/lib/live';
+import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
+import { telLink } from '@/lib/phone';
 import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { startOpen, tripState } from '@/lib/trip-day';
 import { colors, fonts } from '@/theme/tokens';
 
 type Payment = { status: 'held' | 'charged' | 'released' | 'refunded'; total_ils: number; card_brand: string; card_last4: string };
@@ -31,6 +39,8 @@ type Trip = {
   departs_at: string;
   price_ils: number;
   cancelled_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
   profiles: { full_name: string }; // the driver, joined through trips.driver_id
 };
 
@@ -48,6 +58,8 @@ export default function TripDetails() {
   const [respondBy, setRespondBy] = useState<string | null>(null);
   const [acceptedAt, setAcceptedAt] = useState<string | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [hereAt, setHereAt] = useState<string | null>(null);
+  const [myStars, setMyStars] = useState<number | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -57,11 +69,11 @@ export default function TripDetails() {
     const [tripRes, seatsRes, bookingRes] = await Promise.all([
       supabase
         .from('trips')
-        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, profiles!trips_driver_id_fkey(full_name)')
+        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, profiles!trips_driver_id_fkey(full_name)')
         .eq('id', id)
         .single(),
       supabase.rpc('seats_left', { p_trip_id: id }),
-      supabase.from('bookings').select('id, status, respond_by, accepted_at, created_at').eq('trip_id', id).eq('passenger_id', session.user.id).maybeSingle(),
+      supabase.from('bookings').select('id, status, respond_by, accepted_at, created_at, here_at').eq('trip_id', id).eq('passenger_id', session.user.id).maybeSingle(),
     ]);
     const loaded = (tripRes.data as unknown as Trip | null) ?? null;
     setTrip(loaded);
@@ -72,7 +84,12 @@ export default function TripDetails() {
     setRespondBy(bookingRes.data?.respond_by ?? null);
     setAcceptedAt(bookingRes.data?.accepted_at ?? null);
     setCreatedAt(bookingRes.data?.created_at ?? null);
+    setHereAt(bookingRes.data?.here_at ?? null);
     const bid = bookingRes.data?.id;
+    if (bid && bookingRes.data?.status === 'completed') {
+      const { data: r } = await supabase.from('ratings').select('stars').eq('booking_id', bid).eq('rater_id', session.user.id).maybeSingle();
+      setMyStars((r as { stars: number } | null)?.stars ?? null);
+    }
     if (bid) {
       const { data: pay } = await supabase
         .from('payments')
@@ -90,17 +107,31 @@ export default function TripDetails() {
     }, [load]),
   );
 
-  // Tick once a second while we wait for the driver's answer.
+  // Tick once a second while we wait for the driver's answer, and every 15 seconds on
+  // a confirmed seat so "Find the car" appears on time.
   useEffect(() => {
-    if (status !== 'requested') return;
-    const timer = setInterval(() => setNow(new Date()), 1000);
+    if (status !== 'requested' && status !== 'accepted') return;
+    const timer = setInterval(() => setNow(new Date()), status === 'requested' ? 1000 : 15_000);
     return () => clearInterval(timer);
   }, [status]);
 
   const contact = useContact(status === 'accepted' ? bookingId : null);
+  const stats = usePeopleStats(trip ? [trip.driver_id] : []);
 
   // When the driver accepts, the status and contact card appear right away.
   useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
+  // When the driver taps Start trip or Arrived.
+  useTripChanges(load, id);
+
+  async function imHere() {
+    if (!bookingId) return;
+    setSending(true);
+    setError(null);
+    const { error: err } = await supabase.rpc('im_here', { p_booking_id: bookingId });
+    setSending(false);
+    if (err) return setError(err.message.includes('Too early') ? t('checkInOpens') : t('somethingWrong'));
+    await load();
+  }
 
   async function request() {
     if (!session || !trip) return;
@@ -155,9 +186,18 @@ export default function TripDetails() {
           : t('lateCancelNote');
 
   const driverName = shortName(trip.profiles.full_name);
+  const driverStats = stats[trip.driver_id];
   const canRequest =
     status === null && !trip.cancelled_at && (seatsLeft ?? 0) > 0 && trip.driver_id !== session?.user.id;
-  const canCancel = (status === 'requested' || status === 'accepted') && departs > new Date();
+  const state = tripState(trip);
+  const canCancel = (status === 'requested' || status === 'accepted') && departs > new Date() && state === 'scheduled';
+  // Trip day phases for a confirmed seat.
+  const findCar = status === 'accepted' && state === 'scheduled' && startOpen(now, departs);
+  const onRoad = status === 'accepted' && state === 'underway';
+  const arrived = status === 'completed';
+  const callDriver = () => {
+    if (contact?.phone) Linking.openURL(telLink(contact.phone)).catch(() => {});
+  };
   const price = ltr(`${trip.price_ils}₪`);
 
   async function share() {
@@ -172,8 +212,11 @@ export default function TripDetails() {
   }
 
   // The small line above the big time says where things stand.
-  const label =
-    status === 'accepted' ? (
+  const label = findCar || onRoad || arrived ? (
+      <Body small style={{ fontFamily: fonts[lang].medium }}>
+        {t(findCar ? 'findTheCar' : onRoad ? 'onTheWay' : 'arrivedSafe')}
+      </Body>
+    ) : status === 'accepted' ? (
       <View style={styles.labelRow}>
         <Icon name="check" size={14} />
         <Body small style={{ fontFamily: fonts[lang].medium }}>
@@ -210,7 +253,16 @@ export default function TripDetails() {
         />
       }
       footer={
-        canRequest ? (
+        findCar ? (
+          <>
+            {hereAt ? null : <Button label={t('imHere')} icon="mapPin" onPress={imHere} loading={sending} />}
+            {contact?.phone ? <Button variant={hereAt ? 'secondary' : 'plain'} label={t('cantFindCar')} icon="phone" onPress={callDriver} /> : null}
+          </>
+        ) : onRoad ? (
+          contact ? <Button variant="secondary" label={t('shareTrip')} icon="shareNetwork" onPress={share} /> : undefined
+        ) : arrived && myStars === null && bookingId ? (
+          <Button label={t('rateTrip')} icon="star" onPress={() => router.push({ pathname: '/trips/rate/[bookingId]', params: { bookingId } })} />
+        ) : canRequest ? (
           <>
             <Button label={`${t('requestSeat')} · ${price}`} onPress={request} loading={sending} />
             <Body muted small style={{ textAlign: 'center' }}>
@@ -233,19 +285,52 @@ export default function TripDetails() {
       <TripHero label={label} departsAt={trip.departs_at} origin={trip.origin} destination={trip.destination} />
 
       {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
-      {status && !['requested', 'accepted'].includes(status) ? <Body muted>{t(`status_${status}` as StringKey)}</Body> : null}
+      {status === 'no_show' ? <Body muted>{t('leftWithoutYou')}</Body> : null}
+      {status && !['requested', 'accepted', 'completed', 'no_show'].includes(status) ? (
+        <Body muted>{t(`status_${status}` as StringKey)}</Body>
+      ) : null}
+      {arrived && myStars !== null ? (
+        <View style={styles.labelRow}>
+          <Body muted small>{t('youRated')}</Body>
+          <Stars value={myStars} />
+        </View>
+      ) : null}
+
+      {findCar && contact?.plate ? (
+        <View style={styles.findCar}>
+          <Body muted small>{t('lookForPlate')}</Body>
+          <Plate plate={contact.plate} />
+          {contact.car_model ? <Body>{[contact.car_model, contact.car_color].filter(Boolean).join(' · ')}</Body> : null}
+          {hereAt ? (
+            <View style={styles.labelRow}>
+              <Icon name="check" size={14} color={colors.statusOpen} />
+              <Body muted small>{t('driverKnowsHere')}</Body>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      {status === 'accepted' && state === 'scheduled' && !findCar && departs.getTime() - now.getTime() < 3 * 60 * 60 * 1000 ? (
+        <Body muted small>{t('checkInOpens')}</Body>
+      ) : null}
 
       {countdown}
       {status === 'requested' ? <Body muted small>{t('waitExplain')}</Body> : null}
 
-      {status === 'accepted' && contact ? (
+      {onRoad ? <RouteCheckpoints origin={trip.origin} /> : null}
+
+      {(status === 'accepted' || arrived) && contact ? (
         <ContactCard contact={contact} />
       ) : (
         <View>
           <ListRow
             leading={<IconCircle letter={driverName.charAt(0)} />}
             title={driverName}
-            subtitle={driverVerified ? <VerifiedLine /> : t('driverLabel')}
+            subtitle={
+              <View style={{ gap: 2 }}>
+                {driverVerified ? <VerifiedLine /> : <Body muted small>{t('driverLabel')}</Body>}
+                <StatsLine stats={driverStats} />
+              </View>
+            }
           />
           <ListRow
             last
@@ -284,4 +369,5 @@ function VerifiedLine() {
 
 const styles = StyleSheet.create({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  findCar: { gap: 10, paddingVertical: 8 },
 });

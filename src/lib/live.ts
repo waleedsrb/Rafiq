@@ -22,3 +22,20 @@ export function useBookingChanges(onChange: () => void, filter?: string) {
     };
   }, [filter]);
 }
+
+/** Call `onChange` when one trip changes, e.g. the driver taps Start trip or Arrived. */
+export function useTripChanges(onChange: () => void, tripId?: string) {
+  const latest = useRef(onChange);
+  latest.current = onChange;
+
+  useEffect(() => {
+    if (!tripId) return;
+    const channel = supabase
+      .channel(`trips:${tripId}:${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trips', filter: `id=eq.${tripId}` }, () => latest.current())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tripId]);
+}

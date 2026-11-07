@@ -1,23 +1,28 @@
 // Driver: see who asked for a seat on one of your trips, and accept or decline.
 // The database decides whether a change is allowed (guard_booking): only the
 // driver may accept, and an accept fails if the car would be overbooked.
+// On the day this is also "Driver at pickup": tick who got in, mark no-shows,
+// Start trip, then Arrived, then rate each passenger.
 
-import { useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BookingContact } from '@/components/contact-card';
 import { SeatDots } from '@/components/seat-dots';
 import { TripHero } from '@/components/trip-hero';
-import { Body, Button, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
+import { StatsLine, usePeopleStats } from '@/components/stats-line';
+import { Stars } from '@/components/stars';
+import { Body, Button, Chip, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/dialog';
-import { formatCountdown } from '@/lib/format';
-import { useBookingChanges } from '@/lib/live';
+import { formatCountdown, formatTime } from '@/lib/format';
+import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
-import { useT } from '@/lib/session';
+import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { noShowFrom, noShowOpen, pickupOpen, startOpen, tripState } from '@/lib/trip-day';
 import { colors, space } from '@/theme/tokens';
 
 type Trip = {
@@ -27,6 +32,8 @@ type Trip = {
   departs_at: string;
   price_ils: number;
   cancelled_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
 };
 type Request = {
   id: string;
@@ -34,12 +41,17 @@ type Request = {
   seats: number;
   respond_by: string | null;
   created_at: string;
+  here_at: string | null;
+  boarded_at: string | null;
+  passenger_id: string;
   profiles: { full_name: string }; // the passenger
 };
 
 export default function TripRequests() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const { session } = useSession();
+  const [rated, setRated] = useState<Record<string, number>>({}); // booking id -> stars I gave
   const [trip, setTrip] = useState<Trip | null>(null);
   const [requests, setRequests] = useState<Request[]>([]);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
@@ -50,33 +62,75 @@ export default function TripRequests() {
   const load = useCallback(async () => {
     if (!id) return;
     const [tripRes, reqRes, seatsRes] = await Promise.all([
-      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at').eq('id', id).single(),
+      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at').eq('id', id).single(),
       supabase
         .from('bookings')
-        .select('id, status, seats, respond_by, created_at, profiles!bookings_passenger_id_fkey(full_name)')
+        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name)')
         .eq('trip_id', id)
         .order('created_at'),
       supabase.rpc('seats_left', { p_trip_id: id }),
     ]);
     setTrip((tripRes.data as Trip | null) ?? null);
-    setRequests((reqRes.data as unknown as Request[] | null) ?? []);
+    const list = (reqRes.data as unknown as Request[] | null) ?? [];
+    setRequests(list);
+    const done = list.filter((r) => r.status === 'completed').map((r) => r.id);
+    if (done.length > 0 && session) {
+      const { data } = await supabase.from('ratings').select('booking_id, stars').eq('rater_id', session.user.id).in('booking_id', done);
+      setRated(Object.fromEntries(((data as { booking_id: string; stars: number }[] | null) ?? []).map((x) => [x.booking_id, x.stars])));
+    }
     setSeatsLeft((seatsRes.data as number | null) ?? null);
-  }, [id]);
+  }, [id, session]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Reload on every visit (e.g. coming back from rating a passenger).
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   // Tick once a second while someone is waiting for your answer.
+  const passengerStats = usePeopleStats(requests.map((r) => r.passenger_id));
+
+  // On trip day, tick every 15 seconds so Start and No-show appear on time.
   const waiting = requests.some((r) => r.status === 'requested');
+  const confirmed = requests.some((r) => r.status === 'accepted');
   useEffect(() => {
-    if (!waiting) return;
-    const timer = setInterval(() => setNow(new Date()), 1000);
+    if (!waiting && !confirmed) return;
+    const timer = setInterval(() => setNow(new Date()), waiting ? 1000 : 15_000);
     return () => clearInterval(timer);
-  }, [waiting]);
+  }, [waiting, confirmed]);
 
   // New requests appear without pulling to refresh.
   useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
+  useTripChanges(load, id);
+
+  // Trip day actions. The database checks the timing again; its message picks our text.
+  async function act(key: string, fn: () => PromiseLike<{ error: { message: string } | null }>) {
+    setBusy(key);
+    setError(null);
+    const { error: err } = await fn();
+    setBusy(null);
+    if (err) {
+      setError(
+        err.message.includes('Mark every passenger')
+          ? t('startNeedsAll')
+          : err.message.includes('Too early')
+            ? t('startOpensNote')
+            : t('somethingWrong'),
+      );
+    }
+    await load();
+  }
+  const board = (r: Request) => act(r.id, () => supabase.rpc('mark_boarded', { p_booking_id: r.id, p_boarded: !r.boarded_at }));
+  async function noShow(r: Request) {
+    const ok = await confirm({ title: t('noShowConfirmTitle'), body: t('noShowConfirmBody'), yes: t('yesNoShow'), no: t('keep'), tone: 'warning' });
+    if (ok) await act(r.id, () => supabase.rpc('mark_no_show', { p_booking_id: r.id }));
+  }
+  const start = () => act('trip', () => supabase.rpc('start_trip', { p_trip_id: id }));
+  async function finish() {
+    const ok = await confirm({ title: t('finishConfirmTitle'), body: t('finishConfirmBody'), yes: t('yesArrived'), no: t('keep') });
+    if (ok) await act('trip', () => supabase.rpc('finish_trip', { p_trip_id: id }));
+  }
 
   async function decide(bookingId: string, status: 'accepted' | 'declined') {
     setBusy(bookingId);
@@ -109,7 +163,13 @@ export default function TripRequests() {
   }
 
   if (!trip) return <Screen back>{null}</Screen>;
-  const canCancelTrip = !trip.cancelled_at && new Date(trip.departs_at) > new Date();
+  const departs = new Date(trip.departs_at);
+  const state = tripState(trip);
+  const canCancelTrip = state === 'scheduled' && departs > new Date();
+  const atPickup = state === 'scheduled' && pickupOpen(now, departs);
+  const canStart = state === 'scheduled' && startOpen(now, departs) && confirmed;
+  const allAccounted = requests.every((r) => r.status !== 'accepted' || !!r.boarded_at);
+  const noShowOk = noShowOpen(now, departs);
   const booked = requests.filter((r) => r.status === 'accepted').reduce((n, r) => n + r.seats, 0);
   const pending = requests.filter((r) => r.status === 'requested').reduce((n, r) => n + r.seats, 0);
   const total = seatsLeft !== null ? seatsLeft + booked : booked;
@@ -119,18 +179,30 @@ export default function TripRequests() {
       back
       scroll
       footer={
-        canCancelTrip ? (
+        canStart ? (
+          <>
+            <Button label={t('startTrip')} icon="steeringWheel" onPress={start} loading={busy === 'trip'} disabled={!allAccounted} />
+            {allAccounted ? null : <Body muted small style={{ textAlign: 'center' }}>{t('startNeedsAll')}</Body>}
+          </>
+        ) : state === 'underway' ? (
+          <Button label={t('weArrived')} icon="mapPin" onPress={finish} loading={busy === 'trip'} />
+        ) : canCancelTrip ? (
           <Button variant="plain" label={t('cancelTrip')} onPress={cancelTrip} loading={busy === 'trip'} />
         ) : undefined
       }
     >
       <TripHero
-        label={<Body muted small>{t('requestsTitle')}</Body>}
+        label={
+          <Body muted small>
+            {t(state === 'underway' ? 'onTheWay' : state === 'finished' ? 'tripFinished' : atPickup ? 'pickupTitle' : 'requestsTitle')}
+          </Body>
+        }
         departsAt={trip.departs_at}
         origin={trip.origin}
         destination={trip.destination}
       />
       {total > 0 ? <SeatDots total={total} booked={booked} pending={Math.min(pending, total - booked)} /> : null}
+      {state === 'scheduled' && confirmed && atPickup && !canStart ? <Body muted small>{t('startOpensNote')}</Body> : null}
       {booked > 0 && !trip.cancelled_at ? (
         <Body muted small>
           {t('youEarn')} {ltr(`${booked * Number(trip.price_ils)}₪`)}
@@ -149,8 +221,42 @@ export default function TripRequests() {
             {r.status === 'accepted' ? (
               <BookingContact bookingId={r.id} />
             ) : (
-              <ListRow last leading={<IconCircle letter={name.charAt(0)} />} title={name} subtitle={statusText} />
+              <ListRow
+                last
+                leading={<IconCircle letter={name.charAt(0)} />}
+                title={name}
+                subtitle={
+                  <View style={{ gap: 2 }}>
+                    <Body muted small>{statusText}</Body>
+                    {r.status === 'requested' ? <StatsLine stats={passengerStats[r.passenger_id]} /> : null}
+                  </View>
+                }
+              />
             )}
+            {r.status === 'accepted' && atPickup ? (
+              <View style={styles.pickup}>
+                <Chip label={t('inTheCar')} icon={r.boarded_at ? 'check' : undefined} selected={!!r.boarded_at} onPress={() => board(r)} />
+                {!r.boarded_at && noShowOk ? <Chip label={t('markNoShow')} onPress={() => noShow(r)} /> : null}
+                {!r.boarded_at && r.here_at ? <Body signal small>{t('atPickup')}</Body> : null}
+                {!r.boarded_at && !noShowOk && !r.here_at ? (
+                  <Body muted small>
+                    {t('noShowFrom')} {ltr(formatTime(noShowFrom(departs), lang))}
+                  </Body>
+                ) : null}
+              </View>
+            ) : null}
+            {r.status === 'completed' ? (
+              rated[r.id] ? (
+                <Stars value={rated[r.id]} />
+              ) : (
+                <Button
+                  variant="secondary"
+                  icon="star"
+                  label={`${t('rateOne')} ${name}`}
+                  onPress={() => router.push({ pathname: '/trips/rate/[bookingId]', params: { bookingId: r.id } })}
+                />
+              )
+            ) : null}
             {r.status === 'requested' ? (
               <>
                 {r.respond_by ? (
@@ -207,5 +313,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.hairline,
   },
   actions: { flexDirection: 'row', gap: space.sm },
+  pickup: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
   action: { flex: 1 },
 });
