@@ -14,6 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { usePush } from '@/lib/push';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/theme/tokens';
 
@@ -47,11 +48,13 @@ function Routes() {
     if (!loading) SplashScreen.hideAsync();
   }, [loading]);
 
+  const ready = !loading && !!session && !!profile;
+  usePush(ready);
+
   if (loading) return null;
 
   const signedOut = !session;
   const needsProfile = !!session && !profile;
-  const ready = !!session && !!profile;
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>

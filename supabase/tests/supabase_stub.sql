@@ -15,3 +15,13 @@ grant usage on schema public, auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
 alter default privileges in schema public grant all on tables to anon, authenticated;
 alter default privileges in schema public grant all on sequences to anon, authenticated;
+
+-- Stand-in for pg_net: instead of sending HTTP requests, remember them so tests can check.
+create schema net;
+create table net.sent (id bigint generated always as identity, url text, body jsonb);
+create function net.http_post(
+  url text, body jsonb default '{}', params jsonb default '{}',
+  headers jsonb default '{}', timeout_milliseconds int default 5000
+) returns bigint language sql as $$
+  insert into net.sent (url, body) values (url, body) returning id
+$$;
