@@ -39,6 +39,10 @@ insert into public.driver_details (driver_id, car_model, car_color, plate)
 values ('00000000-0000-0000-0000-00000000000d', 'Kia Picanto', 'White', '7-1234-95');
 
 -- A trip with ONE seat, so the second accept must fail.
+-- Slice 5: everyone in these tests is already verified (set as the server, no signed-in user).
+select set_config('request.jwt.claim.sub', '', true);
+update public.driver_details set verified_at = now();
+update public.profiles set id_verified_at = now();
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
 values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d',
         'ramallah', 'nablus', now() + interval '1 day', 1, 25);
