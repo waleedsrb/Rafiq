@@ -13,7 +13,8 @@
 -- once every passenger is either boarded or marked no-show, so nobody becomes a
 -- no-show by accident. A cron job finishes trips nobody finished by hand.
 --
--- Money: completed and no_show both keep the charge (settle_payment is unchanged).
+-- Money: completed and no_show both keep a card charge (settle_payment is unchanged).
+-- In the cash-only pilot there is no charge: a no-show counts against reliability (slice 9).
 -- Ratings: after a completed trip each side rates the other once, 1-5 stars + tags.
 --
 -- The app mirrors the numbers below in src/lib/trip-day.ts. Keep them in sync:
@@ -275,8 +276,8 @@ begin
       case when lang = 'ar' then 'فاتتك الرحلة' else 'You missed the trip' end,
       case when lang = 'ar'
            then drv_name || case when drv_f then ' انطلقت' else ' انطلق' end
-                || ' بدونك. لا يُسترد ثمن المقعد.'
-           else drv_name || ' left without you. The seat is not refunded.' end,
+                || ' بدونك. الغياب يؤثر على موثوقيتك.'
+           else drv_name || ' left without you. Missed trips lower your reliability.' end,
       '/trips/' || b.trip_id);
   end if;
   return null;
