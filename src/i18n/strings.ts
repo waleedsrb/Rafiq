@@ -14,32 +14,89 @@ export const strings = {
     en: 'Your ride between cities, guaranteed',
   },
   getStarted: { ar_m: 'ابدأ', ar_f: 'ابدئي', en: 'Get started' },
-  continue: { ar_m: 'متابعة', en: 'Continue' },
+  continue: { ar_m: 'تابع', ar_f: 'تابعي', en: 'Continue' },
+  back: { ar_m: 'رجوع', en: 'Back' },
+
+  // Tab dock
+  tabHome: { ar_m: 'الرئيسية', en: 'Home' },
+  tabTrips: { ar_m: 'رحلاتي', en: 'My trips' },
+  tabCheckpoints: { ar_m: 'الحواجز', en: 'Checkpoints' },
+  tabProfile: { ar_m: 'حسابي', en: 'Account' },
+
+  // Checkpoint statuses
+  statusOpen: { ar_m: 'مفتوح', en: 'Open' },
+  statusCrowded: { ar_m: 'مزدحم', en: 'Crowded' },
+  statusClosed: { ar_m: 'مغلق', en: 'Closed' },
+
+  // Welcome
+  otherLanguage: { ar_m: 'English', en: 'العربية' },
+  slide1Title: { ar_m: 'الرفيق قبل الطريق.', en: 'The company before the road.' },
+  slide1Body: {
+    ar_m: 'مقعد محجوز مسبقًا بين المدن، مع سائق موثّق وسعر واضح.',
+    en: 'A seat booked ahead between cities, with a verified driver and a clear price.',
+  },
+  slide2Title: { ar_m: 'تعرف من يقود قبل أن تركب.', en: 'Know who drives before you ride.' },
+  slide2Body: {
+    ar_m: 'نراجع كل سائق بأنفسنا: الهوية والرخصة والسيارة واللوحة.',
+    en: 'We check every driver ourselves: ID, licence, car and plate.',
+  },
+  slide3Title: { ar_m: 'الحواجز قبل أن تصلها.', en: 'Checkpoints before you reach them.' },
+  slide3Body: {
+    ar_m: 'حالة كل حاجز على طريقك، من الركّاب والسائقين، لحظة بلحظة.',
+    en: 'The status of every checkpoint on your way, from riders and drivers, as it happens.',
+  },
+  slideLabel: { ar_m: 'الشريحة', en: 'Slide' },
+  startWithPhone: { ar_m: 'ابدأ برقم هاتفك', en: 'Start with your phone number' },
+  termsNote: {
+    ar_m: 'بالمتابعة توافق على الشروط وسياسة الخصوصية.',
+    en: 'By continuing you agree to the Terms and Privacy Policy.',
+  },
+  demoFrom: { ar_m: 'رام الله · دوار المنارة', en: 'Ramallah · Al-Manara Sq.' },
+  demoTo: { ar_m: 'نابلس · دوار الشهداء', en: 'Nablus · Martyrs Sq.' },
+  demoSeat: { ar_m: 'مقعدك محجوز', en: 'Your seat is booked' },
+  demoCar: { ar_m: 'إلنترا فضّية', en: 'Silver Elantra' },
+  demoDriver: { ar_m: 'محمد عواد', en: 'Mohammad Awad' },
+  demoStats: { ar_m: '142 رحلة · 4.9 تقييم · سائق مؤسس', en: '142 trips · 4.9 rating · Founding driver' },
+  idVerified: { ar_m: 'هوية موثّقة', en: 'ID verified' },
+  licenseVerified: { ar_m: 'رخصة موثّقة', en: 'Licence verified' },
+  carVerified: { ar_m: 'سيارة موثّقة', en: 'Car verified' },
+  cpAttara: { ar_m: 'عطارة', en: 'Attara' },
+  cpZaatara: { ar_m: 'زعترة', en: 'Zaatara' },
+  cpHuwara: { ar_m: 'حوارة', en: 'Huwara' },
 
   // Sign up: phone
-  phoneTitle: { ar_m: 'ما رقم جوالك؟', en: "What's your mobile number?" },
+  phoneTitle: { ar_m: 'أدخل رقم هاتفك', en: 'Enter your phone number' },
   phoneHint: {
-    ar_m: 'سنرسل لك رمزاً للتحقق',
-    en: "We'll text you a code to confirm it",
+    ar_m: 'سنرسل لك رمزًا من 6 أرقام. لا نشارك رقمك مع أحد قبل قبول الرحلة.',
+    en: "We'll text you a 6-digit code. Nobody sees your number until a trip is accepted.",
   },
-  phonePlaceholder: { ar_m: '059 123 4567', en: '059 123 4567' },
+  phoneLabel: { ar_m: 'رقم الهاتف', en: 'Phone number' },
+  phonePlaceholder: { ar_m: '59 123 4567', en: '59 123 4567' },
+  countryPS: { ar_m: '+970 فلسطين', en: '+970 Palestine' },
+  sendCode: { ar_m: 'أرسل الرمز', en: 'Send code' },
   phoneInvalid: {
-    ar_m: 'أدخل رقم جوال فلسطيني يبدأ بـ 059 أو 056',
-    en: 'Enter a Palestinian mobile starting with 059 or 056',
+    ar_m: 'أدخل رقم جوال يبدأ بـ 59 أو 56',
+    en: 'Enter a mobile number starting with 59 or 56',
   },
 
   // Sign up: code
   codeTitle: { ar_m: 'أدخل الرمز', en: 'Enter the code' },
-  codeHint: { ar_m: 'أرسلنا رمزاً من 6 أرقام إلى', en: 'We sent a 6-digit code to' },
+  codeHint: { ar_m: 'أرسلناه إلى', en: 'We sent it to' },
   codeInvalid: { ar_m: 'الرمز غير صحيح، حاول مرة أخرى', en: "That code didn't work, try again" },
+  resendIn: { ar_m: 'إعادة الإرسال بعد', en: 'Resend in' },
+  resend: { ar_m: 'أعد إرسال الرمز', en: 'Resend the code' },
+  changeNumber: { ar_m: 'غيّر الرقم', en: 'Change the number' },
+  checking: { ar_m: 'نتحقق من الرمز…', en: 'Checking the code…' },
 
   // Sign up: profile
-  nameTitle: { ar_m: 'ما اسمك؟', en: "What's your name?" },
+  nameTitle: { ar_m: 'كيف نناديك؟', en: 'What should we call you?' },
   nameHint: {
-    ar_m: 'كما في هويتك، ليعرفك السائق أو الراكب',
-    en: 'As on your ID, so drivers and passengers know you',
+    ar_m: 'اكتب اسمك كما في الهوية. يرى السائق اسمك الأول وأول حرف من عائلتك.',
+    en: 'Write your name as on your ID. Drivers see your first name and last initial.',
   },
-  namePlaceholder: { ar_m: 'الاسم الكامل', en: 'Full name' },
+  firstName: { ar_m: 'الاسم الأول', en: 'First name' },
+  lastName: { ar_m: 'اسم العائلة', en: 'Last name' },
+  namePreviewHint: { ar_m: 'هكذا يظهر اسمك للآخرين', en: 'This is how others see your name' },
   genderLabel: { ar_m: 'كيف نخاطبك؟', en: 'How should we address you?' },
   genderM: { ar_m: 'ذكر', en: 'Male' },
   genderF: { ar_m: 'أنثى', en: 'Female' },

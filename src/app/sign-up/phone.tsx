@@ -1,19 +1,28 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { View } from 'react-native';
 
-import { Body, Button, Field, Screen, Title } from '@/components/ui';
+import { Body, Button, Chip, Field, Screen, Title } from '@/components/ui';
 import { normalizePhone } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/lib/track';
+import { space } from '@/theme/tokens';
+
+// Palestinian mobiles work with either country code, so the person picks one.
+type Prefix = '970' | '972';
 
 export default function PhoneStep() {
   const { t } = useT();
+  const [prefix, setPrefix] = useState<Prefix>('970');
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
-  const phone = normalizePhone(raw);
+  // "059 123 4567" or "59 123 4567" -> "+970591234567".
+  // A full number with its own +970/+972 also works (pasted from contacts).
+  const typed = raw.trim();
+  const phone = normalizePhone(typed.startsWith('+') || typed.startsWith('00') ? typed : `+${prefix}${typed.replace(/^0/, '')}`);
 
   async function submit() {
     if (!phone) {
@@ -35,23 +44,31 @@ export default function PhoneStep() {
   }
 
   return (
-    <Screen footer={<Button label={t('continue')} onPress={submit} loading={sending} disabled={!raw} />}>
+    <Screen back footer={<Button label={t('sendCode')} onPress={submit} loading={sending} disabled={!raw} />}>
       <Title>{t('phoneTitle')}</Title>
       <Body muted>{t('phoneHint')}</Body>
-      <Field
-        ltr
-        autoFocus
-        value={raw}
-        onChangeText={(v) => {
-          setRaw(v);
-          setError(null);
-        }}
-        keyboardType="phone-pad"
-        textContentType="telephoneNumber"
-        autoComplete="tel"
-        placeholder={t('phonePlaceholder')}
-        onSubmitEditing={submit}
-      />
+      <View style={{ marginTop: space.md }}>
+        <Field
+          label={t('phoneLabel')}
+          ltr
+          prefix={`+${prefix}`}
+          autoFocus
+          value={raw}
+          onChangeText={(v) => {
+            setRaw(v);
+            setError(null);
+          }}
+          keyboardType="phone-pad"
+          textContentType="telephoneNumber"
+          autoComplete="tel"
+          placeholder={t('phonePlaceholder')}
+          onSubmitEditing={submit}
+        />
+      </View>
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
+        <Chip label={t('countryPS')} selected={prefix === '970'} onPress={() => setPrefix('970')} />
+        <Chip label="+972" selected={prefix === '972'} onPress={() => setPrefix('972')} />
+      </View>
       {error ? <Body error>{error}</Body> : null}
     </Screen>
   );

@@ -22,6 +22,9 @@ type SessionState = {
   session: Session | null;
   profile: Profile | null;
   refreshProfile: () => Promise<void>;
+  /** Language picked before signing up (the Welcome screen's language button). */
+  chosenLanguage: Language | null;
+  setChosenLanguage: (l: Language) => void;
 };
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -30,6 +33,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [chosenLanguage, setChosenLanguage] = useState<Language | null>(null);
 
   const loadProfile = useCallback(async (userId: string | undefined) => {
     if (!userId) {
@@ -63,7 +67,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <SessionContext.Provider value={{ loading, session, profile, refreshProfile }}>
+    <SessionContext.Provider value={{ loading, session, profile, refreshProfile, chosenLanguage, setChosenLanguage }}>
       {children}
     </SessionContext.Provider>
   );
@@ -77,8 +81,8 @@ export function useSession(): SessionState {
 
 /** Language + gender-aware translator for the current person. */
 export function useT() {
-  const { profile } = useSession();
-  const lang = profile?.language ?? deviceLanguage();
+  const { profile, chosenLanguage } = useSession();
+  const lang = profile?.language ?? chosenLanguage ?? deviceLanguage();
   const gender = profile?.gender ?? 'm';
   return { lang, t: (key: StringKey) => translate(key, lang, gender) };
 }

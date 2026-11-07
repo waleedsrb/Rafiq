@@ -1,12 +1,16 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Text } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Body, Button, Field, Screen, Title } from '@/components/ui';
+import { Body, Screen, TextLink, Title, ltr } from '@/components/ui';
+import { formatPhone } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/lib/track';
-import { fonts } from '@/theme/tokens';
+import { colors, fonts, space } from '@/theme/tokens';
+
+const LENGTH = 6;
+const RESEND_AFTER = 45; // seconds before the person may ask for a new code
 
 export default function CodeStep() {
   const { t } = useT();
@@ -14,15 +18,25 @@ export default function CodeStep() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [wait, setWait] = useState(RESEND_AFTER);
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
 
-  async function submit(value = code) {
-    if (value.length !== 6 || !phone) return;
+  // Count down to the resend link once a second.
+  useEffect(() => {
+    if (wait <= 0) return;
+    const timer = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [wait]);
+
+  async function submit(value: string) {
+    if (value.length !== LENGTH || !phone) return;
     setChecking(true);
     setError(null);
     const { error: err } = await supabase.auth.verifyOtp({ phone, token: value, type: 'sms' });
     setChecking(false);
     if (err) {
       setError(t('codeInvalid'));
+      setCode('');
       return;
     }
     track('signup_code_verified');
@@ -30,31 +44,80 @@ export default function CodeStep() {
     // which moves the person to the profile step (or home, if they already have one).
   }
 
+  async function resend() {
+    if (!phone) return;
+    setWait(RESEND_AFTER);
+    setError(null);
+    const { error: err } = await supabase.auth.signInWithOtp({ phone });
+    if (err) setError(t('somethingWrong'));
+  }
+
+  const timeLeft = `0:${String(wait).padStart(2, '0')}`;
+
   return (
-    <Screen footer={<Button label={t('continue')} onPress={() => submit()} loading={checking} disabled={code.length !== 6} />}>
+    <Screen back>
       <Title>{t('codeTitle')}</Title>
       <Body muted>
-        {t('codeHint')}{' '}
-        {/* Keep the number left-to-right inside Arabic text */}
-        <Text style={{ fontFamily: fonts.en.medium, writingDirection: 'ltr' }}>{'⁦' + phone + '⁩'}</Text>
+        {t('codeHint')} <Text style={{ fontFamily: fonts.en.medium }}>{ltr(phone ? formatPhone(phone) : '')}</Text>
       </Body>
-      <Field
-        ltr
-        autoFocus
-        value={code}
-        maxLength={6}
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
-        autoComplete="sms-otp"
-        placeholder="000000"
-        onChangeText={(v) => {
-          const digits = v.replace(/\D/g, '');
-          setCode(digits);
-          setError(null);
-          if (digits.length === 6) submit(digits); // auto-submit when complete
-        }}
-      />
+
+      {/* Six boxes drawn over one invisible input, so paste and SMS autofill still work. */}
+      <Pressable onPress={() => input.current?.focus()} style={styles.boxes}>
+        {Array.from({ length: LENGTH }, (_, i) => {
+          const active = i === Math.min(code.length, LENGTH - 1) && !checking;
+          return (
+            <View key={i} style={[styles.box, active && styles.boxActive]}>
+              <Text style={styles.digit}>{code[i] ?? ''}</Text>
+            </View>
+          );
+        })}
+        <TextInput
+          ref={input}
+          autoFocus
+          value={code}
+          maxLength={LENGTH}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="sms-otp"
+          caretHidden
+          style={styles.hiddenInput}
+          onChangeText={(v) => {
+            const digits = v.replace(/\D/g, '').slice(0, LENGTH);
+            setCode(digits);
+            setError(null);
+            if (digits.length === LENGTH) submit(digits); // auto-submit when complete
+          }}
+        />
+      </Pressable>
+
+      {checking ? <Body muted>{t('checking')}</Body> : null}
       {error ? <Body error>{error}</Body> : null}
+
+      {wait > 0 ? (
+        <Body muted small>
+          {t('resendIn')} {ltr(timeLeft)}
+        </Body>
+      ) : (
+        <TextLink label={t('resend')} onPress={resend} />
+      )}
+      <TextLink label={t('changeNumber')} onPress={() => router.back()} />
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  boxes: { flexDirection: 'row', direction: 'ltr', justifyContent: 'space-between', marginTop: space.md },
+  box: {
+    width: 48,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxActive: { borderWidth: 2, borderColor: colors.ink },
+  digit: { fontFamily: fonts.en.bold, fontSize: 24, color: colors.ink },
+  hiddenInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.011, color: 'transparent' },
+});

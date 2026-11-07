@@ -1,36 +1,57 @@
-// Design tokens from the Rafiq design system (direction C5).
+// Design tokens from the Rafiq design system (direction C5, tokens v2).
 // Screens read colors, spacing and type from here, never hard-coded values,
 // so a design change happens in one place.
 
 export const colors = {
-  surface: '#F7F6F3', // porcelain, the single app background
+  surface: '#F7F6F3', // bg: porcelain, the single app background
+  card: '#FFFFFF', // white, sparingly: input fields, grouped inputs
+  sunken: '#ECEAE5', // quick-action circles, the "where to?" capsule, avatars
   ink: '#17191C', // primary text and primary buttons (graphite)
+  inkPressed: '#2E3136',
   inkSecondary: '#6B6E73',
-  hairline: '#E7E5E0', // separators instead of shadows and cards
+  hairline: '#E7E5E0', // line: separators instead of shadows and cards
+  lineStrong: '#B9BBC0', // unselected chip borders, secondary buttons
   onInk: '#FFFFFF',
-  clay: '#B4583B', // ONLY for "something needs you" signals
-  statusOpen: '#2E7D4F',
-  statusCrowded: '#B7791F',
-  statusClosed: '#B42318',
+  clay: '#B4583B', // signal: ONLY for "something needs you"
+  claySoft: '#F0E4DE',
+  glassFill: 'rgba(255,255,255,0.72)',
+  glassEdge: 'rgba(255,255,255,0.90)',
+  glassLens: 'rgba(23,25,28,0.07)', // the selected tab's pill
+  plateInk: '#1F6B3A',
+  statusOpen: '#2E7A4D',
+  statusOpenSoft: '#E8F2EC',
+  statusCrowded: '#8A6410',
+  statusCrowdedDot: '#B8860B',
+  statusClosed: '#B3263A',
+  statusClosedSoft: '#F8E4E7',
 } as const;
 
 export const radii = {
-  capsule: 999,
+  sm: 8,
+  plate: 10,
+  md: 12,
   container: 16,
   sheet: 28,
+  capsule: 999,
 } as const;
 
 export const space = {
   xs: 4,
   sm: 8,
   md: 16,
+  screen: 20, // side margin of every screen
   lg: 24,
   xl: 32,
+  xxl: 48,
 } as const;
 
 export const sizes = {
-  button: 56, // full-width capsule button height
-  topButton: 44,
+  touch: 44, // minimum touch target, glass top buttons, avatars
+  control: 48,
+  button: 56, // full-width capsule button, input fields, quick actions
+  controlSm: 36, // chips
+  icon: 22,
+  dock: 64,
 } as const;
 
 export const fonts = {
@@ -44,4 +65,10 @@ export const fonts = {
     medium: 'IBMPlexSans_500Medium',
     bold: 'IBMPlexSans_600SemiBold',
   },
+} as const;
+
+// Soft shadows only on the glass layer (top buttons, dock), never on content.
+export const shadows = {
+  float: { shadowColor: '#17191C', shadowOpacity: 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  glass: { shadowColor: '#17191C', shadowOpacity: 0.12, shadowRadius: 32, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
 } as const;
