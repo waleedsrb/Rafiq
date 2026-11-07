@@ -19,6 +19,9 @@ import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
+// The splash is plain graphite: signed out, the intro picks up from it;
+// signed in, it fades into Home.
+SplashScreen.setOptions({ fade: true, duration: 400 });
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -59,7 +62,8 @@ function Routes() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
       <Stack.Protected guard={signedOut}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="index" options={{ animation: 'fade' }} />
+        <Stack.Screen name="welcome" />
         <Stack.Screen name="sign-up/phone" />
         <Stack.Screen name="sign-up/code" />
       </Stack.Protected>
