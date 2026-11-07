@@ -22,6 +22,7 @@ export const colors = {
   statusOpenSoft: '#E8F2EC',
   statusCrowded: '#8A6410',
   statusCrowdedDot: '#B8860B',
+  statusCrowdedSoft: '#FBF1D9',
   statusClosed: '#B3263A',
   statusClosedSoft: '#F8E4E7',
 } as const;

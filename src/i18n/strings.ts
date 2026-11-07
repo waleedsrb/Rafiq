@@ -375,6 +375,30 @@ export const strings = {
   payment_refunded: { ar_m: 'تم استرداد المبلغ', en: 'Refunded' },
   youEarn: { ar_m: 'ستحصل على', ar_f: 'ستحصلين على', en: "You'll get" },
 
+  // Checkpoints (slice 7)
+  onTheRoad: { ar_m: 'على طريق رام الله ← نابلس', en: 'On the Ramallah → Nablus road' },
+  updatedAgo: { ar_m: 'آخر تحديث', en: 'updated' },
+  minAgo: { ar_m: 'د', en: 'min ago' },
+  justNow: { ar_m: 'الآن', en: 'just now' },
+  reportsWord: { ar_m: 'بلاغات', en: 'reports' },
+  noRecentReports: { ar_m: 'لا بلاغات حديثة', en: 'No recent reports' },
+  noReportsYet: { ar_m: 'لا بلاغات في آخر ساعتين. كن أول من يُبلغ.', ar_f: 'لا بلاغات في آخر ساعتين. كوني أول من يُبلغ.', en: 'No reports in the last 2 hours. Be the first.' },
+  lastHour: { ar_m: 'آخر ساعة', en: 'Last hour' },
+  howIsItNow: { ar_m: 'كيف الوضع الآن؟', en: 'How is it now?' },
+  source_passenger: { ar_m: 'راكب', en: 'A passenger' },
+  source_driver: { ar_m: 'سائق في رحلة', en: 'A driver on a trip' },
+  source_channel: { ar_m: 'قناة عامة', en: 'A public channel' },
+  statusRule: {
+    ar_m: 'البلاغات من الركاب والسائقين. الحالة هي رأي الأغلبية في آخر 30 دقيقة، ولا نُظهر من أرسل البلاغ.',
+    en: "Reports come from passengers and drivers. The status follows the majority of the last 30 minutes, and we never show who reported.",
+  },
+  thanksReport: { ar_m: 'شكرًا، وصل بلاغك.', en: 'Thanks, your report is in.' },
+  justReported: {
+    ar_m: 'أرسلت بلاغًا عن هذا الحاجز قبل قليل. جرّب بعد دقائق.',
+    ar_f: 'أرسلتِ بلاغًا عن هذا الحاجز قبل قليل. جرّبي بعد دقائق.',
+    en: 'You reported this checkpoint a moment ago. Try again in a few minutes.',
+  },
+
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
 
