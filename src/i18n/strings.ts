@@ -137,6 +137,27 @@ export const strings = {
   addYourCar: { ar_m: 'أضف سيارتك', ar_f: 'أضيفي سيارتك', en: 'Add your car' },
   forDrivers: { ar_m: 'للسائقين', en: 'For drivers' },
 
+  // Trip details, waiting, ticket
+  sentRequestTo: { ar_m: 'أرسلت طلبك إلى', ar_f: 'أرسلتِ طلبك إلى', en: 'You sent your request to' },
+  seatIsConfirmed: { ar_m: 'تم تأكيد مقعدك', en: 'Your seat is confirmed' },
+  waitExplain: {
+    ar_m: 'إذا لم يرد السائق خلال هذا الوقت، يُلغى الطلب تلقائيًا ويمكنك طلب رحلة أخرى.',
+    ar_f: 'إذا لم يرد السائق خلال هذا الوقت، يُلغى الطلب تلقائيًا ويمكنكِ طلب رحلة أخرى.',
+    en: "If the driver doesn't answer in time, the request ends on its own and you can ask for another trip.",
+  },
+  carLabel: { ar_m: 'السيارة', en: 'Car' },
+  perSeat: { ar_m: 'للمقعد', en: 'per seat' },
+  plateLabel: { ar_m: 'اللوحة', en: 'Plate' },
+  shareTrip: { ar_m: 'شارك رحلتك مع العائلة', ar_f: 'شاركي رحلتك مع العائلة', en: 'Share your trip with family' },
+  shareMessage: {
+    ar_m: 'رحلتي مع رفيق: {route}، {when}. السائق {driver}، {car}، لوحة {plate}.',
+    en: 'My Rafiq trip: {route}, {when}. Driver {driver}, {car}, plate {plate}.',
+  },
+  detailsAfterAccept: {
+    ar_m: 'رقم السائق ولوحة السيارة يظهران بعد قبول طلبك.',
+    en: "The driver's number and plate appear once your request is accepted.",
+  },
+
   // Home (placeholder until the next slices)
   welcome: { ar_m: 'أهلاً', en: 'Welcome' },
   signOut: { ar_m: 'تسجيل الخروج', en: 'Sign out' },

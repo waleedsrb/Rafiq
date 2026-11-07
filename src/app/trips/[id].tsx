@@ -2,19 +2,23 @@
 
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+import { Share, StyleSheet, View } from 'react-native';
 
-import { ContactCard } from '@/components/contact-card';
-import { TripRow } from '@/components/trip-row';
-import { Body, Button, Label, Screen, Title } from '@/components/ui';
+import { ContactCard, useContact } from '@/components/contact-card';
+import { Icon } from '@/components/icon';
+import { TripHero } from '@/components/trip-hero';
+import { Body, Button, Countdown, IconCircle, ListRow, Screen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/confirm';
-import { formatDay, formatTime } from '@/lib/format';
+import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
+import { shortName } from '@/lib/names';
 import { askForPush } from '@/lib/push';
 import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { fonts } from '@/theme/tokens';
 
 type Trip = {
   id: string;
@@ -37,6 +41,8 @@ export default function TripDetails() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [respondBy, setRespondBy] = useState<string | null>(null);
   const [acceptedAt, setAcceptedAt] = useState<string | null>(null);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -49,7 +55,7 @@ export default function TripDetails() {
         .eq('id', id)
         .single(),
       supabase.rpc('seats_left', { p_trip_id: id }),
-      supabase.from('bookings').select('id, status, respond_by, accepted_at').eq('trip_id', id).eq('passenger_id', session.user.id).maybeSingle(),
+      supabase.from('bookings').select('id, status, respond_by, accepted_at, created_at').eq('trip_id', id).eq('passenger_id', session.user.id).maybeSingle(),
     ]);
     setTrip((tripRes.data as unknown as Trip | null) ?? null);
     setSeatsLeft((seatsRes.data as number | null) ?? null);
@@ -57,11 +63,21 @@ export default function TripDetails() {
     setBookingId(bookingRes.data?.id ?? null);
     setRespondBy(bookingRes.data?.respond_by ?? null);
     setAcceptedAt(bookingRes.data?.accepted_at ?? null);
+    setCreatedAt(bookingRes.data?.created_at ?? null);
   }, [id, session]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Tick once a second while we wait for the driver's answer.
+  useEffect(() => {
+    if (status !== 'requested') return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  const contact = useContact(status === 'accepted' ? bookingId : null);
 
   // When the driver accepts, the status and contact card appear right away.
   useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
@@ -98,7 +114,7 @@ export default function TripDetails() {
     await load();
   }
 
-  if (!trip) return <Screen>{null}</Screen>;
+  if (!trip) return <Screen back>{null}</Screen>;
 
   const departs = new Date(trip.departs_at);
   // "07:30" today, "Sat 8 Nov 07:30" otherwise.
@@ -118,53 +134,104 @@ export default function TripDetails() {
           ? null // inside the 15-minute grace of a late booking
           : t('lateCancelNote');
 
-  const driverFirstName = trip.profiles.full_name.split(' ')[0];
+  const driverName = shortName(trip.profiles.full_name);
   const canRequest =
     status === null && !trip.cancelled_at && (seatsLeft ?? 0) > 0 && trip.driver_id !== session?.user.id;
   const canCancel = (status === 'requested' || status === 'accepted') && departs > new Date();
+  const price = ltr(`${trip.price_ils}₪`);
+
+  async function share() {
+    if (!trip || !contact) return;
+    const message = t('shareMessage')
+      .replace('{route}', `${t(trip.origin)} ${lang === 'ar' ? '←' : '→'} ${t(trip.destination)}`)
+      .replace('{when}', when(trip.departs_at))
+      .replace('{driver}', contact.first_name)
+      .replace('{car}', [contact.car_model, contact.car_color].filter(Boolean).join(' '))
+      .replace('{plate}', contact.plate ?? '');
+    await Share.share({ message }).catch(() => {});
+  }
+
+  // The small line above the big time says where things stand.
+  const label =
+    status === 'accepted' ? (
+      <View style={styles.labelRow}>
+        <Icon name="check" size={14} />
+        <Body small style={{ fontFamily: fonts[lang].medium }}>
+          {t('seatIsConfirmed')}
+        </Body>
+      </View>
+    ) : status === 'requested' ? (
+      <Body muted small>
+        {t('sentRequestTo')} {driverName}
+      </Body>
+    ) : null;
+
+  let countdown = null;
+  if (status === 'requested' && respondBy && createdAt) {
+    const start = new Date(createdAt).getTime();
+    const end = new Date(respondBy).getTime();
+    const left = end - now.getTime();
+    countdown = (
+      <Countdown label={t('waitingForDriver')} remaining={formatCountdown(left)} progress={end > start ? left / (end - start) : 0} />
+    );
+  }
 
   return (
     <Screen
+      back
+      scroll
       footer={
         canRequest ? (
-          <Button label={t('requestSeat')} onPress={request} loading={sending} />
+          <>
+            <Button label={`${t('requestSeat')} · ${price}`} onPress={request} loading={sending} />
+            <Body muted small style={{ textAlign: 'center' }}>
+              {t('detailsAfterAccept')}
+            </Body>
+          </>
         ) : canCancel ? (
-          <Button
-            variant="plain"
-            label={t(status === 'requested' ? 'withdrawRequest' : 'cancelSeat')}
-            onPress={cancel}
-            loading={sending}
-          />
+          <>
+            {status === 'accepted' && contact ? <Button label={t('shareTrip')} icon="shareNetwork" onPress={share} /> : null}
+            <Button
+              variant={status === 'accepted' ? 'plain' : 'secondary'}
+              label={t(status === 'requested' ? 'withdrawRequest' : 'cancelSeat')}
+              onPress={cancel}
+              loading={sending}
+            />
+          </>
         ) : undefined
       }
     >
-      <Title>
-        {t(trip.origin)} {lang === 'ar' ? '←' : '→'} {t(trip.destination)}
-      </Title>
-      <TripRow
-        origin={trip.origin}
-        destination={trip.destination}
-        departsAt={trip.departs_at}
-        priceIls={trip.price_ils}
-        detail={seatsLeft !== null ? (seatsLeft > 0 ? `${seatsLeft} ${t('seatsLeft')}` : t('full')) : undefined}
-      />
-      <Label>{t('driverLabel')}</Label>
-      <Body>{driverFirstName}</Body>
+      <TripHero label={label} departsAt={trip.departs_at} origin={trip.origin} destination={trip.destination} />
 
       {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
-      {status ? <Body>{t(`status_${status}` as StringKey)}</Body> : null}
-      {status === 'requested' && respondBy ? (
-        <Body muted>
-          {t('answerBy')} {when(respondBy)}
-        </Body>
-      ) : null}
-      {cancelNote ? <Body muted>{cancelNote}</Body> : null}
-      {status === 'accepted' && bookingId ? <ContactCard bookingId={bookingId} /> : null}
-      {status === 'requested' ? <Body muted>{t('contactHidden')}</Body> : null}
-      {!status && canRequest ? (
-        <Body muted>{t('requestHint')}</Body>
-      ) : null}
+      {status && !['requested', 'accepted'].includes(status) ? <Body muted>{t(`status_${status}` as StringKey)}</Body> : null}
+
+      {countdown}
+      {status === 'requested' ? <Body muted small>{t('waitExplain')}</Body> : null}
+
+      {status === 'accepted' && contact ? (
+        <ContactCard contact={contact} />
+      ) : (
+        <View>
+          <ListRow
+            leading={<IconCircle letter={driverName.charAt(0)} />}
+            title={driverName}
+            subtitle={t('driverLabel')}
+          />
+          <ListRow
+            last
+            icon="armchair"
+            title={seatsLeft !== null ? (seatsLeft > 0 ? `${ltr(seatsLeft)} ${t('seatsFree')}` : t('full')) : ''}
+            subtitle={`${price} ${t('perSeat')}`}
+          />
+        </View>
+      )}
+      {cancelNote ? <Body muted small>{cancelNote}</Body> : null}
       {error ? <Body error>{error}</Body> : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+});
