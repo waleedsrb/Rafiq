@@ -10,6 +10,7 @@ import { ContactCard } from '@/components/contact-card';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
+import { useBookingChanges } from '@/lib/live';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -51,6 +52,9 @@ export default function TripRequests() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // New requests appear without pulling to refresh.
+  useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
 
   async function decide(bookingId: string, status: 'accepted' | 'declined') {
     setBusy(bookingId);

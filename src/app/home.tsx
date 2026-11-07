@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
+import { useBookingChanges } from '@/lib/live';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -38,32 +39,34 @@ export default function Home() {
   const [hasCar, setHasCar] = useState(false);
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
-  // Reload every time Home comes back into view (e.g. after posting or booking).
-  useFocusEffect(
-    useCallback(() => {
-      if (!session) return;
-      const now = new Date().toISOString();
-      supabase
-        .from('trips')
-        .select('id, origin, destination, departs_at, seats_total, price_ils, bookings(status)')
-        .eq('driver_id', session.user.id)
-        .gte('departs_at', now)
-        .order('departs_at')
-        .then(({ data }) => setTrips((data as DriverTrip[] | null) ?? []));
-      supabase
-        .from('bookings')
-        .select('id, status, trips!inner(id, origin, destination, departs_at, seats_total, price_ils)')
-        .eq('passenger_id', session.user.id)
-        .gte('trips.departs_at', now)
-        .then(({ data }) => setBookings((data as unknown as Booking[] | null) ?? []));
-      supabase
-        .from('driver_details')
-        .select('driver_id')
-        .eq('driver_id', session.user.id)
-        .maybeSingle()
-        .then(({ data }) => setHasCar(!!data));
-    }, [session]),
-  );
+  const load = useCallback(() => {
+    if (!session) return;
+    const now = new Date().toISOString();
+    supabase
+      .from('trips')
+      .select('id, origin, destination, departs_at, seats_total, price_ils, bookings(status)')
+      .eq('driver_id', session.user.id)
+      .gte('departs_at', now)
+      .order('departs_at')
+      .then(({ data }) => setTrips((data as DriverTrip[] | null) ?? []));
+    supabase
+      .from('bookings')
+      .select('id, status, trips!inner(id, origin, destination, departs_at, seats_total, price_ils)')
+      .eq('passenger_id', session.user.id)
+      .gte('trips.departs_at', now)
+      .then(({ data }) => setBookings((data as unknown as Booking[] | null) ?? []));
+    supabase
+      .from('driver_details')
+      .select('driver_id')
+      .eq('driver_id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => setHasCar(!!data));
+}, [session]);
+
+  // Reload every time Home comes back into view (e.g. after posting or booking),
+  // and whenever one of your bookings changes (a new request, an accept).
+  useFocusEffect(load);
+  useBookingChanges(load);
 
   return (
     <Screen

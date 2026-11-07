@@ -16,6 +16,9 @@ grant execute on function auth.uid() to anon, authenticated;
 alter default privileges in schema public grant all on tables to anon, authenticated;
 alter default privileges in schema public grant all on sequences to anon, authenticated;
 
+-- Supabase Realtime broadcasts changes for the tables in this publication.
+create publication supabase_realtime;
+
 -- Stand-in for pg_net: instead of sending HTTP requests, remember them so tests can check.
 create schema net;
 create table net.sent (id bigint generated always as identity, url text, body jsonb);
