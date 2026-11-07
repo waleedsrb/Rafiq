@@ -1,7 +1,7 @@
 // Driver posts a trip: route, day, time, seats, price.
 
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Body, Button, ChipRow, Field, Label, Screen, Stepper, Title } from '@/components/ui';
 import { formatDay } from '@/lib/format';
@@ -22,6 +22,19 @@ export default function NewTrip() {
   const [price, setPrice] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // No car yet? Add it first (the database would refuse the trip anyway).
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from('driver_details')
+      .select('driver_id')
+      .eq('driver_id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) router.replace('/car');
+      });
+  }, [session]);
 
   // Today plus the next 6 days. Drivers post a week ahead at most for now.
   const days = useMemo(() => {

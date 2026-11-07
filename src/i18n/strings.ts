@@ -96,6 +96,27 @@ export const strings = {
   decline: { ar_m: 'رفض', en: 'Decline' },
   noSeatsLeft: { ar_m: 'لا مقاعد متبقية لهذا الطلب', en: 'Not enough seats left for this request' },
 
+  // Your car (driver) and contact after acceptance
+  yourCar: { ar_m: 'سيارتك', en: 'Your car' },
+  carTitle: { ar_m: 'أخبرنا عن سيارتك', ar_f: 'أخبرينا عن سيارتك', en: 'Tell us about your car' },
+  carHint: {
+    ar_m: 'يراها الراكب فقط بعد قبول طلبه، ليجد سيارتك بسهولة.',
+    en: 'Passengers see this only after you accept them, so they can spot your car.',
+  },
+  carModel: { ar_m: 'النوع والموديل', en: 'Make and model' },
+  carModelPlaceholder: { ar_m: 'كيا بيكانتو', en: 'Kia Picanto' },
+  carColor: { ar_m: 'اللون', en: 'Colour' },
+  carColorPlaceholder: { ar_m: 'أبيض', en: 'White' },
+  plate: { ar_m: 'رقم اللوحة', en: 'Plate number' },
+  plateInvalid: { ar_m: 'أدخل رقم اللوحة كما يظهر، مثل 7-1234-95', en: 'Enter the plate as shown, e.g. 7-1234-95' },
+  save: { ar_m: 'حفظ', en: 'Save' },
+  contactTitle: { ar_m: 'للتواصل', en: 'Contact' },
+  call: { ar_m: 'اتصال', en: 'Call' },
+  contactHidden: {
+    ar_m: 'يظهر رقم الهاتف ومعلومات السيارة بعد القبول.',
+    en: 'The phone number and car appear once the request is accepted.',
+  },
+
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
 
