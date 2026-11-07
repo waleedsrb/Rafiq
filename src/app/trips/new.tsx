@@ -1,7 +1,7 @@
 // Driver posts a trip: route, day, time, seats, price.
 
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { RouteCard } from '@/components/route-card';
@@ -28,18 +28,22 @@ export default function NewTrip() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // No car yet? Add it first (the database would refuse the trip anyway).
-  useEffect(() => {
-    if (!session) return;
-    supabase
-      .from('driver_details')
-      .select('driver_id')
-      .eq('driver_id', session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) router.push('/car');
-      });
-  }, [session]);
+  // No car yet? Add it first. Car not checked yet? Send the driver check first.
+  // (The database would refuse the trip anyway: see require_car().)
+  useFocusEffect(
+    useCallback(() => {
+      if (!session) return;
+      supabase
+        .from('driver_details')
+        .select('verified_at')
+        .eq('driver_id', session.user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!data) router.push('/car');
+          else if (!data.verified_at) router.replace({ pathname: '/verify', params: { kind: 'driver' } });
+        });
+    }, [session]),
+  );
 
   // Today plus the next 6 days. Drivers post a week ahead at most for now.
   const days = useMemo(() => {
@@ -72,7 +76,7 @@ export default function NewTrip() {
       price_ils: priceIls,
     });
     setSaving(false);
-    if (err) return setError(t('somethingWrong'));
+    if (err) return setError(err.message.includes('not approved') ? t('driverCheckNeeded') : t('somethingWrong'));
     // Now is when notifications make sense: "tell me when someone asks for a seat".
     await askForPush();
     goBack();

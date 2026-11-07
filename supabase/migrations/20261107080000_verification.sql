@@ -222,6 +222,20 @@ begin
 end;
 $$;
 
+-- Trip details shows "Verified driver". driver_details is private (plates), so this
+-- answers only yes/no for one driver.
+create or replace function public.is_verified_driver(p_driver_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from driver_details where driver_id = p_driver_id and verified_at is not null);
+$$;
+revoke execute on function public.is_verified_driver(uuid) from public, anon;
+grant execute on function public.is_verified_driver(uuid) to authenticated;
+
 -- ─── Private photo storage ──────────────────────────────────────────────────
 insert into storage.buckets (id, name, public)
 values ('verification', 'verification', false)

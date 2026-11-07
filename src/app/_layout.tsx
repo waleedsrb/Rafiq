@@ -72,6 +72,7 @@ function Routes() {
         <Stack.Screen name="trips/mine" options={{ animation: 'none' }} />
         <Stack.Screen name="account" options={{ animation: 'none' }} />
         <Stack.Screen name="car" />
+        <Stack.Screen name="verify" />
         <Stack.Screen name="trips/new" />
         <Stack.Screen name="trips/search" />
         <Stack.Screen name="trips/results" />

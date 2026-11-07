@@ -84,11 +84,6 @@ select pg_temp.expect_error($$select public.review_verification((select id from 
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
 values ('00000000-0000-0000-0000-0000000000c1', auth.uid(), 'ramallah', 'nablus', now() + interval '1 day', 3, 25);
-do $$ begin
-  if not (select driver_verified from public.search_trips('ramallah', 'nablus', now(), now() + interval '2 days') limit 1) is null then
-    null; -- the driver doesn't see their own trip in search; checked below as the passenger
-  end if;
-end $$;
 
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 do $$ begin
@@ -97,6 +92,12 @@ do $$ begin
   end if;
   if not (select driver_verified from public.search_trips('ramallah', 'nablus', now(), now() + interval '2 days') limit 1) then
     raise exception 'FAIL: search should show the driver as verified';
+  end if;
+  if not public.is_verified_driver('00000000-0000-0000-0000-00000000000d') then
+    raise exception 'FAIL: is_verified_driver should say yes';
+  end if;
+  if exists (select 1 from public.driver_details) then
+    raise exception 'FAIL: a passenger must not read driver_details';
   end if;
 end $$;
 select pg_temp.expect_error($$insert into public.bookings (trip_id, passenger_id)

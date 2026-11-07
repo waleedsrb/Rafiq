@@ -9,11 +9,15 @@ import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+import { useCheckStatus } from '@/lib/verification';
+import type { StringKey } from '@/i18n/strings';
 
 export default function Account() {
   const { t, lang } = useT();
   const { profile, session, refreshProfile } = useSession();
   const [car, setCar] = useState<{ car_model: string; car_color: string } | null>(null);
+  const idCheck = useCheckStatus(session?.user.id, 'passenger').status;
+  const driverCheck = useCheckStatus(session?.user.id, 'driver').status;
 
   useFocusEffect(
     useCallback(() => {
@@ -47,6 +51,12 @@ export default function Account() {
 
       <View>
         <ListRow icon="globe" title={t('languageRow')} subtitle={t('languageName')} onPress={switchLanguage} />
+        <ListRow
+          icon="identificationCard"
+          title={t('idCheckRow')}
+          subtitle={idCheck ? t(`checkState_${idCheck.state}` as StringKey) : undefined}
+          onPress={() => router.push({ pathname: '/verify', params: { kind: 'passenger' } })}
+        />
         <SectionTitle>{t('forDrivers')}</SectionTitle>
         <ListRow
           icon="carProfile"
@@ -54,6 +64,14 @@ export default function Account() {
           subtitle={car ? `${car.car_model} · ${car.car_color}` : undefined}
           onPress={() => router.push('/car')}
         />
+        {car ? (
+          <ListRow
+            icon="sealCheck"
+            title={t('driverCheckRow')}
+            subtitle={driverCheck ? t(`checkState_${driverCheck.state}` as StringKey) : undefined}
+            onPress={() => router.push({ pathname: '/verify', params: { kind: 'driver' } })}
+          />
+        ) : null}
         <ListRow
           last
           icon="signOut"

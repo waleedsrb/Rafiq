@@ -290,6 +290,62 @@ export const strings = {
   },
   tripCancelled: { ar_m: 'أُلغيت هذه الرحلة', en: 'This trip was cancelled' },
 
+  // ID checks (slice 5)
+  verifyPassengerTitle: { ar_m: 'وثّق هويتك', ar_f: 'وثّقي هويتك', en: 'Verify your ID' },
+  verifyPassengerBody: {
+    ar_m: 'قبل حجزك الأول، أضف صورة واضحة لبطاقة هويتك. هكذا يعرف السائق من يركب معه.',
+    ar_f: 'قبل حجزك الأول، أضيفي صورة واضحة لبطاقة هويتك. هكذا يعرف السائق من يركب معه.',
+    en: 'Before your first booking, add a clear photo of your ID card. That way drivers know who rides with them.',
+  },
+  verifyDriverTitle: { ar_m: 'فحص السائق', en: 'Driver check' },
+  verifyDriverBody: {
+    ar_m: 'قبل رحلتك الأولى، أضف صور هويتك ورخصة القيادة وسيارتك واللوحة ظاهرة. نراجع كل سائق بأنفسنا.',
+    ar_f: 'قبل رحلتك الأولى، أضيفي صور هويتك ورخصة القيادة وسيارتك واللوحة ظاهرة. نراجع كل سائق بأنفسنا.',
+    en: 'Before your first trip, add photos of your ID, driving licence and your car with the plate showing. We check every driver ourselves.',
+  },
+  slot_id: { ar_m: 'بطاقة الهوية', en: 'ID card' },
+  slot_licence: { ar_m: 'رخصة القيادة', en: 'Driving licence' },
+  slot_car: { ar_m: 'السيارة واللوحة ظاهرة', en: 'Car, with the plate showing' },
+  addPhoto: { ar_m: 'أضف صورة', ar_f: 'أضيفي صورة', en: 'Add photo' },
+  changePhoto: { ar_m: 'تغيير', en: 'Change' },
+  takePhoto: { ar_m: 'التقط صورة', ar_f: 'التقطي صورة', en: 'Take a photo' },
+  choosePhoto: { ar_m: 'اختر من الصور', ar_f: 'اختاري من الصور', en: 'Choose from photos' },
+  cancel: { ar_m: 'إلغاء', en: 'Cancel' },
+  photoPermission: {
+    ar_m: 'اسمح لرفيق بالوصول إلى الصور أو الكاميرا من الإعدادات.',
+    ar_f: 'اسمحي لرفيق بالوصول إلى الصور أو الكاميرا من الإعدادات.',
+    en: 'Allow Rafiq to use your photos or camera in Settings.',
+  },
+  sendForReview: { ar_m: 'أرسل للمراجعة', ar_f: 'أرسلي للمراجعة', en: 'Send for review' },
+  photosPrivate: {
+    ar_m: 'صورك خاصة، لا يراها إلا فريق المراجعة في رفيق.',
+    en: 'Your photos are private. Only the Rafiq review team sees them.',
+  },
+  needCarFirst: {
+    ar_m: 'أضف سيارتك أولاً، ثم أرسل الصور.',
+    ar_f: 'أضيفي سيارتك أولاً، ثم أرسلي الصور.',
+    en: 'Add your car first, then send the photos.',
+  },
+  checkPendingTitle: { ar_m: 'نراجع طلبك', en: "We're checking" },
+  checkPendingBody: { ar_m: 'نرد عادةً خلال يوم واحد، وسنخبرك.', en: "We usually answer within a day. We'll let you know." },
+  checkApprovedTitle: { ar_m: 'تم التوثيق', en: "You're verified" },
+  checkApprovedPassenger: { ar_m: 'يمكنك حجز المقاعد الآن.', en: 'You can book seats now.' },
+  checkApprovedDriver: { ar_m: 'يمكنك نشر الرحلات الآن.', en: 'You can post trips now.' },
+  checkRejectedTitle: { ar_m: 'نحتاج صورًا جديدة', en: 'We need new photos' },
+  done: { ar_m: 'تم', en: 'Done' },
+  idCheckRow: { ar_m: 'توثيق الهوية', en: 'ID check' },
+  driverCheckRow: { ar_m: 'فحص السائق', en: 'Driver check' },
+  checkState_none: { ar_m: 'لم يتم بعد', en: 'Not yet' },
+  checkState_pending: { ar_m: 'قيد المراجعة', en: 'Under review' },
+  checkState_rejected: { ar_m: 'نحتاج صورًا جديدة', en: 'Needs new photos' },
+  checkState_approved: { ar_m: 'موثّق', en: 'Verified' },
+  verifiedDriver: { ar_m: 'سائق موثّق', en: 'Verified driver' },
+  driverCheckNeeded: {
+    ar_m: 'لم تتم الموافقة على فحص السائق بعد.',
+    en: 'Your driver check is not approved yet.',
+  },
+
+
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
 
