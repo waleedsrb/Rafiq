@@ -1,5 +1,7 @@
 -- Checks slice 5: verification requests, admin review, and "verified before booking or driving".
 begin;
+-- Slice 6: these tests create bookings directly, as if each had gone through request_seat().
+select set_config('rafiq.paying', 'on', false);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claim.sub', coalesce(uid::text, ''), true);

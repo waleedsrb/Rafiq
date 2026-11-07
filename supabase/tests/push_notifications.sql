@@ -1,5 +1,7 @@
 -- Checks slice 3b: the right person gets the right message, in their language.
 begin;
+-- Slice 6: these tests create bookings directly, as if each had gone through request_seat().
+select set_config('rafiq.paying', 'on', false);
 
 insert into auth.users (id, phone) values
   ('00000000-0000-0000-0000-00000000000d', '970591111111'),

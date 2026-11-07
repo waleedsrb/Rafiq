@@ -1,5 +1,7 @@
 -- Checks search_trips(): right route, future only, seats left, never your own trips.
 begin;
+-- Slice 6: these tests create bookings directly, as if each had gone through request_seat().
+select set_config('rafiq.paying', 'on', false);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000d'),

@@ -1,6 +1,6 @@
 // Trip details for a passenger, with "Request a seat" or the status of their request.
 
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 
@@ -13,12 +13,13 @@ import { confirm } from '@/lib/confirm';
 import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
-import { askForPush } from '@/lib/push';
 import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { colors, fonts } from '@/theme/tokens';
+
+type Payment = { status: 'held' | 'charged' | 'released' | 'refunded'; total_ils: number; card_brand: string; card_last4: string };
 
 type Trip = {
   id: string;
@@ -38,6 +39,7 @@ export default function TripDetails() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
   const [driverVerified, setDriverVerified] = useState(false);
+  const [payment, setPayment] = useState<Payment | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [respondBy, setRespondBy] = useState<string | null>(null);
@@ -67,11 +69,23 @@ export default function TripDetails() {
     setRespondBy(bookingRes.data?.respond_by ?? null);
     setAcceptedAt(bookingRes.data?.accepted_at ?? null);
     setCreatedAt(bookingRes.data?.created_at ?? null);
+    const bid = bookingRes.data?.id;
+    if (bid) {
+      const { data: pay } = await supabase
+        .from('payments')
+        .select('status, total_ils, card_brand, card_last4')
+        .eq('booking_id', bid)
+        .maybeSingle();
+      setPayment((pay as Payment | null) ?? null);
+    } else setPayment(null);
   }, [id, session]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Reload whenever the screen comes back into view (e.g. after paying on checkout).
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   // Tick once a second while we wait for the driver's answer.
   useEffect(() => {
@@ -92,15 +106,8 @@ export default function TripDetails() {
       router.push({ pathname: '/verify', params: { kind: 'passenger' } });
       return;
     }
-    setSending(true);
-    setError(null);
-    // The database sets status = 'requested' and logs the event (see guard_booking).
-    const { error: err } = await supabase.from('bookings').insert({ trip_id: trip.id, passenger_id: session.user.id });
-    setSending(false);
-    if (err) return setError(t('somethingWrong'));
-    // Now is when notifications make sense: "tell me when the driver answers".
-    await askForPush();
-    await load();
+    // Paying (a hold on the card) and requesting happen together on the checkout screen.
+    router.push({ pathname: '/trips/checkout/[id]', params: { id: trip.id } });
   }
 
   // Withdraw a request, or cancel an accepted seat (warning first if it's late).
@@ -234,6 +241,14 @@ export default function TripDetails() {
           />
         </View>
       )}
+      {payment ? (
+        <ListRow
+          last
+          icon="wallet"
+          title={`${t('paymentLabel')} · ${ltr(`${Number(payment.total_ils)}₪`)}`}
+          subtitle={`${t(`payment_${payment.status}` as StringKey)} · ${ltr(`•••• ${payment.card_last4}`)}`}
+        />
+      ) : null}
       {cancelNote ? <Body muted small>{cancelNote}</Body> : null}
       {error ? <Body error>{error}</Body> : null}
     </Screen>
