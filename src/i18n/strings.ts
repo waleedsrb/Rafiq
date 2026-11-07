@@ -404,6 +404,48 @@ export const strings = {
     en: 'You reported this checkpoint a moment ago. Try again in a few minutes.',
   },
 
+  // ─── Safety: women-only trips and late cancels (slice 12) ──────────────────
+  womenOnly: { ar_m: 'للنساء فقط', en: 'Women only' },
+  womenOnlyHint: {
+    ar_m: 'لا يراها ولا يطلبها إلا الراكبات الموثّقات',
+    en: 'Only verified women can see and book it',
+  },
+  postingPausedUntil: {
+    ar_m: 'نشر الرحلات متوقف حتى',
+    ar_f: 'نشر الرحلات متوقف حتى',
+    en: 'Posting trips is paused until',
+  },
+  postingPausedWhy: {
+    ar_m: 'بسبب 3 إلغاءات متأخرة خلال 30 يومًا. الركاب يعتمدون على رحلاتك.',
+    en: 'because of 3 late cancels in 30 days. Passengers plan their day around your trips.',
+  },
+  driverLateCancelTitle: { ar_m: 'هذا إلغاء متأخر', en: 'This is a late cancel' },
+  driverLateCancelBody: {
+    ar_m: 'باقي أقل من 12 ساعة على الانطلاق وهناك ركاب حجزوا معك. 3 إلغاءات متأخرة خلال 30 يومًا توقف نشر الرحلات لأسبوع. إلغاءاتك المتأخرة حتى الآن:',
+    en: 'Departure is less than 12 hours away and passengers are booked with you. 3 late cancels in 30 days pause posting for a week. Your late cancels so far:',
+  },
+  closedCheckpointTitle: { ar_m: 'هل تلغي بسبب حاجز مغلق؟', ar_f: 'هل تلغين بسبب حاجز مغلق؟', en: 'Cancelling because of a closed checkpoint?' },
+  closedCheckpointBody: {
+    ar_m: 'مُبلَّغ الآن أن هذا الحاجز مغلق:',
+    en: 'This checkpoint is reported closed right now:',
+  },
+  closedCheckpointNote: {
+    ar_m: 'الإلغاء بسبب إغلاق مُبلَّغ عنه لا يُحسب إلغاءً متأخرًا.',
+    en: "A cancel because of a reported closure doesn't count as late.",
+  },
+  yesClosed: { ar_m: 'نعم، الحاجز مغلق', en: "Yes, it's closed" },
+  otherReason: { ar_m: 'سبب آخر', en: 'Another reason' },
+  womenOnlyTrip: { ar_m: 'هذه الرحلة للنساء فقط', en: 'This trip is for women only' },
+
+  // ─── Cash pilot ───────────────────────────────────────────────────────────
+  cashTitle: { ar_m: 'اطلب مقعدك', ar_f: 'اطلبي مقعدك', en: 'Request your seat' },
+  cashLine: { ar_m: 'الدفع نقدًا للسائق', en: 'Paid in cash to the driver' },
+  cashHint: {
+    ar_m: 'لا حاجة لبطاقة. ادفع الأجرة للسائق نقدًا عند الركوب. لا رسوم خدمة خلال التجربة.',
+    ar_f: 'لا حاجة لبطاقة. ادفعي الأجرة للسائق نقدًا عند الركوب. لا رسوم خدمة خلال التجربة.',
+    en: 'No card needed. Pay the driver in cash when you get in. No service fee during the pilot.',
+  },
+
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
 

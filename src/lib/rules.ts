@@ -25,3 +25,22 @@ export function freeCancel(now: Date, departsAt: Date, acceptedAt: Date | null):
   if (now.getTime() <= departsAt.getTime() - 12 * HOUR) return true;
   return acceptedAt !== null && now.getTime() <= acceptedAt.getTime() + 15 * MIN;
 }
+
+/** Late cancels by drivers (same numbers as late_cancels() / posting_paused_until()). */
+export const LATE_CANCEL = {
+  /** A cancel counts as late inside this many hours before departure... */
+  windowHours: 12,
+  /** ...and this many of them in `periodDays` pause posting for `pauseDays`. */
+  limit: 3,
+  periodDays: 30,
+  pauseDays: 7,
+} as const;
+
+/**
+ * Would cancelling this trip right now be a late cancel?
+ * Only when someone is counting on a seat and departure is less than 12h away.
+ * (A reported closed checkpoint excuses it; the database checks that part.)
+ */
+export function isLateTripCancel(now: Date, departsAt: Date, bookedSeats: number): boolean {
+  return bookedSeats > 0 && now.getTime() > departsAt.getTime() - LATE_CANCEL.windowHours * HOUR;
+}

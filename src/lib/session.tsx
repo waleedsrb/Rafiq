@@ -17,6 +17,8 @@ export type Profile = {
   language: Language;
   /** Set by an admin after the ID check (slice 5). Needed before booking. */
   id_verified_at: string | null;
+  /** Set when an admin confirmed gender from the ID (slice 12). Women-only trips need it. */
+  gender_verified_at: string | null;
 };
 
 type SessionState = {
@@ -44,7 +46,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, gender, language, id_verified_at')
+      .select('id, full_name, gender, language, id_verified_at, gender_verified_at')
       .eq('id', userId)
       .maybeSingle();
     setProfile((data as Profile | null) ?? null);
@@ -79,6 +81,11 @@ export function useSession(): SessionState {
   const value = useContext(SessionContext);
   if (!value) throw new Error('useSession must be used inside <SessionProvider>');
   return value;
+}
+
+/** A woman whose gender an admin confirmed from her ID: may use women-only trips. */
+export function isVerifiedWoman(profile: Profile | null): boolean {
+  return !!profile && profile.gender === 'f' && !!profile.gender_verified_at && !!profile.id_verified_at;
 }
 
 /** Language + gender-aware translator for the current person. */

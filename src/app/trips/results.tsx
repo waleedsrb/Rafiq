@@ -9,7 +9,7 @@ import { RouteCard } from '@/components/route-card';
 import { Icon } from '@/components/icon';
 import { Body, Chip, IconCircle, ListRow, Screen, ltr, useFont } from '@/components/ui';
 import { dayPart, formatLongDay, shortTime, type DayPart } from '@/lib/format';
-import { useT } from '@/lib/session';
+import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { colors, fonts, space } from '@/theme/tokens';
@@ -24,6 +24,8 @@ type Result = {
   driver_last_initial: string;
   car_model: string | null;
   driver_verified: boolean;
+  /** Only verified women get these from search_trips(). */
+  women_only: boolean;
 };
 
 const PARTS: DayPart[] = ['morning', 'afternoon', 'evening'];
@@ -32,6 +34,8 @@ const partLabel = { morning: 'partMorning', afternoon: 'partAfternoon', evening:
 export default function Results() {
   const { t, lang } = useT();
   const { f, rtl } = useFont();
+  const { profile } = useSession();
+  const [womenOnly, setWomenOnly] = useState(false);
   const params = useLocalSearchParams<{ origin: City; destination: City; day: string; part?: DayPart }>();
   const origin: City = params.origin === 'nablus' ? 'nablus' : 'ramallah';
   const destination: City = origin === 'ramallah' ? 'nablus' : 'ramallah';
@@ -60,7 +64,9 @@ export default function Results() {
     };
   }, [origin, destination, fromIso]);
 
-  const shown = (results ?? []).filter((r) => !part || dayPart(new Date(r.departs_at)) === part);
+  const shown = (results ?? []).filter(
+    (r) => (!part || dayPart(new Date(r.departs_at)) === part) && (!womenOnly || r.women_only),
+  );
 
   return (
     <Screen back scroll>
@@ -70,6 +76,9 @@ export default function Results() {
         {PARTS.map((p) => (
           <Chip key={p} label={t(partLabel[p])} selected={part === p} onPress={() => setPart(part === p ? null : p)} />
         ))}
+        {isVerifiedWoman(profile) ? (
+          <Chip icon="shieldCheck" label={t('womenOnly')} selected={womenOnly} onPress={() => setWomenOnly(!womenOnly)} />
+        ) : null}
       </View>
 
       {results ? (
@@ -83,7 +92,9 @@ export default function Results() {
         {shown.map((r, i) => {
           const name = r.driver_last_initial ? `${r.driver_first_name} ${r.driver_last_initial}.` : r.driver_first_name;
           const seats = r.seats_left > 0 ? `${ltr(r.seats_left)} ${t('seatsFree')}` : t('full');
-          const meta = [r.car_model, seats, ltr(`${r.price_ils}₪`)].filter(Boolean).join(' · ');
+          const meta = [r.women_only ? t('womenOnly') : null, r.car_model, seats, ltr(`${r.price_ils}₪`)]
+            .filter(Boolean)
+            .join(' · ');
           return (
             <ListRow
               key={r.id}

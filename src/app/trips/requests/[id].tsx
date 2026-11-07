@@ -15,6 +15,7 @@ import { confirm } from '@/lib/confirm';
 import { formatCountdown } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
+import { isLateTripCancel } from '@/lib/rules';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -39,7 +40,7 @@ type Request = {
 
 export default function TripRequests() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [requests, setRequests] = useState<Request[]>([]);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
@@ -96,13 +97,45 @@ export default function TripRequests() {
     await load();
   }
 
+  // Cancelling close to departure with passengers booked is a late cancel (3 in 30 days
+  // pause posting for a week). A checkpoint reported closed right now is a fair excuse.
   async function cancelTrip() {
     if (!trip) return;
-    const ok = await confirm(t('cancelTripTitle'), t('cancelTripBody'), t('yesCancel'), t('keep'));
-    if (!ok) return;
+    const bookedSeats = requests.filter((r) => r.status === 'accepted').reduce((n, r) => n + r.seats, 0);
+    let reason: 'checkpoint_closed' | null = null;
+    if (isLateTripCancel(new Date(), new Date(trip.departs_at), bookedSeats)) {
+      const { data: overview } = await supabase.rpc('checkpoint_overview');
+      const closed = ((overview as { name_ar: string; name_en: string; status: string | null }[] | null) ?? []).filter(
+        (c) => c.status === 'closed',
+      );
+      if (closed.length > 0) {
+        const names = closed.map((c) => (lang === 'ar' ? c.name_ar : c.name_en)).join('، ');
+        const excused = await confirm(
+          t('closedCheckpointTitle'),
+          `${t('closedCheckpointBody')} ${names}\n\n${t('closedCheckpointNote')}`,
+          t('yesClosed'),
+          t('otherReason'),
+        );
+        if (excused) reason = 'checkpoint_closed';
+      }
+      if (!reason) {
+        const { data: record } = await supabase.rpc('my_driving_record');
+        const count = (record as { late_cancels_30d: number }[] | null)?.[0]?.late_cancels_30d ?? 0;
+        const ok = await confirm(
+          t('driverLateCancelTitle'),
+          `${t('driverLateCancelBody')} ${ltr(count)}`,
+          t('yesCancel'),
+          t('keep'),
+        );
+        if (!ok) return;
+      }
+    } else {
+      const ok = await confirm(t('cancelTripTitle'), t('cancelTripBody'), t('yesCancel'), t('keep'));
+      if (!ok) return;
+    }
     setBusy('trip');
     setError(null);
-    const { error: err } = await supabase.rpc('cancel_trip', { p_trip_id: trip.id });
+    const { error: err } = await supabase.rpc('cancel_trip', { p_trip_id: trip.id, p_reason: reason });
     setBusy(null);
     if (err) setError(t('somethingWrong'));
     await load();
