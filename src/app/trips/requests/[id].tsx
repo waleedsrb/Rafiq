@@ -4,19 +4,21 @@
 
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { BookingContact } from '@/components/contact-card';
-import { TripRow } from '@/components/trip-row';
-import { Body, Button, Label, Screen, Title } from '@/components/ui';
+import { SeatDots } from '@/components/seat-dots';
+import { TripHero } from '@/components/trip-hero';
+import { Body, Button, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/confirm';
-import { formatDay, formatTime } from '@/lib/format';
+import { formatCountdown } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
+import { shortName } from '@/lib/names';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors, fonts, space } from '@/theme/tokens';
+import { colors, space } from '@/theme/tokens';
 
 type Trip = {
   id: string;
@@ -31,17 +33,19 @@ type Request = {
   status: string;
   seats: number;
   respond_by: string | null;
+  created_at: string;
   profiles: { full_name: string }; // the passenger
 };
 
 export default function TripRequests() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, lang } = useT();
+  const { t } = useT();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [requests, setRequests] = useState<Request[]>([]);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null); // booking id being updated
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -49,7 +53,7 @@ export default function TripRequests() {
       supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at').eq('id', id).single(),
       supabase
         .from('bookings')
-        .select('id, status, seats, respond_by, profiles!bookings_passenger_id_fkey(full_name)')
+        .select('id, status, seats, respond_by, created_at, profiles!bookings_passenger_id_fkey(full_name)')
         .eq('trip_id', id)
         .order('created_at'),
       supabase.rpc('seats_left', { p_trip_id: id }),
@@ -62,6 +66,14 @@ export default function TripRequests() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Tick once a second while someone is waiting for your answer.
+  const waiting = requests.some((r) => r.status === 'requested');
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [waiting]);
 
   // New requests appear without pulling to refresh.
   useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
@@ -96,17 +108,15 @@ export default function TripRequests() {
     await load();
   }
 
-  if (!trip) return <Screen>{null}</Screen>;
-  const f = fonts[lang];
-  const when = (iso: string) => {
-    const d = new Date(iso);
-    const time = formatTime(d, lang);
-    return d.toDateString() === new Date().toDateString() ? time : `${formatDay(d, lang)} ${time}`;
-  };
+  if (!trip) return <Screen back>{null}</Screen>;
   const canCancelTrip = !trip.cancelled_at && new Date(trip.departs_at) > new Date();
+  const booked = requests.filter((r) => r.status === 'accepted').reduce((n, r) => n + r.seats, 0);
+  const pending = requests.filter((r) => r.status === 'requested').reduce((n, r) => n + r.seats, 0);
+  const total = seatsLeft !== null ? seatsLeft + booked : booked;
 
   return (
     <Screen
+      back
       scroll
       footer={
         canCancelTrip ? (
@@ -114,71 +124,83 @@ export default function TripRequests() {
         ) : undefined
       }
     >
-      <Title>{t('requestsTitle')}</Title>
-      {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
-      <TripRow
+      <TripHero
+        label={<Body muted small>{t('requestsTitle')}</Body>}
+        departsAt={trip.departs_at}
         origin={trip.origin}
         destination={trip.destination}
-        departsAt={trip.departs_at}
-        priceIls={trip.price_ils}
-        detail={seatsLeft !== null ? `${seatsLeft} ${t('seatsLeft')}` : undefined}
       />
+      {total > 0 ? <SeatDots total={total} booked={booked} pending={Math.min(pending, total - booked)} /> : null}
+      {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
 
-      <Label>{t('requestsTitle')}</Label>
+      <SectionTitle>{t('passengers')}</SectionTitle>
       {requests.length === 0 ? <Body muted>{t('noRequests')}</Body> : null}
-      {requests.map((r) => (
-        <View key={r.id} style={styles.request}>
-          <View style={styles.who}>
-            <Text style={[styles.name, { fontFamily: f.medium }]}>{r.profiles.full_name.split(' ')[0]}</Text>
-            <Text
-              style={[
-                styles.status,
-                { fontFamily: f.regular },
-                r.status === 'requested' && { color: colors.clay },
-              ]}
-            >
-              {t(`status_${r.status}` as StringKey)}
-              {r.status === 'requested' && r.respond_by ? ` · ${t('answerByDriver')} ${when(r.respond_by)}` : ''}
-            </Text>
+      {requests.map((r) => {
+        const name = shortName(r.profiles.full_name);
+        const seats = `${ltr(r.seats)} ${t('seatOne')}`;
+        const statusText = r.status === 'requested' ? seats : `${seats} · ${t(`status_${r.status}` as StringKey)}`;
+        return (
+          <View key={r.id} style={styles.request}>
+            {r.status === 'accepted' ? (
+              <BookingContact bookingId={r.id} />
+            ) : (
+              <ListRow last leading={<IconCircle letter={name.charAt(0)} />} title={name} subtitle={statusText} />
+            )}
+            {r.status === 'requested' ? (
+              <>
+                {r.respond_by ? (
+                  <Countdown
+                    label={t('answerWithin')}
+                    remaining={formatCountdown(new Date(r.respond_by).getTime() - now.getTime())}
+                    progress={progressOf(r, now)}
+                  />
+                ) : null}
+                <View style={styles.actions}>
+                  <View style={styles.action}>
+                    <Button
+                      variant="secondary"
+                      label={t('declineSorry')}
+                      onPress={() => decide(r.id, 'declined')}
+                      disabled={busy !== null}
+                    />
+                  </View>
+                  <View style={styles.action}>
+                    <Button
+                      label={t('acceptRequest')}
+                      onPress={() => decide(r.id, 'accepted')}
+                      loading={busy === r.id}
+                      disabled={busy !== null && busy !== r.id}
+                    />
+                  </View>
+                </View>
+                <Body muted small>
+                  {t('unanswered')}
+                </Body>
+              </>
+            ) : null}
           </View>
-          {r.status === 'accepted' ? <BookingContact bookingId={r.id} /> : null}
-          {r.status === 'requested' ? (
-            <View style={styles.actions}>
-              <View style={styles.action}>
-                <Button
-                  variant="plain"
-                  label={t('decline')}
-                  onPress={() => decide(r.id, 'declined')}
-                  disabled={busy !== null}
-                />
-              </View>
-              <View style={styles.action}>
-                <Button
-                  label={t('accept')}
-                  onPress={() => decide(r.id, 'accepted')}
-                  loading={busy === r.id}
-                  disabled={busy !== null && busy !== r.id}
-                />
-              </View>
-            </View>
-          ) : null}
-        </View>
-      ))}
+        );
+      })}
       {error ? <Body error>{error}</Body> : null}
     </Screen>
   );
 }
 
+/** How much of the answer window is left, from 1 (just asked) to 0 (expired). */
+function progressOf(r: Request, now: Date) {
+  if (!r.respond_by) return 0;
+  const start = new Date(r.created_at).getTime();
+  const end = new Date(r.respond_by).getTime();
+  return end > start ? (end - now.getTime()) / (end - start) : 0;
+}
+
 const styles = StyleSheet.create({
   request: {
-    paddingVertical: space.md,
+    paddingBottom: space.md,
     gap: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth * 2,
+    borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  who: { gap: 2 },
-  name: { fontSize: 17, color: colors.ink },
-  status: { fontSize: 14, color: colors.inkSecondary },
   actions: { flexDirection: 'row', gap: space.sm },
   action: { flex: 1 },
 });

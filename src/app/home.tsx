@@ -6,7 +6,22 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { Body, Countdown, Dock, GlassButton, ListRow, QuickAction, Screen, TopBar, useFont } from '@/components/ui';
+import { SeatDots } from '@/components/seat-dots';
+import { TripHero } from '@/components/trip-hero';
+import {
+  Body,
+  Countdown,
+  Dock,
+  GlassButton,
+  IconCircle,
+  ListRow,
+  QuickAction,
+  Screen,
+  SectionTitle,
+  TopBar,
+  ltr,
+  useFont,
+} from '@/components/ui';
 import { clock, formatCountdown, formatLongDay } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
@@ -29,12 +44,30 @@ type NextBooking = {
   };
 };
 
+type DriveBooking = {
+  id: string;
+  status: string;
+  seats: number;
+  created_at: string;
+  respond_by: string | null;
+  passenger: { full_name: string } | null;
+};
+type NextDrive = {
+  id: string;
+  origin: City;
+  destination: City;
+  departs_at: string;
+  seats_total: number;
+  bookings: DriveBooking[];
+};
+
 export default function Home() {
   const { t, lang } = useT();
   const { f, rtl } = useFont();
   const { profile, session } = useSession();
   const [next, setNext] = useState<NextBooking | null>(null);
   const [waiting, setWaiting] = useState<{ count: number; tripId: string } | null>(null);
+  const [drive, setDrive] = useState<NextDrive | null>(null);
   const [now, setNow] = useState(() => new Date());
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
@@ -57,13 +90,16 @@ export default function Home() {
     // As a driver: seat requests you still need to answer.
     supabase
       .from('trips')
-      .select('id, departs_at, bookings(status)')
+      .select(
+        'id, origin, destination, departs_at, seats_total, bookings(id, status, seats, created_at, respond_by, passenger:profiles!bookings_passenger_id_fkey(full_name))',
+      )
       .eq('driver_id', session.user.id)
       .is('cancelled_at', null)
       .gte('departs_at', nowIso)
       .order('departs_at')
       .then(({ data }) => {
-        const trips = (data as { id: string; bookings: { status: string }[] }[] | null) ?? [];
+        const trips = (data as unknown as NextDrive[] | null) ?? [];
+        setDrive(trips[0] ?? null);
         let count = 0;
         let tripId = '';
         for (const trip of trips) {
@@ -80,7 +116,9 @@ export default function Home() {
   useBookingChanges(load);
 
   // Tick once a second while a countdown is on screen.
-  const counting = next?.status === 'requested' && !!next.respond_by;
+  // Show whichever comes first: the seat you booked or the trip you drive.
+  const showDrive = !!drive && (!next || drive.departs_at < next.trips.departs_at);
+  const counting = showDrive ? !!waiting : next?.status === 'requested' && !!next.respond_by;
   useEffect(() => {
     if (!counting) return;
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -103,7 +141,9 @@ export default function Home() {
       }
       overlay={<Dock current="home" tripsDot={!!waiting} />}
     >
-      {next ? (
+      {showDrive && drive ? (
+        <NextDriveHero trip={drive} now={now} />
+      ) : next ? (
         <NextTrip booking={next} now={now} />
       ) : (
         <View style={{ gap: space.xs }}>
@@ -133,7 +173,7 @@ export default function Home() {
         </View>
       </Pressable>
 
-      {waiting ? (
+      {waiting && !showDrive ? (
         <ListRow
           last
           icon="bell"
@@ -146,7 +186,73 @@ export default function Home() {
           onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: waiting.tripId } })}
         />
       ) : null}
+
+      {showDrive && drive ? <Passengers trip={drive} /> : null}
     </Screen>
+  );
+}
+
+/** Your next trip as a driver: time, route, seats, and the newest request waiting for you. */
+function NextDriveHero({ trip, now }: { trip: NextDrive; now: Date }) {
+  const { t } = useT();
+  const accepted = trip.bookings.filter((b) => b.status === 'accepted');
+  const pending = trip.bookings
+    .filter((b) => b.status === 'requested' && b.respond_by)
+    .sort((a, b) => a.respond_by!.localeCompare(b.respond_by!));
+  const booked = accepted.reduce((n, b) => n + b.seats, 0);
+  const asked = pending.reduce((n, b) => n + b.seats, 0);
+  const first = pending[0];
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
+      style={({ pressed }) => [{ gap: space.sm }, pressed && { opacity: 0.7 }]}
+    >
+      <TripHero
+        label={<Body muted small>{t('yourNextDrive')}</Body>}
+        departsAt={trip.departs_at}
+        origin={trip.origin}
+        destination={trip.destination}
+      />
+      <SeatDots total={trip.seats_total} booked={booked} pending={Math.min(asked, trip.seats_total - booked)} />
+      {first ? (
+        <Countdown
+          label={`${t('newRequestFrom')} ${first.passenger ? shortName(first.passenger.full_name) : ''} · ${t('answerWithin')}`}
+          remaining={formatCountdown(new Date(first.respond_by!).getTime() - now.getTime())}
+          progress={(() => {
+            const start = new Date(first.created_at).getTime();
+            const end = new Date(first.respond_by!).getTime();
+            return end > start ? (end - now.getTime()) / (end - start) : 0;
+          })()}
+        />
+      ) : null}
+          </Pressable>
+  );
+}
+
+/** Who rides with you on your next trip. */
+function Passengers({ trip }: { trip: NextDrive }) {
+  const { t } = useT();
+  const riders = trip.bookings.filter((b) => b.status === 'accepted' && b.passenger);
+  if (riders.length === 0) return null;
+  return (
+    <View>
+      <SectionTitle>{t('passengers')}</SectionTitle>
+      {riders.map((b, i) => {
+        const name = shortName(b.passenger!.full_name);
+        return (
+          <ListRow
+            key={b.id}
+            last={i === riders.length - 1}
+            leading={<IconCircle letter={name.charAt(0)} />}
+            title={name}
+            subtitle={`${ltr(b.seats)} ${t('seatOne')}`}
+            onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
+          />
+        );
+      })}
+    </View>
   );
 }
 
