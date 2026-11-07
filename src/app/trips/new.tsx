@@ -1,17 +1,18 @@
-// Driver posts a trip: route, day, time, seats, price.
+// Driver posts a trip: route, day (or weekly days), time, seats, price.
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { RouteCard } from '@/components/route-card';
-import { Body, Button, ChipRow, Field, Label, ListRow, Screen, Stepper, Title, ltr } from '@/components/ui';
+import { Body, Button, Chip, ChipRow, Choice, Field, Label, ListRow, Screen, Stepper, Title, ltr } from '@/components/ui';
 import { formatChipDay } from '@/lib/format';
 import { useSession, useT } from '@/lib/session';
 import { goBack } from '@/lib/nav';
 import { askForPush } from '@/lib/push';
+import { WEEK, WORK_WEEK, toDbTime, toggleDay, weekdayName } from '@/lib/recurring';
 import { supabase } from '@/lib/supabase';
-import { SEATS_MAX, SEATS_MIN, SUGGESTED_PRICE, departureFrom, parsePrice, type City } from '@/lib/trip-form';
+import { SEATS_MAX, SEATS_MIN, SUGGESTED_PRICE, departureFrom, parsePrice, parseTime, type City } from '@/lib/trip-form';
 import { colors, fonts, space } from '@/theme/tokens';
 
 type Route = `${City}>${City}`;
@@ -22,6 +23,8 @@ export default function NewTrip() {
 
   const [route, setRoute] = useState<Route>('ramallah>nablus');
   const [day, setDay] = useState(0);
+  const [repeat, setRepeat] = useState<'once' | 'weekly'>('once');
+  const [weekdays, setWeekdays] = useState<number[]>(WORK_WEEK);
   const [time, setTime] = useState('');
   const [seats, setSeats] = useState(3);
   const [price, setPrice] = useState(String(SUGGESTED_PRICE));
@@ -59,22 +62,43 @@ export default function NewTrip() {
   const [origin, destination] = route.split('>') as [City, City];
 
   async function publish() {
-    const departsAt = departureFrom(day, time, new Date());
-    if (!departsAt) return setError(t('timeInvalid'));
     const priceIls = parsePrice(price);
-    if (priceIls === null) return setError(t('priceInvalid'));
-    if (!session) return;
+    let insert;
+    if (repeat === 'weekly') {
+      // A weekly pattern: the server posts the real trips for the coming week, and keeps doing so.
+      const tm = parseTime(time);
+      if (!tm) return setError(t('timeInvalid'));
+      if (priceIls === null) return setError(t('priceInvalid'));
+      if (!session) return;
+      insert = () =>
+        supabase.from('trip_series').insert({
+          driver_id: session.user.id,
+          origin,
+          destination,
+          weekdays,
+          depart_time: toDbTime(tm.h, tm.m), // a wall-clock time in Palestine
+          seats_total: seats,
+          price_ils: priceIls,
+        });
+    } else {
+      const departsAt = departureFrom(day, time, new Date());
+      if (!departsAt) return setError(t('timeInvalid'));
+      if (priceIls === null) return setError(t('priceInvalid'));
+      if (!session) return;
+      insert = () =>
+        supabase.from('trips').insert({
+          driver_id: session.user.id,
+          origin,
+          destination,
+          departs_at: departsAt.toISOString(), // stored in UTC, shown in local time
+          seats_total: seats,
+          price_ils: priceIls,
+        });
+    }
 
     setSaving(true);
     setError(null);
-    const { error: err } = await supabase.from('trips').insert({
-      driver_id: session.user.id,
-      origin,
-      destination,
-      departs_at: departsAt.toISOString(), // stored in UTC, shown in local time
-      seats_total: seats,
-      price_ils: priceIls,
-    });
+    const { error: err } = await insert();
     setSaving(false);
     if (err) return setError(err.message.includes('not approved') ? t('driverCheckNeeded') : t('somethingWrong'));
     // Now is when notifications make sense: "tell me when someone asks for a seat".
@@ -88,10 +112,38 @@ export default function NewTrip() {
 
       <RouteCard origin={origin} destination={destination} onSwap={() => setRoute(`${destination}>${origin}` as Route)} />
 
-      <View style={{ gap: space.sm }}>
-        <Label>{t('dayLabel')}</Label>
-        <ChipRow value={day} onChange={setDay} options={days} />
-      </View>
+      <Choice
+        value={repeat}
+        onChange={setRepeat}
+        options={[
+          { value: 'once', label: t('tripOnce') },
+          { value: 'weekly', label: t('tripWeekly') },
+        ]}
+      />
+
+      {repeat === 'once' ? (
+        <View style={{ gap: space.sm }}>
+          <Label>{t('dayLabel')}</Label>
+          <ChipRow value={day} onChange={setDay} options={days} />
+        </View>
+      ) : (
+        <View style={{ gap: space.sm }}>
+          <Label>{t('repeatDaysLabel')}</Label>
+          <View style={styles.weekdays}>
+            {WEEK.map((d) => (
+              <Chip
+                key={d}
+                label={weekdayName(d, lang)}
+                selected={weekdays.includes(d)}
+                onPress={() => setWeekdays((cur) => toggleDay(cur, d))}
+              />
+            ))}
+          </View>
+          <Body muted small>
+            {t('repeatHint')}
+          </Body>
+        </View>
+      )}
 
       <Field
         label={t('departureTime')}
@@ -142,6 +194,7 @@ export default function NewTrip() {
 }
 
 const styles = StyleSheet.create({
+  weekdays: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   priceBox: {
     flexDirection: 'row',
     direction: 'ltr',
