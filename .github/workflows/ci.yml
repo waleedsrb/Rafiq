@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  app:
+    name: Typecheck app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  database:
+    name: Database rules
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stub the parts Supabase provides
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql
+      - name: Apply migrations
+        run: for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+      - name: Check booking rules
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/booking_rules.sql
