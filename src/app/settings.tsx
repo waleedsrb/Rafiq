@@ -11,7 +11,7 @@ import { Switch, Text, View } from 'react-native';
 import { Icon } from '@/components/icon';
 import { Body, Label, ListRow, Screen, Title, useFont } from '@/components/ui';
 import { deleteMyAccount } from '@/lib/account';
-import { confirm } from '@/lib/confirm';
+import { confirm } from '@/lib/dialog';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { colors, space } from '@/theme/tokens';
@@ -56,7 +56,7 @@ export default function Settings() {
 
   async function deleteAccount() {
     if (!session) return;
-    const sure = await confirm(t('deleteAccountQ'), t('deleteAccountBody'), t('deleteAccountYes'), t('keepAccount'));
+    const sure = await confirm({ title: t('deleteAccountQ'), body: t('deleteAccountBody'), yes: t('deleteAccountYes'), no: t('keepAccount'), tone: 'danger' });
     if (!sure) return;
     setDeleting(true);
     setError(null);

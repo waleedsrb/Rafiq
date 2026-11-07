@@ -1,0 +1,43 @@
+# Reads public Telegram channels every 10 minutes and adds checkpoint reports (bot/).
+#
+# Setup, once (repo Settings -> Secrets and variables -> Actions):
+#   Variables: CHECKPOINT_CHANNELS = comma-separated public channel names, e.g. "chan_one,chan_two"
+#   Secrets:   SUPABASE_SECRET_KEY = the server key from Supabase (Project settings -> API keys)
+# Until CHECKPOINT_CHANNELS is set, the job skips itself.
+name: Checkpoint bot
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # GitHub may run it a few minutes late at busy times
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only print what it would write'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checkpoint-bot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: vars.CHECKPOINT_CHANNELS != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: bot
+    env:
+      CHECKPOINT_CHANNELS: ${{ vars.CHECKPOINT_CHANNELS }}
+      SUPABASE_URL: https://pomyvelsxfzvplkzjlou.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m checkpoint_bot run ${{ inputs.dry_run && '--dry-run' || '' }}

@@ -5,11 +5,12 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { Body, Button, IconCircle, Screen, Title, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
+import { choose as askChoice } from '@/lib/dialog';
 import { goBack } from '@/lib/nav';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -49,11 +50,16 @@ export default function Verify() {
   // On a phone, ask camera or photos. The web has no camera picker, so go straight to files.
   function choose(slot: PhotoSlot) {
     if (Platform.OS === 'web') return pick(slot, 'library');
-    Alert.alert(t(`slot_${slot}` as StringKey), undefined, [
-      { text: t('takePhoto'), onPress: () => pick(slot, 'camera') },
-      { text: t('choosePhoto'), onPress: () => pick(slot, 'library') },
-      { text: t('cancel'), style: 'cancel' },
-    ]);
+    askChoice({
+      title: t(`slot_${slot}` as StringKey),
+      options: [
+        { label: t('takePhoto'), value: 'camera' as const, icon: 'camera' },
+        { label: t('choosePhoto'), value: 'library' as const, icon: 'image' },
+      ],
+      cancel: t('cancel'),
+    }).then((from) => {
+      if (from) pick(slot, from);
+    });
   }
 
   async function send() {
