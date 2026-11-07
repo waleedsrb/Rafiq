@@ -3,9 +3,11 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContactCard, useContact } from '@/components/contact-card';
 import { Icon } from '@/components/icon';
+import { RouteMap } from '@/components/route-map';
 import { TripHero } from '@/components/trip-hero';
 import { Body, Button, Countdown, IconCircle, ListRow, Screen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
@@ -36,6 +38,7 @@ export default function TripDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, lang } = useT();
   const { session, profile } = useSession();
+  const insets = useSafeAreaInsets();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
   const [driverVerified, setDriverVerified] = useState(false);
@@ -195,6 +198,9 @@ export default function TripDetails() {
     <Screen
       back
       scroll
+      hero={
+        <RouteMap origin={trip.origin} destination={trip.destination} height={insets.top + 300} topInset={insets.top + 60} />
+      }
       footer={
         canRequest ? (
           <>

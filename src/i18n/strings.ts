@@ -384,6 +384,7 @@ export const strings = {
   minAgo: { ar_m: 'د', en: 'min ago' },
   justNow: { ar_m: 'الآن', en: 'just now' },
   reportsWord: { ar_m: 'بلاغات', en: 'reports' },
+  checkpointsMap: { ar_m: 'خريطة الحواجز', en: 'Checkpoints map' },
   noRecentReports: { ar_m: 'لا بلاغات حديثة', en: 'No recent reports' },
   noReportsYet: { ar_m: 'لا بلاغات في آخر ساعتين. كن أول من يُبلغ.', ar_f: 'لا بلاغات في آخر ساعتين. كوني أول من يُبلغ.', en: 'No reports in the last 2 hours. Be the first.' },
   lastHour: { ar_m: 'آخر ساعة', en: 'Last hour' },

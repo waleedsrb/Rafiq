@@ -22,7 +22,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isRTL } from '@/i18n';
 import { goBack } from '@/lib/nav';
@@ -49,8 +49,12 @@ export function Screen({
   back,
   overlay,
   contentStyle,
+  hero,
 }: {
   children: ReactNode;
+  /** Full-bleed picture at the very top (e.g. a map). The top bar floats over it and
+   *  the content sits on a sheet with rounded corners that overlaps its bottom edge. */
+  hero?: ReactNode;
   footer?: ReactNode;
   scroll?: boolean;
   /** Replaces the default top bar (a back button when `back` is set). */
@@ -61,7 +65,23 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   const { direction } = useFont();
+  const insets = useSafeAreaInsets();
   const topBar = top ?? (back ? <TopBar start={<BackButton />} /> : null);
+  if (hero) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <View style={[styles.flex, { direction }]}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={overlay ? { paddingBottom: 120 } : null}>
+            {hero}
+            <View style={[styles.sheet, styles.content, contentStyle]}>{children}</View>
+          </ScrollView>
+          {topBar ? <View style={[styles.heroBar, { top: insets.top }]}>{topBar}</View> : null}
+          {footer ? <View style={styles.footer}>{footer}</View> : null}
+          {overlay}
+        </View>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={[styles.flex, { direction }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -525,6 +545,14 @@ const styles = StyleSheet.create({
     paddingBottom: space.md,
   },
   topSpacer: { width: sizes.touch, height: sizes.touch },
+  sheet: {
+    marginTop: -radii.sheet,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
+    backgroundColor: colors.surface,
+    paddingTop: space.lg,
+  },
+  heroBar: { position: 'absolute', left: 0, right: 0 },
   content: { flexGrow: 1, paddingHorizontal: space.screen, paddingTop: space.sm, paddingBottom: space.lg, gap: space.md },
   footer: { paddingHorizontal: space.screen, paddingBottom: space.sm, paddingTop: space.sm, gap: space.sm },
 
