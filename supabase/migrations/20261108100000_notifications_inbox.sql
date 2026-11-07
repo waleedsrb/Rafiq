@@ -109,7 +109,7 @@ begin
 
   select jsonb_agg(jsonb_build_object(
            'to', token, 'title', p_title, 'body', p_body, 'sound', 'default',
-           'data', jsonb_build_object('url', p_url)))
+           'data', jsonb_build_object('url', p_url, 'kind', p_kind)))
     into messages
     from push_tokens where user_id = p_user;
   if messages is null then
