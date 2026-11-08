@@ -234,6 +234,8 @@ export const strings = {
     en: 'When a trip you asked for is posted, or riders wait on your route',
   },
 
+  remindHourBefore: { ar_m: 'سنذكّرك قبل الانطلاق بساعة.', en: "We'll remind you an hour before departure." },
+
   // Ride alerts
   alertMe: { ar_m: 'نبّهني عند نشر رحلة', en: 'Alert me when a trip is posted' },
   alertSaved: { ar_m: 'سنخبرك فور نشر رحلة في هذا الوقت.', en: "We'll tell you as soon as a trip is posted for this time." },
