@@ -1,235 +1,86 @@
-// Intro ("/intro"): the first thing a signed-out person sees, right after the graphite splash.
-// A driver at the wheel, drawn in negative space on graphite; then the graphite
-// springs into the R, the driver's head becomes its counter, and the road
-// sweeps out beside the leg. Then the name, the line, and the two ways in fade up.
-// Motion and numbers come from the logo studio and the Intro board.
-
+// The approved road-first reveal: draw the paired contours, pause, then pull
+// back into the exact mark. All motion is monotonic; reduced motion skips it.
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  useAnimatedProps,
-  useAnimatedStyle,
-  useFrameCallback,
-  useReducedMotion,
-  useSharedValue,
-} from 'react-native-reanimated';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Animated, { useAnimatedProps, useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
+import type { GProps } from 'react-native-svg';
 
-import { R_HEAD, R_POINTS, R_ROAD } from '@/components/intro-points';
+import { expandedInk, INTRO_END, progress, REVEAL_END, ROAD_CUTOUT, roadDrawing, sceneTransform, UI_START } from '@/components/intro-motion';
+import { MARK_BODY, MARK_ROAD } from '@/components/rafiq-mark';
 import { Button, useFont } from '@/components/ui';
 import { useT } from '@/lib/session';
 import { colors, space } from '@/theme/tokens';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-// Timeline, in ms (studio defaults).
-const INTRO = 600; // driver fades in
-const HOLD = 1000; // driver drives
-const C = INTRO + HOLD; // collapse starts
-const UI_DELAY = 750; // words and buttons after the collapse
-const END = C + UI_DELAY + 900;
-// Springs (stiffness k, damping c), same maths as the studio.
-const MORPH = { k: 140, c: 24 };
-const HEAD = { k: 200, c: 15 };
-const BOUNCE = { k: 300, c: 9, amount: 0.12 };
-const ROAD = { delay: 220, k: 170, c: 20, from: 14 }; // the road sweeps out after the collapse
-
-// The scene is 390 units wide (the board), as tall as the screen needs.
-const W = 390;
-const CX = 195;
-const CY = 300; // where the R sits
-const PL = { s: 1.5, x: CX - 107 * 1.5, y: CY - 103 * 1.5 }; // mark box -> scene
-const H0 = { x: 176, y: 262, r: 34 }; // the driver's head before the collapse
-const H1 = { x: PL.x + R_HEAD.x * PL.s, y: PL.y + R_HEAD.y * PL.s, r: R_HEAD.r * PL.s };
-
-function spring(t: number, k: number, c: number) {
-  'worklet';
-  if (t <= 0) return 0;
-  const s = t / 1000;
-  const w = Math.sqrt(k);
-  const z = c / (2 * w);
-  if (z < 1) {
-    const wd = w * Math.sqrt(1 - z * z);
-    return 1 - Math.exp(-z * w * s) * (Math.cos(wd * s) + ((z * w) / wd) * Math.sin(wd * s));
-  }
-  return 1 - Math.exp(-w * s) * (1 + w * s);
-}
-
-function impulse(t: number, k: number, c: number) {
-  'worklet';
-  if (t <= 0) return 0;
-  const s = t / 1000;
-  const w = Math.sqrt(k);
-  const z = Math.min(c / (2 * w), 0.95);
-  const wd = w * Math.sqrt(1 - z * z);
-  return Math.exp(-z * w * s) * Math.sin(wd * s) * 1.6;
-}
-
-const clamp = (x: number) => {
-  'worklet';
-  return Math.max(0, Math.min(1, x));
-};
-const outCubic = (x: number) => {
-  'worklet';
-  return 1 - Math.pow(1 - x, 3);
-};
+const AnimatedGroup = Animated.createAnimatedComponent(G);
+const isWeb = Platform.OS === 'web';
 
 export default function Intro() {
   const { t } = useT();
   const { f } = useFont();
   const { width, height } = useWindowDimensions();
-  const H = (W * height) / width;
   const insets = useSafeAreaInsets();
+  const H = (360 * height) / width;
   const reduce = useReducedMotion();
-  const time = useSharedValue(reduce ? END + 1 : 0);
+  const time = useSharedValue(reduce ? INTRO_END : 0);
+  const startedAt = useSharedValue(-1);
   const [collapsed, setCollapsed] = useState(reduce);
   const [ready, setReady] = useState(reduce);
-
-  // Start points: the four screen edges, 60 points each, matching the R's four runs.
-  const from = useMemo(() => {
-    const rect = [
-      [-4, -4, W + 4, -4],
-      [W + 4, -4, W + 4, H + 4],
-      [W + 4, H + 4, -4, H + 4],
-      [-4, H + 4, -4, -4],
-    ];
-    const out: number[] = [];
-    for (const [ax, ay, bx, by] of rect) {
-      for (let i = 0; i < 60; i++) {
-        const k = i / 60;
-        out.push(ax + (bx - ax) * k, ay + (by - ay) * k);
-      }
-    }
-    return out;
-  }, [H]);
-  const to = useMemo(() => R_POINTS.map((v, i) => (i % 2 === 0 ? PL.x + v * PL.s : PL.y + v * PL.s)), []);
+  const [uiHeight, setUiHeight] = useState(270);
+  // Keep the logo above the measured controls on compact screens and large text.
+  const centerY = Math.max(110, Math.min(H * 0.414, H - (uiHeight + insets.bottom + 42) * 360 / width - 70));
 
   useFrameCallback((info) => {
-    // Stop moving once the scene has settled; the R stays still.
-    if (time.value <= END + 200) time.value = info.timeSinceFirstFrame;
+    // Keep our own epoch: layout/status updates can re-register this callback,
+    // and a busy frame must not slow down or restart the choreography.
+    if (startedAt.get() < 0) startedAt.set(info.timestamp);
+    if (time.get() < INTRO_END) time.set(Math.min(INTRO_END, info.timestamp - startedAt.get()));
   }, !reduce);
 
-  // Status bar text turns dark once the graphite has gone; buttons work once visible.
   useEffect(() => {
     if (reduce) return;
-    const a = setTimeout(() => setCollapsed(true), C + 200);
-    const b = setTimeout(() => setReady(true), C + UI_DELAY + 300);
-    return () => {
-      clearTimeout(a);
-      clearTimeout(b);
-    };
+    const status = setTimeout(() => setCollapsed(true), REVEAL_END);
+    const controls = setTimeout(() => setReady(true), UI_START + 550);
+    return () => { clearTimeout(status); clearTimeout(controls); };
   }, [reduce]);
 
-  const inkProps = useAnimatedProps(() => {
-    const tt = time.value;
-    const p = spring(tt - C, MORPH.k, MORPH.c);
-    const b = 1 - BOUNCE.amount * impulse(tt - C - 260, BOUNCE.k, BOUNCE.c);
-    let d = 'M';
-    for (let i = 0; i < from.length; i += 2) {
-      const x = from[i] + (to[i] - from[i]) * p;
-      const y = from[i + 1] + (to[i + 1] - from[i + 1]) * p;
-      d += (i ? 'L' : '') + (CX + (x - CX) * b).toFixed(1) + ',' + (CY + (y - CY) * b).toFixed(1);
-    }
-    return { d: d + 'Z' };
+  const groupProps = useAnimatedProps<GProps>(() => {
+    const { scale, x, y } = sceneTransform(time.value, centerY);
+    // Native SVG groups consume a six-value matrix; web consumes an SVG attribute.
+    return isWeb ? { transform: `matrix(${scale} 0 0 ${scale} ${x} ${y})` } : { matrix: [scale, 0, 0, scale, x, y] };
   });
-
-  // The driver's body and the wheel bob along, then fade as the collapse starts.
-  const bodyProps = useAnimatedProps(() => {
-    const tt = time.value;
-    const a = outCubic(clamp(tt / INTRO));
-    const bob = tt < C ? Math.sin(tt / 260) * 1.5 : 0;
-    const y = (v: number) => (v + bob).toFixed(1);
-    return {
-      d: `M138,${y(306)} L200,${y(306)} L280,${y(396)} L280,${y(440)} L214,${y(366)} L214,${y(486)} L138,${y(486)} Z`,
-      opacity: Math.min(a, 1 - clamp((tt - C) / 260)),
-    };
-  });
-
-  const wheelProps = useAnimatedProps(() => {
-    const tt = time.value;
-    const a = outCubic(clamp(tt / INTRO));
-    const bob = tt < C ? Math.sin(tt / 260) * 1.5 : 0;
-    const wiggle = Math.sin(tt / 420) * 5 * (1 - clamp((tt - C) / 200));
-    const r = ((-20 + wiggle) * Math.PI) / 180;
-    const cos = Math.cos(r);
-    const sin = Math.sin(r);
-    // A 12 x 124 bar centred on (292, 414), rotated.
-    const pt = (x: number, y: number) =>
-      (292 + x * cos - y * sin).toFixed(1) + ',' + (414 + bob + x * sin + y * cos).toFixed(1);
-    return {
-      d: `M${pt(-6, -62)} L${pt(6, -62)} L${pt(6, 62)} L${pt(-6, 62)} Z`,
-      opacity: Math.min(a, 1 - clamp((tt - C) / 260)),
-    };
-  });
-
-  const headProps = useAnimatedProps(() => {
-    const tt = time.value;
-    const a = outCubic(clamp(tt / INTRO));
-    const bob = tt < C ? Math.sin(tt / 260) * 1.5 : 0;
-    const hq = spring(tt - C - 40, HEAD.k, HEAD.c);
-    const b = 1 - BOUNCE.amount * impulse(tt - C - 260, BOUNCE.k, BOUNCE.c);
-    const hx = H0.x + (H1.x - H0.x) * hq;
-    const hy = H0.y + bob + (H1.y - H0.y - bob) * hq;
-    const hr = H0.r + (H1.r - H0.r) * hq;
-    return {
-      cx: CX + (hx - CX) * b,
-      cy: CY + (hy - CY) * b,
-      r: Math.max(0, hr * b * (tt < INTRO ? a : 1)),
-    };
-  });
-
-  // The road: slides out along its own direction (from the tip toward the base) and fades in.
-  const roadProps = useAnimatedProps(() => {
-    const tt = time.value;
-    const q = spring(tt - C - ROAD.delay, ROAD.k, ROAD.c);
-    const b = 1 - BOUNCE.amount * impulse(tt - C - 260, BOUNCE.k, BOUNCE.c);
-    const off = (1 - q) * ROAD.from;
-    let d = '';
-    let n = 0;
-    for (let i = 0; i < R_ROAD.length; i++) {
-      const v = R_ROAD[i];
-      if (typeof v === 'string') {
-        d += v;
-        n = 0;
-        continue;
-      }
-      const isX = n % 2 === 0;
-      const scene = isX ? PL.x + v * PL.s + off * 0.6 : PL.y + v * PL.s - off * 0.8;
-      const c = isX ? CX : CY;
-      d += (isX ? (n ? ' ' : '') : ',') + (c + (scene - c) * b).toFixed(1);
-      n++;
-    }
-    return { d, opacity: clamp((tt - C - ROAD.delay) / 260) };
-  });
-
+  const inkProps = useAnimatedProps(() => ({ d: expandedInk(time.value), opacity: time.value < REVEAL_END ? 1 : 0 }));
+  const roadProps = useAnimatedProps(() => ({ d: roadDrawing(time.value), opacity: time.value < REVEAL_END ? 1 : 0 }));
+  const headProps = useAnimatedProps(() => ({ r: 96 * progress(time.value, 5100, 6000), opacity: time.value < REVEAL_END ? 1 : 0 }));
+  const finalProps = useAnimatedProps(() => ({ opacity: time.value >= REVEAL_END ? 1 : 0 }));
   const uiStyle = useAnimatedStyle(() => {
-    const u = outCubic(clamp((time.value - C - UI_DELAY) / 600));
-    return { opacity: u, transform: [{ translateY: (1 - u) * 14 }] };
+    const p = progress(time.value, UI_START, UI_START + 550);
+    return { opacity: p, transform: [{ translateY: 9 * (1 - p) }] };
   });
 
   return (
     <View style={styles.root}>
       <StatusBar style={collapsed ? 'dark' : 'light'} />
-      <Svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${W} ${H}`}
-        style={StyleSheet.absoluteFill}
-        accessibilityLabel={t('appName')}
-      >
-        <Rect width={W} height={H} fill={colors.surface} />
-        <AnimatedPath animatedProps={inkProps} fill={colors.ink} />
-        <AnimatedPath animatedProps={roadProps} fill={colors.ink} />
-        <AnimatedPath animatedProps={bodyProps} fill={colors.surface} />
-        <AnimatedPath animatedProps={wheelProps} fill={colors.surface} />
-        <AnimatedCircle animatedProps={headProps} fill={colors.surface} />
+      <Svg width={width} height={height} viewBox={`0 0 360 ${H}`} style={StyleSheet.absoluteFill} accessibilityLabel={t('appName')}>
+        <Defs><ClipPath id="intro-road"><Path d={ROAD_CUTOUT} /></ClipPath></Defs>
+        <Rect width={360} height={H} fill={colors.surface} />
+        <AnimatedGroup animatedProps={groupProps}>
+          <AnimatedPath animatedProps={inkProps} fill={colors.ink} />
+          <G clipPath="url(#intro-road)"><AnimatedPath animatedProps={roadProps} fill={colors.surface} /></G>
+          <AnimatedCircle cx={352} cy={268} animatedProps={headProps} fill={colors.surface} />
+          <AnimatedGroup animatedProps={finalProps}>
+            <Path d={MARK_BODY} fill={colors.ink} fillRule="evenodd" />
+            <Path d={MARK_ROAD} fill={colors.ink} />
+          </AnimatedGroup>
+        </AnimatedGroup>
       </Svg>
 
-      <Animated.View style={[styles.ui, { bottom: insets.bottom + 16 }, uiStyle]} pointerEvents={ready ? 'auto' : 'none'}>
+      <Animated.View onLayout={(event) => setUiHeight(event.nativeEvent.layout.height)} accessibilityElementsHidden={!ready} importantForAccessibility={ready ? 'auto' : 'no-hide-descendants'} style={[styles.ui, { bottom: insets.bottom + 16 }, uiStyle]} pointerEvents={ready ? 'auto' : 'none'}>
         <Text style={[styles.name, { fontFamily: f.bold }]}>{t('appName')}</Text>
         <Text style={[styles.line, { fontFamily: f.regular }]}>{t('slide1Title')}</Text>
         <Button
