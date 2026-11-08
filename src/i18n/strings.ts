@@ -266,6 +266,24 @@ export const strings = {
   postTripTitle: { ar_m: 'رحلة جديدة', en: 'New trip' },
   routeLabel: { ar_m: 'الطريق', en: 'Route' },
   dayLabel: { ar_m: 'اليوم', en: 'Day' },
+  // Repeating trips
+  tripOnce: { ar_m: 'مرة واحدة', en: 'Once' },
+  tripWeekly: { ar_m: 'كل أسبوع', en: 'Every week' },
+  repeatDaysLabel: { ar_m: 'أيام التكرار', en: 'Repeat on' },
+  repeatHint: {
+    ar_m: 'ننشر رحلات الأسبوع القادم تلقائيًا، ويحجز الركاب كل يوم على حدة.',
+    en: "We post the coming week's trips for you. Passengers book each day separately.",
+  },
+  repeatsDaily: { ar_m: 'تتكرر كل يوم', en: 'Repeats every day' },
+  repeatsWorkWeek: { ar_m: 'تتكرر من الأحد إلى الخميس', en: 'Repeats Sunday to Thursday' },
+  repeatsOn: { ar_m: 'تتكرر كل', en: 'Repeats every' },
+  stopRepeating: { ar_m: 'أوقف التكرار', ar_f: 'أوقفي التكرار', en: 'Stop repeating' },
+  stopRepeatingTitle: { ar_m: 'إيقاف تكرار الرحلة؟', en: 'Stop repeating this trip?' },
+  stopRepeatingBody: {
+    ar_m: 'لن ننشر رحلات جديدة. الرحلات القادمة التي ليس فيها طلبات تُلغى، والرحلات التي فيها ركاب تبقى.',
+    en: "We won't post new ones. Upcoming trips with no requests are removed; trips with passengers stay.",
+  },
+  repeatStopped: { ar_m: 'توقف التكرار', en: 'No longer repeating' },
   timeLabel: { ar_m: 'وقت الانطلاق (24 ساعة)', en: 'Departure time (24h)' },
   timeInvalid: { ar_m: 'أدخل وقتاً قادماً مثل 07:30', en: 'Enter an upcoming time like 07:30' },
   seatsLabel: { ar_m: 'المقاعد المتاحة', en: 'Free seats' },
@@ -633,6 +651,24 @@ export const strings = {
   cancelExcused: { ar_m: 'ألغى بسبب حاجز مغلق، فلا يُحتسب عليه.', en: "A checkpoint was closed, so it doesn't count against the driver." },
   weekOf: { ar_m: 'أسبوع', en: 'Week of' },
   earningsRowSub: { ar_m: 'ما جمعته من الركّاب هذا الشهر', en: 'What passengers paid you this month' },
+
+  // ─── Share my trip and Emergency (slice 12) ────────────────────────────────
+  followLive: { ar_m: 'تابع الرحلة مباشرة:', en: 'Follow it live:' },
+  emergencyButton: { ar_m: 'طوارئ', en: 'Emergency' },
+  sosTitle: { ar_m: 'هل تحتاج مساعدة؟', ar_f: 'هل تحتاجين مساعدة؟', en: 'Need help?' },
+  sosBody: {
+    ar_m: 'اتصل بالطوارئ، أو أرسل رحلتك المباشرة لمن تثق به.',
+    ar_f: 'اتصلي بالطوارئ، أو أرسلي رحلتك المباشرة لمن تثقين به.',
+    en: 'Call for help, or send your live trip to someone you trust.',
+  },
+  callPolice: { ar_m: 'اتصل بالشرطة', ar_f: 'اتصلي بالشرطة', en: 'Call the police' },
+  callAmbulance: { ar_m: 'اتصل بالإسعاف', ar_f: 'اتصلي بالإسعاف', en: 'Call an ambulance' },
+  textContact: { ar_m: 'أرسل رحلتك المباشرة إلى', ar_f: 'أرسلي رحلتك المباشرة إلى', en: 'Text your live trip to' },
+  sendLiveTrip: { ar_m: 'أرسل رحلتك المباشرة لشخص آخر', ar_f: 'أرسلي رحلتك المباشرة لشخص آخر', en: 'Send your live trip to someone else' },
+  sosMessage: {
+    ar_m: 'أحتاج مساعدة. هذه رحلتي على رفيق مباشرة:',
+    en: 'I need help. This is my Rafiq trip, live:',
+  },
 
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;

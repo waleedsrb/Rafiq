@@ -1,4 +1,16 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 // Relative paths, so the site works both locally and under https://waleedsrb.github.io/Rafiq/
-export default defineConfig({ base: './' });
+// Two pages: index.html (admin review) and share.html (Share my trip, for family).
+export default defineConfig({
+  base: './',
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(import.meta.dirname, 'index.html'),
+        share: resolve(import.meta.dirname, 'share.html'),
+      },
+    },
+  },
+});

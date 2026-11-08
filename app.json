@@ -46,6 +46,12 @@
           "photosPermission": "Rafiq uses your photos so you can add your ID, licence and car for verification.",
           "cameraPermission": "Rafiq uses the camera so you can photograph your ID, licence and car for verification."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "While you drive a trip, Rafiq shares your car's position with passengers' families who have the trip link."
+        }
       ]
     ],
     "experiments": {

@@ -9,18 +9,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BookingContact } from '@/components/contact-card';
+import { useRepeatsText } from '@/components/repeats';
 import { SeatDots } from '@/components/seat-dots';
 import { TripHero } from '@/components/trip-hero';
 import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
-import { Body, Button, Chip, Countdown, IconCircle, ListRow, Screen, SectionTitle, ltr } from '@/components/ui';
+import { Body, Button, Chip, Countdown, IconCircle, ListRow, Screen, SectionTitle, TextLink, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
 import { isLateTripCancel } from '@/lib/rules';
+import { useDriverPosition } from '@/lib/position';
 import { useSession, useT } from '@/lib/session';
+import { openEmergency, shareTrip } from '@/lib/share-trip';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { noShowFrom, noShowOpen, pickupOpen, startOpen, tripState } from '@/lib/trip-day';
@@ -33,6 +36,7 @@ type Trip = {
   departs_at: string;
   price_ils: number;
   cancelled_at: string | null;
+  trip_series: { id: string; weekdays: number[]; stopped_at: string | null } | null; // weekly pattern, if any
   started_at: string | null;
   finished_at: string | null;
 };
@@ -53,6 +57,7 @@ export default function TripRequests() {
   const { t, lang } = useT();
   const { session } = useSession();
   const [rated, setRated] = useState<Record<string, number>>({}); // booking id -> stars I gave
+  const repeatsText = useRepeatsText();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [requests, setRequests] = useState<Request[]>([]);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
@@ -63,7 +68,7 @@ export default function TripRequests() {
   const load = useCallback(async () => {
     if (!id) return;
     const [tripRes, reqRes, seatsRes] = await Promise.all([
-      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at').eq('id', id).single(),
+      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, trip_series(id, weekdays, stopped_at)').eq('id', id).single(),
       supabase
         .from('bookings')
         .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name)')
@@ -71,7 +76,7 @@ export default function TripRequests() {
         .order('created_at'),
       supabase.rpc('seats_left', { p_trip_id: id }),
     ]);
-    setTrip((tripRes.data as Trip | null) ?? null);
+    setTrip((tripRes.data as unknown as Trip | null) ?? null);
     const list = (reqRes.data as unknown as Request[] | null) ?? [];
     setRequests(list);
     const done = list.filter((r) => r.status === 'completed').map((r) => r.id);
@@ -104,6 +109,10 @@ export default function TripRequests() {
   // New requests appear without pulling to refresh.
   useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
   useTripChanges(load, id);
+
+  // While the trip is underway, the car's position feeds Share my trip links.
+  const underway = !!trip && !!trip.started_at && !trip.finished_at && !trip.cancelled_at;
+  useDriverPosition(trip?.id ?? null, underway);
 
   // Trip day actions. The database checks the timing again; its message picks our text.
   async function act(key: string, fn: () => PromiseLike<{ error: { message: string } | null }>) {
@@ -197,6 +206,19 @@ export default function TripRequests() {
     await load();
   }
 
+  // Stop the weekly pattern: no new trips, and upcoming ones nobody asked for are taken down.
+  async function stopRepeating() {
+    if (!trip?.trip_series) return;
+    const ok = await confirm({ title: t('stopRepeatingTitle'), body: t('stopRepeatingBody'), yes: t('stopRepeating'), no: t('keep') });
+    if (!ok) return;
+    setBusy('series');
+    setError(null);
+    const { error: err } = await supabase.rpc('stop_trip_series', { p_series_id: trip.trip_series.id });
+    setBusy(null);
+    if (err) setError(t('somethingWrong'));
+    await load();
+  }
+
   if (!trip) return <Screen back>{null}</Screen>;
   const departs = new Date(trip.departs_at);
   const state = tripState(trip);
@@ -220,7 +242,21 @@ export default function TripRequests() {
             {allAccounted ? null : <Body muted small style={{ textAlign: 'center' }}>{t('startNeedsAll')}</Body>}
           </>
         ) : state === 'underway' ? (
-          <Button label={t('weArrived')} icon="mapPin" onPress={finish} loading={busy === 'trip'} />
+          <>
+            <Button label={t('weArrived')} icon="mapPin" onPress={finish} loading={busy === 'trip'} />
+            <Button
+              variant="secondary"
+              label={t('shareTrip')}
+              icon="shareNetwork"
+              onPress={() => shareTrip(trip.id, `${t(trip.origin)} ${lang === 'ar' ? '←' : '→'} ${t(trip.destination)}`, lang, t)}
+            />
+            <Button
+              variant="plain"
+              label={t('emergencyButton')}
+              icon="warning"
+              onPress={() => session && openEmergency(trip.id, session.user.id, lang, t)}
+            />
+          </>
         ) : canCancelTrip ? (
           <Button variant="plain" label={t('cancelTrip')} onPress={cancelTrip} loading={busy === 'trip'} />
         ) : undefined
@@ -244,6 +280,20 @@ export default function TripRequests() {
         </Body>
       ) : null}
       {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
+      {trip.trip_series ? (
+        <View>
+          <ListRow
+            last
+            icon="calendar"
+            title={trip.trip_series.stopped_at ? t('repeatStopped') : repeatsText(trip.trip_series.weekdays)}
+            trailing={
+              trip.trip_series.stopped_at ? undefined : (
+                <TextLink label={t('stopRepeating')} onPress={stopRepeating} disabled={busy === 'series'} />
+              )
+            }
+          />
+        </View>
+      ) : null}
 
       <SectionTitle>{t('passengers')}</SectionTitle>
       {requests.length === 0 ? <Body muted>{t('noRequests')}</Body> : null}
