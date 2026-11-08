@@ -24,6 +24,8 @@ npx expo start               # scan the QR code with Expo Go, or press w for web
 npm run typecheck
 ```
 
+The road reveal runs once per cold launch: full on first use, short on later launches, and never on background resume. See [launch behavior and validation](docs/launch-animation.md) and [the launch decision](docs/decisions/0004-launch-animation.md) for timings, persistence, accessibility, and testing.
+
 ## Test on a phone without your computer (EAS Update)
 
 Publish the current code to Expo's servers, then open it in Expo Go from anywhere:

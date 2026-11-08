@@ -12,16 +12,16 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
 
 import { DialogHost } from '@/components/dialog-host';
+import { LaunchGate } from '@/components/launch-gate';
 import { usePush } from '@/lib/push';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
-// The splash is plain graphite: signed out, the intro picks up from it;
-// signed in, it fades into Home.
+// The plain graphite native splash hands off to the shared launch reveal once
+// fonts and the device-local launch preference are ready to paint.
 SplashScreen.setOptions({ fade: true, duration: 400 });
 
 export default function RootLayout() {
@@ -50,53 +50,51 @@ export default function RootLayout() {
 function Routes() {
   const { loading, session, profile } = useSession();
 
-  useEffect(() => {
-    if (!loading) SplashScreen.hideAsync();
-  }, [loading]);
-
   const ready = !loading && !!session && !!profile;
   usePush(ready);
-
-  if (loading) return null;
 
   const signedOut = !session;
   const needsProfile = !!session && !profile;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
-      {/* "/" only redirects (see index.tsx), so it is open to everyone. */}
-      <Stack.Screen name="index" />
-      <Stack.Screen name="auth-callback" />
-      <Stack.Protected guard={signedOut}>
-        <Stack.Screen name="intro" options={{ animation: 'fade' }} />
-        <Stack.Screen name="welcome" />
-        <Stack.Screen name="sign-up/phone" />
-        <Stack.Screen name="sign-up/email" />
-        <Stack.Screen name="sign-up/code" />
-      </Stack.Protected>
-      <Stack.Protected guard={needsProfile}>
-        <Stack.Screen name="sign-up/profile" />
-      </Stack.Protected>
-      <Stack.Protected guard={ready}>
-        {/* Home, My trips, Checkpoints and Account: the system tab bar. */}
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="checkpoints/map" />
-        <Stack.Screen name="checkpoints/[id]" />
-        <Stack.Screen name="car" />
-        <Stack.Screen name="verify" />
-        <Stack.Screen name="notifications" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="emergency" />
-        <Stack.Screen name="earnings" />
-        <Stack.Screen name="people/[id]" />
-        <Stack.Screen name="trips/new" />
-        <Stack.Screen name="trips/search" />
-        <Stack.Screen name="trips/results" />
-        <Stack.Screen name="trips/[id]" />
-        <Stack.Screen name="trips/checkout/[id]" />
-        <Stack.Screen name="trips/requests/[id]" />
-        <Stack.Screen name="trips/rate/[bookingId]" />
-      </Stack.Protected>
-    </Stack>
+    <LaunchGate loading={loading}>
+      {loading ? null : (
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
+          {/* The launch gate preserves the initial route, including deep links. */}
+          <Stack.Screen name="index" />
+          <Stack.Screen name="auth-callback" />
+          <Stack.Protected guard={signedOut}>
+            <Stack.Screen name="intro" options={{ animation: 'fade' }} />
+            <Stack.Screen name="welcome" />
+            <Stack.Screen name="sign-up/phone" />
+            <Stack.Screen name="sign-up/email" />
+            <Stack.Screen name="sign-up/code" />
+          </Stack.Protected>
+          <Stack.Protected guard={needsProfile}>
+            <Stack.Screen name="sign-up/profile" />
+          </Stack.Protected>
+          <Stack.Protected guard={ready}>
+            {/* Home, My trips, Checkpoints and Account: the system tab bar. */}
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="checkpoints/map" />
+            <Stack.Screen name="checkpoints/[id]" />
+            <Stack.Screen name="car" />
+            <Stack.Screen name="verify" />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen name="emergency" />
+            <Stack.Screen name="earnings" />
+            <Stack.Screen name="people/[id]" />
+            <Stack.Screen name="trips/new" />
+            <Stack.Screen name="trips/search" />
+            <Stack.Screen name="trips/results" />
+            <Stack.Screen name="trips/[id]" />
+            <Stack.Screen name="trips/checkout/[id]" />
+            <Stack.Screen name="trips/requests/[id]" />
+            <Stack.Screen name="trips/rate/[bookingId]" />
+          </Stack.Protected>
+        </Stack>
+      )}
+    </LaunchGate>
   );
 }
