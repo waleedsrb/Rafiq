@@ -5,8 +5,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
 
 import {
   CancelledBlock,
@@ -21,8 +21,11 @@ import {
 } from '@/components/home-hero';
 import { Icon } from '@/components/icon';
 import { RouteCheckpoints } from '@/components/route-checkpoints';
+import { SearchMorph, type Rect } from '@/components/search-morph';
+import { useTripSearch } from '@/components/trip-search';
 import { Body, GlassButton, ListRow, Screen, TopBar, useFont } from '@/components/ui';
 import { formatLongDay } from '@/lib/format';
+import { tapFeel } from '@/lib/haptics';
 import { heroLink, pickHero, usualTime, type CancelledHero, type DriveHero, type RateHero, type SeatHero } from '@/lib/home-state';
 import { useBookingChanges } from '@/lib/live';
 import { useUnreadCount } from '@/lib/notifications';
@@ -111,6 +114,30 @@ export default function Home() {
   const [later, setLater] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(() => new Date());
   const firstName = profile?.full_name.split(' ')[0] ?? '';
+
+  // The search that grows out of the "Where to?" bar. It starts on your usual route.
+  const barRef = useRef<HostInstance>(null);
+  const [search, setSearch] = useState<{ from: Rect; parked: boolean; closing: boolean } | null>(null);
+  const searchState = useTripSearch();
+  const openSearch = () => {
+    barRef.current?.measureInWindow((x, y, width, height) => {
+      tapFeel();
+      setSearch({ from: { x, y, width, height }, parked: false, closing: false });
+    });
+  };
+  // Start from your usual direction once we know it. The week loads now, while you're
+  // still on Home, so the trips are already there when the bar opens.
+  const usualOrigin = data?.route?.origin;
+  const { setOrigin } = searchState;
+  useEffect(() => {
+    if (usualOrigin && !search) setOrigin(usualOrigin);
+  }, [usualOrigin]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Back from a trip page opened in the search: show the search again, as you left it.
+  useFocusEffect(
+    useCallback(() => {
+      setSearch((v) => (v?.parked ? { ...v, parked: false } : v));
+    }, []),
+  );
 
   useEffect(() => {
     AsyncStorage.getItem(LATER_KEY)
@@ -346,7 +373,13 @@ export default function Home() {
         <View style={styles.hero}>{block}</View>
       )}
 
-      <Pressable accessibilityRole="button" onPress={() => router.push('/trips/search')} style={styles.whereTo}>
+      {/* Tapping the bar grows it into the search right here (search-morph.tsx). */}
+      <Pressable
+        ref={barRef}
+        accessibilityRole="button"
+        onPress={openSearch}
+        style={[styles.whereTo, search && { opacity: 0 }]}
+      >
         <Icon name="search" />
         <Text style={[styles.whereToText, { fontFamily: f.bold }]}>{t('findSeatTitle')}</Text>
         <View style={styles.dayPill}>
@@ -366,6 +399,22 @@ export default function Home() {
           title={t('homeNeedSeat')}
           subtitle={t('homeNeedSeatSub')}
           onPress={() => router.push({ pathname: '/trips/results', params: { ...data.driving!.route, day: '0' } })}
+        />
+      ) : null}
+
+      {search ? (
+        <SearchMorph
+          from={search.from}
+          s={searchState}
+          hidden={search.parked}
+          closing={search.closing}
+          onRequestClose={() => setSearch((v) => (v ? { ...v, closing: true } : v))}
+          onClosed={() => setSearch(null)}
+          onOpenTrip={(id) => {
+            // Step aside for the trip page; the search is still here when you come back.
+            setSearch((v) => (v ? { ...v, parked: true } : v));
+            router.push({ pathname: '/trips/[id]', params: { id } });
+          }}
         />
       ) : null}
     </Screen>
