@@ -66,10 +66,12 @@ function Routes() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
       {/* "/" only redirects (see index.tsx), so it is open to everyone. */}
       <Stack.Screen name="index" />
+      <Stack.Screen name="auth-callback" />
       <Stack.Protected guard={signedOut}>
         <Stack.Screen name="intro" options={{ animation: 'fade' }} />
         <Stack.Screen name="welcome" />
         <Stack.Screen name="sign-up/phone" />
+        <Stack.Screen name="sign-up/email" />
         <Stack.Screen name="sign-up/code" />
       </Stack.Protected>
       <Stack.Protected guard={needsProfile}>

@@ -3,15 +3,17 @@
 // cities (will I get a seat, who is driving, what about checkpoints).
 // They advance on their own every 4.5 s; tapping a dot jumps to a slide.
 
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
+import { Icon, type IconName } from '@/components/icon';
 import { Body, Button, Screen, TopBar, ltr, useFont } from '@/components/ui';
 import { useSession, useT } from '@/lib/session';
+import { appleSignInAvailable, signInWithApple, signInWithGoogle, type SignInResult } from '@/lib/social-sign-in';
 import { track } from '@/lib/track';
-import { colors, fonts, radii, space } from '@/theme/tokens';
+import { colors, fonts, radii, sizes, space } from '@/theme/tokens';
 
 const SLIDES = [
   { title: 'slide1Title', body: 'slide1Body' },
@@ -72,6 +74,7 @@ export default function Welcome() {
               router.push('/sign-up/phone');
             }}
           />
+          <OtherWays />
           <Body muted small style={{ textAlign: 'center' }}>
             {t('termsNote')}
           </Body>
@@ -101,6 +104,74 @@ export default function Welcome() {
         ))}
       </View>
     </Screen>
+  );
+}
+
+/**
+ * Besides the phone number: Apple (iPhone only, Apple's own button as its rules
+ * require), Google, and an emailed code.
+ */
+function OtherWays() {
+  const { t } = useT();
+  const { f } = useFont();
+  const [apple, setApple] = useState(false);
+  const [busy, setBusy] = useState<'apple' | 'google' | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    appleSignInAvailable().then(setApple);
+  }, []);
+
+  async function run(which: 'apple' | 'google', go: () => Promise<SignInResult>) {
+    if (busy) return;
+    track('signup_social_started', { provider: which });
+    setBusy(which);
+    setFailed(false);
+    const result = await go();
+    setBusy(null);
+    if (result === 'failed') setFailed(true);
+    // On 'ok' the guards in _layout.tsx move on by themselves.
+  }
+
+  return (
+    <View style={{ gap: space.sm }}>
+      <Text style={[styles.orText, { fontFamily: f.medium }]}>{t('orSignInWith')}</Text>
+      {apple ? (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
+          cornerRadius={sizes.control / 2}
+          style={{ height: sizes.control }}
+          onPress={() => run('apple', signInWithApple)}
+        />
+      ) : null}
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
+        <WayButton icon="googleLogo" label={t('withGoogle')} busy={busy === 'google'} onPress={() => run('google', signInWithGoogle)} />
+        <WayButton
+          icon="envelope"
+          label={t('withEmail')}
+          onPress={() => {
+            track('signup_started', { method: 'email' });
+            router.push('/sign-up/email');
+          }}
+        />
+      </View>
+      {failed ? (
+        <Body error small style={{ textAlign: 'center' }}>
+          {t('signInFailed')}
+        </Body>
+      ) : null}
+    </View>
+  );
+}
+
+function WayButton({ icon, label, busy, onPress }: { icon: IconName; label: string; busy?: boolean; onPress: () => void }) {
+  const { f } = useFont();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.way}>
+      {busy ? <ActivityIndicator color={colors.ink} /> : <Icon name={icon} size={18} />}
+      <Text style={[styles.wayText, { fontFamily: f.medium }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -252,6 +323,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   langText: { fontSize: 13, color: colors.ink },
+
+  orText: { fontSize: 13, color: colors.inkSecondary, textAlign: 'center', marginTop: space.xs },
+  way: {
+    flex: 1,
+    height: sizes.control,
+    borderRadius: radii.capsule,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  wayText: { fontSize: 15, color: colors.ink },
 
   hero: { height: 340, marginTop: space.sm },
   slideTitle: { fontSize: 28, lineHeight: 36, color: colors.ink, letterSpacing: -0.4, marginTop: space.lg },

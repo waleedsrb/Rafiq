@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase';
 export type EventName =
   | 'signup_started'
   | 'signup_phone_submitted'
+  | 'signup_email_submitted'
+  | 'signup_social_started'
   | 'signup_code_verified'
   | 'signup_profile_completed';
 

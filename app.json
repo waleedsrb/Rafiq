@@ -9,7 +9,8 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rafiq"
+      "bundleIdentifier": "app.rafiq",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -52,7 +53,9 @@
         {
           "locationWhenInUsePermission": "While you drive a trip, Rafiq shares your car's position with passengers' families who have the trip link."
         }
-      ]
+      ],
+      "expo-apple-authentication",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

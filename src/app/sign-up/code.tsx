@@ -14,7 +14,8 @@ const RESEND_AFTER = 45; // seconds before the person may ask for a new code
 
 export default function CodeStep() {
   const { t } = useT();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  // Arrives with either a phone (SMS code) or an email (emailed code).
+  const { phone, email } = useLocalSearchParams<{ phone?: string; email?: string }>();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -29,10 +30,12 @@ export default function CodeStep() {
   }, [wait]);
 
   async function submit(value: string) {
-    if (value.length !== LENGTH || !phone) return;
+    if (value.length !== LENGTH || !(phone || email)) return;
     setChecking(true);
     setError(null);
-    const { error: err } = await supabase.auth.verifyOtp({ phone, token: value, type: 'sms' });
+    const { error: err } = email
+      ? await supabase.auth.verifyOtp({ email, token: value, type: 'email' })
+      : await supabase.auth.verifyOtp({ phone: phone!, token: value, type: 'sms' });
     setChecking(false);
     if (err) {
       setError(t('codeInvalid'));
@@ -45,10 +48,12 @@ export default function CodeStep() {
   }
 
   async function resend() {
-    if (!phone) return;
+    if (!phone && !email) return;
     setWait(RESEND_AFTER);
     setError(null);
-    const { error: err } = await supabase.auth.signInWithOtp({ phone });
+    const { error: err } = email
+      ? await supabase.auth.signInWithOtp({ email })
+      : await supabase.auth.signInWithOtp({ phone: phone! });
     if (err) setError(t('somethingWrong'));
   }
 
@@ -58,8 +63,13 @@ export default function CodeStep() {
     <Screen back>
       <Title>{t('codeTitle')}</Title>
       <Body muted>
-        {t('codeHint')} <Text style={{ fontFamily: fonts.en.medium }}>{ltr(phone ? formatPhone(phone) : '')}</Text>
+        {t('codeHint')} <Text style={{ fontFamily: fonts.en.medium }}>{ltr(email ?? (phone ? formatPhone(phone) : ''))}</Text>
       </Body>
+      {email ? (
+        <Body muted small>
+          {t('codeSpamHint')}
+        </Body>
+      ) : null}
 
       {/* Six boxes drawn over one invisible input, so paste and SMS autofill still work. */}
       <Pressable onPress={() => input.current?.focus()} style={styles.boxes}>
@@ -78,7 +88,7 @@ export default function CodeStep() {
           maxLength={LENGTH}
           keyboardType="number-pad"
           textContentType="oneTimeCode"
-          autoComplete="sms-otp"
+          autoComplete={email ? 'one-time-code' : 'sms-otp'}
           caretHidden
           style={styles.hiddenInput}
           onChangeText={(v) => {
@@ -100,7 +110,7 @@ export default function CodeStep() {
       ) : (
         <TextLink label={t('resend')} onPress={resend} />
       )}
-      <TextLink label={t('changeNumber')} onPress={() => router.back()} />
+      <TextLink label={email ? t('changeEmail') : t('changeNumber')} onPress={() => router.back()} />
     </Screen>
   );
 }

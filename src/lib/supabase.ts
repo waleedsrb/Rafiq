@@ -17,5 +17,8 @@ export const supabase = createClient(url ?? 'http://localhost:54321', anonKey ??
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // PKCE: Google sign in comes back to the app with a one-time code, which
+    // only this device can swap for a session (see src/lib/social-sign-in.ts).
+    flowType: 'pkce',
   },
 });
