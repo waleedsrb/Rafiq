@@ -13,6 +13,7 @@ import { RouteCheckpoints } from '@/components/route-checkpoints';
 import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
 import { Icon } from '@/components/icon';
+import { useRepeatsText } from '@/components/repeats';
 import { RouteMap } from '@/components/route-map';
 import { TripHero } from '@/components/trip-hero';
 import { Body, Button, Countdown, IconCircle, ListRow, Screen, ltr } from '@/components/ui';
@@ -43,6 +44,7 @@ type Trip = {
   started_at: string | null;
   finished_at: string | null;
   profiles: { full_name: string }; // the driver, joined through trips.driver_id
+  trip_series: { weekdays: number[]; stopped_at: string | null } | null; // set when the trip repeats weekly
 };
 
 export default function TripDetails() {
@@ -50,6 +52,7 @@ export default function TripDetails() {
   const { t, lang } = useT();
   const { session, profile } = useSession();
   const insets = useSafeAreaInsets();
+  const repeatsText = useRepeatsText();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
   const [driverVerified, setDriverVerified] = useState(false);
@@ -70,7 +73,7 @@ export default function TripDetails() {
     const [tripRes, seatsRes, bookingRes] = await Promise.all([
       supabase
         .from('trips')
-        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, profiles!trips_driver_id_fkey(full_name)')
+        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, profiles!trips_driver_id_fkey(full_name), trip_series(weekdays, stopped_at)')
         .eq('id', id)
         .single(),
       supabase.rpc('seats_left', { p_trip_id: id }),
@@ -341,6 +344,9 @@ export default function TripDetails() {
               </View>
             }
           />
+          {trip.trip_series && !trip.trip_series.stopped_at ? (
+            <ListRow icon="calendar" title={repeatsText(trip.trip_series.weekdays)} />
+          ) : null}
           <ListRow
             last
             icon="armchair"
