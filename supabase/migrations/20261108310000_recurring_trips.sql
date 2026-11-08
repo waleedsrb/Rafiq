@@ -19,6 +19,7 @@ create table public.trip_series (
   depart_time  time not null,
   seats_total  int not null check (seats_total between 1 and 6),
   price_ils    numeric(6, 2) not null check (price_ils >= 0),
+  women_only   boolean not null default false, -- copied onto every trip (see check_trip_safety)
   time_zone    text not null default 'Asia/Hebron',
   created_at   timestamptz not null default now(),
   stopped_at   timestamptz,               -- set when the driver stops repeating
@@ -31,6 +32,32 @@ alter table public.trip_series enable row level security;
 create policy trip_series_read   on public.trip_series for select to authenticated using (true);
 create policy trip_series_insert on public.trip_series for insert to authenticated with check (driver_id = auth.uid());
 -- Changing a pattern = stop it and save a new one (see stop_trip_series), so no update policy.
+
+-- Same rules as posting one trip: not while posting is paused, women-only only for women.
+create or replace function public.guard_trip_series()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_until timestamptz := posting_paused_until(new.driver_id);
+begin
+  if v_until is not null then
+    raise exception 'Posting is paused until %', to_char(v_until at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
+  end if;
+  if new.women_only and not is_verified_woman(new.driver_id) then
+    raise exception 'Only women can drive women-only trips';
+  end if;
+  new.created_at := now();
+  new.stopped_at := null;
+  return new;
+end;
+$$;
+create trigger trip_series_guard
+before insert on public.trip_series
+for each row execute function public.guard_trip_series();
+revoke execute on function public.guard_trip_series() from public, anon, authenticated;
 
 alter table public.trips add column series_id uuid references public.trip_series (id) on delete set null;
 -- One trip per series per departure: running the generator twice adds nothing.
@@ -57,7 +84,9 @@ for each row execute function public.guard_trip_series_link();
 revoke execute on function public.guard_trip_series_link() from public, anon, authenticated;
 
 -- Create the missing trips of one pattern (or all active ones) for the next p_days days.
--- Skips departures less than an hour away, and drivers whose check is no longer approved.
+-- Skips departures less than an hour away, drivers whose check is no longer approved,
+-- and drivers whose posting is paused (after repeated late cancels). One pattern that
+-- can't post never stops the others.
 -- Returns how many trips it added.
 create or replace function public.generate_series_trips(p_series_id uuid default null, p_days int default 7)
 returns int
@@ -76,6 +105,7 @@ begin
     select ts.* from trip_series ts
       join driver_details dd on dd.driver_id = ts.driver_id and dd.verified_at is not null
      where ts.stopped_at is null and (p_series_id is null or ts.id = p_series_id)
+       and posting_paused_until(ts.driver_id) is null
   loop
     for d in
       select g::date from generate_series(
@@ -86,11 +116,15 @@ begin
       continue when extract(dow from d)::smallint <> all (s.weekdays);
       v_at := (d + s.depart_time) at time zone s.time_zone;
       continue when v_at < now() + interval '1 hour';
-      insert into trips (driver_id, origin, destination, departs_at, seats_total, price_ils, series_id)
-      values (s.driver_id, s.origin, s.destination, v_at, s.seats_total, s.price_ils, s.id)
-      on conflict (series_id, departs_at) where series_id is not null do nothing;
-      get diagnostics v_count = row_count;
-      v_added := v_added + v_count;
+      begin
+        insert into trips (driver_id, origin, destination, departs_at, seats_total, price_ils, women_only, series_id)
+        values (s.driver_id, s.origin, s.destination, v_at, s.seats_total, s.price_ils, s.women_only, s.id)
+        on conflict (series_id, departs_at) where series_id is not null do nothing;
+        get diagnostics v_count = row_count;
+        v_added := v_added + v_count;
+      exception when others then
+        raise warning 'series % skipped %: %', s.id, d, sqlerrm;
+      end;
     end loop;
   end loop;
   return v_added;
@@ -132,10 +166,14 @@ begin
   if not found then
     raise exception 'Not your repeating trip, or already stopped';
   end if;
+  -- Nobody asked for these seats, so this is never a late cancel (cancelled_late stays empty).
+  -- The flag tells guard_trip() this cancel comes from a trusted function, like cancel_trip().
+  perform set_config('rafiq.cancelling', 'on', true);
   update trips t set cancelled_at = now()
    where t.series_id = p_series_id and t.cancelled_at is null and t.departs_at > now()
      and not exists (select 1 from bookings b where b.trip_id = t.id and b.status in ('requested', 'accepted'));
   get diagnostics v_removed = row_count;
+  perform set_config('rafiq.cancelling', 'off', true);
   return v_removed;
 end;
 $$;

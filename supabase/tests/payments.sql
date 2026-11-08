@@ -1,5 +1,7 @@
 -- Checks slice 6: the card is held on request, charged on accept, released or refunded by the rules.
 begin;
+-- The card checks run with the fee as it was in slice 6 (the cash pilot sets it to 0).
+update public.settings set value = 2 where key = 'service_fee_ils';
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claim.sub', coalesce(uid::text, ''), true);

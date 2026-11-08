@@ -12,17 +12,20 @@ import { TripHero } from '@/components/trip-hero';
 import {
   Body,
   Countdown,
+  GlassButton,
   IconCircle,
   ListRow,
   QuickAction,
   Screen,
   SectionTitle,
+  TopBar,
   ltr,
   useFont,
 } from '@/components/ui';
 import { clock, formatCountdown, formatLongDay } from '@/lib/format';
 import { useBookingChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
+import { useUnreadCount } from '@/lib/notifications';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -65,6 +68,7 @@ type NextDrive = {
 export default function Home() {
   const { t, lang } = useT();
   const { f, rtl } = useFont();
+  const { unread } = useUnreadCount();
   const { profile, session } = useSession();
   const [next, setNext] = useState<NextBooking | null>(null);
   const [waiting, setWaiting] = useState<{ count: number; tripId: string } | null>(null);
@@ -163,7 +167,20 @@ export default function Home() {
       scroll
       tab
       // No avatar button: Account is already a tab, so it would be a second way to the same place.
-      contentStyle={{ paddingTop: 72 }}
+      // The bell opens the inbox; its clay dot means something arrived you haven't seen.
+      top={
+        <TopBar
+          end={
+            <GlassButton
+              icon="bell"
+              label={unread > 0 ? `${t('notificationsTitle')} · ${t('unread')}` : t('notificationsTitle')}
+              dot={unread > 0}
+              onPress={() => router.push('/notifications')}
+            />
+          }
+        />
+      }
+      contentStyle={{ paddingTop: space.sm }}
     >
       {showDrive && drive ? (
         <NextDriveHero trip={drive} now={now} />

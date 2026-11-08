@@ -154,17 +154,30 @@ function requestCard(r: Request, urlFor: Map<string, string>) {
     }),
   );
 
-  const approve = el('button', { class: 'btn', textContent: 'Approve' });
+  // Gender as shown on the ID. It decides who may use women-only trips, so it is
+  // confirmed here, pre-filled with what the person chose at sign-up.
+  const gender = el('select', { title: 'Gender on the ID' });
+  for (const [value, label] of [['', 'Gender on ID…'], ['f', 'Female'], ['m', 'Male']]) {
+    gender.append(el('option', { value, textContent: label }));
+  }
+  gender.value = r.profiles?.gender ?? '';
+  const approve = el('button', { class: 'btn', textContent: 'Approve', disabled: !gender.value });
+  gender.onchange = () => (approve.disabled = !gender.value);
   const reason = el('input', { placeholder: 'Reason they will see, e.g. The ID photo is blurry', maxLength: 200 });
   const reject = el('button', { class: 'btn secondary', textContent: 'Reject', disabled: true });
   reason.oninput = () => (reject.disabled = reason.value.trim().length < 2);
 
   async function decide(ok: boolean) {
     approve.disabled = reject.disabled = true;
-    const { error } = await supabase.rpc('review_verification', { p_id: r.id, p_approve: ok, p_reason: ok ? null : reason.value.trim() });
+    const { error } = await supabase.rpc('review_verification', {
+      p_id: r.id,
+      p_approve: ok,
+      p_reason: ok ? null : reason.value.trim(),
+      p_gender: ok ? gender.value : null,
+    });
     if (error) {
       msg.textContent = error.message;
-      approve.disabled = false;
+      approve.disabled = !gender.value;
       reject.disabled = reason.value.trim().length < 2;
       return;
     }
@@ -185,7 +198,7 @@ function requestCard(r: Request, urlFor: Map<string, string>) {
       el('span', { class: `tag ${r.kind}`, textContent: r.kind === 'driver' ? 'Driver' : 'Passenger' }),
     ),
     photos,
-    el('div', { class: 'actions' }, approve, reason, reject),
+    el('div', { class: 'actions' }, gender, approve, reason, reject),
     msg,
   );
   return card;

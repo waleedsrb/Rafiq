@@ -34,3 +34,14 @@ export function formatPhone(stored: string): string {
 export function telLink(stored: string): string {
   return `tel:+${stored.replace(/\D/g, '')}`;
 }
+
+/**
+ * An emergency contact can live anywhere (a parent in Amman, a brother in Haifa),
+ * so besides local mobiles we accept any international number: +, then 8 to 15 digits.
+ */
+export function normalizeContactPhone(input: string): string | null {
+  const local = normalizePhone(input);
+  if (local) return local;
+  const digits = toWesternDigits(input).replace(/[\s\-()]/g, '').replace(/^00/, '+');
+  return /^\+[1-9]\d{7,14}$/.test(digits) ? digits : null;
+}

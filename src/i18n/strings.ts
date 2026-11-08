@@ -195,6 +195,72 @@ export const strings = {
   welcome: { ar_m: 'أهلاً', en: 'Welcome' },
   signOut: { ar_m: 'تسجيل الخروج', en: 'Sign out' },
 
+  // Notifications inbox (slice 10)
+  notificationsTitle: { ar_m: 'الإشعارات', en: 'Notifications' },
+  notificationSettings: { ar_m: 'إعدادات الإشعارات', en: 'Notification settings' },
+  notificationsEmpty: {
+    ar_m: 'لا إشعارات بعد. ستجد هنا كل ما يصلك عن رحلاتك.',
+    en: "No notifications yet. Everything about your trips will show up here.",
+  },
+  thisWeek: { ar_m: 'هذا الأسبوع', en: 'This week' },
+  earlier: { ar_m: 'قبل ذلك', en: 'Earlier' },
+  unread: { ar_m: 'غير مقروء', en: 'Unread' },
+
+  // Your profile (Account tab)
+  yourProfile: { ar_m: 'ملفك الشخصي', en: 'Your profile' },
+  memberSince: { ar_m: 'منذ', en: 'since' },
+  rolePassenger: { ar_m: 'راكب', ar_f: 'راكبة', en: 'Passenger' },
+  rolePassengerDriver: { ar_m: 'راكب وسائق', ar_f: 'راكبة وسائقة', en: 'Passenger and driver' },
+  statTrips: { ar_m: 'رحلة', en: 'Trips' },
+  statReliable: { ar_m: 'التزام', en: 'Reliable' },
+  statRating: { ar_m: 'تقييم', en: 'Rating' },
+  myCar: { ar_m: 'سيارتي', en: 'My car' },
+  emergencyContact: { ar_m: 'جهة الطوارئ', en: 'Emergency contact' },
+  emergencyNone: { ar_m: 'لم تُضف بعد', en: 'Not added yet' },
+  settingsTitle: { ar_m: 'الإعدادات', en: 'Settings' },
+  settingsSubtitle: { ar_m: 'اللغة، الإشعارات، الحساب', en: 'Language, notifications, account' },
+
+  // Settings
+  notificationsSection: { ar_m: 'الإشعارات', en: 'Notifications' },
+  notifyTrips: { ar_m: 'طلبات المقاعد والردود عليها', en: 'Seat requests and answers' },
+  notifyTripsNote: {
+    ar_m: 'تنبيهات الرحلات المؤكدة لا يمكن إيقافها',
+    en: "Alerts about confirmed trips can't be turned off",
+  },
+  safetySection: { ar_m: 'الأمان والحساب', en: 'Safety and account' },
+  deleteAccount: { ar_m: 'حذف الحساب', en: 'Delete account' },
+  deleteAccountQ: { ar_m: 'حذف حسابك؟', en: 'Delete your account?' },
+  deleteAccountBody: {
+    ar_m: 'سنلغي رحلاتك وحجوزاتك القادمة حسب قواعد الإلغاء، ونحذف اسمك ورقمك وصور هويتك. لا يمكن التراجع عن ذلك.',
+    en: "We'll cancel your upcoming trips and seats under the usual cancel rules, and delete your name, number and ID photos. This can't be undone.",
+  },
+  deleteAccountYes: { ar_m: 'نعم، احذف', ar_f: 'نعم، احذفي', en: 'Yes, delete' },
+  finishTripFirst: {
+    ar_m: 'أنهِ رحلتك الحالية أولًا، ثم احذف حسابك.',
+    ar_f: 'أنهي رحلتك الحالية أولًا، ثم احذفي حسابك.',
+    en: 'Finish the trip you are on first, then delete your account.',
+  },
+  keepAccount: { ar_m: 'لا، أبقِه', ar_f: 'لا، أبقيه', en: 'No, keep it' },
+
+  // Emergency contact
+  emergencyTitle: { ar_m: 'جهة الطوارئ', en: 'Emergency contact' },
+  emergencyIntro: {
+    ar_m: 'شخص نثق أنك تريده أن يعرف أين أنت. نرسل له رابط رحلتك فقط عندما تطلب ذلك أو عند الطوارئ.',
+    ar_f: 'شخص نثق أنكِ تريدينه أن يعرف أين أنتِ. نرسل له رابط رحلتك فقط عندما تطلبين ذلك أو عند الطوارئ.',
+    en: "Someone you'd want to know where you are. We only send them your trip link when you ask, or in an emergency.",
+  },
+  emergencyName: { ar_m: 'الاسم', en: 'Name' },
+  emergencyNameHint: { ar_m: 'مثلًا: أم وليد', en: 'e.g. Umm Waleed' },
+  emergencyPhone: { ar_m: 'رقم الهاتف', en: 'Phone number' },
+  emergencyBadPhone: {
+    ar_m: 'أدخل رقمًا صحيحًا، مثل 0591234567 أو ‎+962…',
+    ar_f: 'أدخلي رقمًا صحيحًا، مثل 0591234567 أو ‎+962…',
+    en: 'Enter a valid number, like 0591234567 or +962…',
+  },
+  emergencyBadName: { ar_m: 'أدخل اسمًا من حرفين على الأقل', ar_f: 'أدخلي اسمًا من حرفين على الأقل', en: 'Enter a name of at least 2 letters' },
+  emergencyRemove: { ar_m: 'إزالة جهة الطوارئ', en: 'Remove emergency contact' },
+  saved: { ar_m: 'تم الحفظ', en: 'Saved' },
+
   // Post a trip (driver)
   postTrip: { ar_m: 'انشر رحلة', ar_f: 'انشري رحلة', en: 'Post a trip' },
   postTripTitle: { ar_m: 'رحلة جديدة', en: 'New trip' },
@@ -497,6 +563,48 @@ export const strings = {
     ar_m: 'أرسلت بلاغًا عن هذا الحاجز قبل قليل. جرّب بعد دقائق.',
     ar_f: 'أرسلتِ بلاغًا عن هذا الحاجز قبل قليل. جرّبي بعد دقائق.',
     en: 'You reported this checkpoint a moment ago. Try again in a few minutes.',
+  },
+
+  // ─── Safety: women-only trips and late cancels (slice 12) ──────────────────
+  womenOnly: { ar_m: 'للنساء فقط', en: 'Women only' },
+  womenOnlyHint: {
+    ar_m: 'لا يراها ولا يطلبها إلا الراكبات الموثّقات',
+    en: 'Only verified women can see and book it',
+  },
+  postingPausedUntil: {
+    ar_m: 'نشر الرحلات متوقف حتى',
+    ar_f: 'نشر الرحلات متوقف حتى',
+    en: 'Posting trips is paused until',
+  },
+  postingPausedWhy: {
+    ar_m: 'بسبب 3 إلغاءات متأخرة خلال 30 يومًا. الركاب يعتمدون على رحلاتك.',
+    en: 'because of 3 late cancels in 30 days. Passengers plan their day around your trips.',
+  },
+  driverLateCancelTitle: { ar_m: 'هذا إلغاء متأخر', en: 'This is a late cancel' },
+  driverLateCancelBody: {
+    ar_m: 'باقي أقل من 12 ساعة على الانطلاق وهناك ركاب حجزوا معك. 3 إلغاءات متأخرة خلال 30 يومًا توقف نشر الرحلات لأسبوع. إلغاءاتك المتأخرة حتى الآن:',
+    en: 'Departure is less than 12 hours away and passengers are booked with you. 3 late cancels in 30 days pause posting for a week. Your late cancels so far:',
+  },
+  closedCheckpointTitle: { ar_m: 'هل تلغي بسبب حاجز مغلق؟', ar_f: 'هل تلغين بسبب حاجز مغلق؟', en: 'Cancelling because of a closed checkpoint?' },
+  closedCheckpointBody: {
+    ar_m: 'مُبلَّغ الآن أن هذا الحاجز مغلق:',
+    en: 'This checkpoint is reported closed right now:',
+  },
+  closedCheckpointNote: {
+    ar_m: 'الإلغاء بسبب إغلاق مُبلَّغ عنه لا يُحسب إلغاءً متأخرًا.',
+    en: "A cancel because of a reported closure doesn't count as late.",
+  },
+  yesClosed: { ar_m: 'نعم، الحاجز مغلق', en: "Yes, it's closed" },
+  otherReason: { ar_m: 'سبب آخر', en: 'Another reason' },
+  womenOnlyTrip: { ar_m: 'هذه الرحلة للنساء فقط', en: 'This trip is for women only' },
+
+  // ─── Cash pilot ───────────────────────────────────────────────────────────
+  cashTitle: { ar_m: 'اطلب مقعدك', ar_f: 'اطلبي مقعدك', en: 'Request your seat' },
+  cashLine: { ar_m: 'الدفع نقدًا للسائق', en: 'Paid in cash to the driver' },
+  cashHint: {
+    ar_m: 'لا حاجة لبطاقة. ادفع الأجرة للسائق نقدًا عند الركوب. لا رسوم خدمة خلال التجربة.',
+    ar_f: 'لا حاجة لبطاقة. ادفعي الأجرة للسائق نقدًا عند الركوب. لا رسوم خدمة خلال التجربة.',
+    en: 'No card needed. Pay the driver in cash when you get in. No service fee during the pilot.',
   },
 
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },

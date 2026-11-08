@@ -34,11 +34,11 @@ p { line-height: 1.5; margin: 0; }
 .stack { display: grid; gap: 16px; }
 .narrow { max-width: 380px; }
 label { font-size: 13px; font-weight: 500; color: var(--ink-2); display: grid; gap: 6px; }
-input {
+input, select {
   font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 12px;
   border: 1px solid var(--hairline); background: var(--card); color: var(--ink); outline: none;
 }
-input:focus { border-color: var(--ink); }
+input:focus, select:focus { border-color: var(--ink); }
 button { font: inherit; cursor: pointer; }
 .btn {
   border: 0; border-radius: 999px; padding: 12px 22px; font-weight: 500; font-size: 16px;

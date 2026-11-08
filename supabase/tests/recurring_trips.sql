@@ -117,5 +117,45 @@ do $$ begin
   end if;
 end $$;
 
+-- 7. Women-only patterns: only a verified woman can save one, and it carries onto every trip.
+set local role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.expect_error($$insert into public.trip_series (origin, destination, weekdays, depart_time, seats_total, price_ils, women_only)
+  values ('ramallah', 'nablus', '{0,1,2,3,4,5,6}', '23:15', 3, 25, true)$$, 'Only women');
+reset role;
+select pg_temp.as_user(null);
+update public.profiles set gender = 'f', gender_verified_at = now(), id_verified_at = now()
+ where id = '00000000-0000-0000-0000-00000000000d';
+set local role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+insert into public.trip_series (origin, destination, weekdays, depart_time, seats_total, price_ils, women_only)
+values ('ramallah', 'nablus', '{0,1,2,3,4,5,6}', '23:15', 3, 25, true);
+reset role;
+do $$ begin
+  if exists (select 1 from public.trips t join public.trip_series s on s.id = t.series_id
+              where s.women_only and not t.women_only) or not exists (
+         select 1 from public.trips t join public.trip_series s on s.id = t.series_id where s.women_only) then
+    raise exception 'FAIL: women-only not carried onto the trips';
+  end if;
+end $$;
+
+-- 8. A driver whose posting is paused (3 late cancels) can't save a pattern, and their
+--    existing pattern quietly posts nothing (the hourly job doesn't fail).
+select pg_temp.as_user(null);
+insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils, cancelled_at, cancelled_late)
+select '00000000-0000-0000-0000-00000000000e', 'ramallah', 'nablus', now() + (g || ' days')::interval, 3, 25, now(), true
+  from generate_series(10, 12) g;
+set local role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000e');
+select pg_temp.expect_error($$insert into public.trip_series (origin, destination, weekdays, depart_time, seats_total, price_ils)
+  values ('nablus', 'ramallah', '{0}', '08:00', 3, 25)$$, 'Posting is paused');
+reset role;
+do $$ begin
+  perform public.generate_series_trips();
+  if exists (select 1 from public.trips where driver_id = '00000000-0000-0000-0000-00000000000e' and cancelled_at is null) then
+    raise exception 'FAIL: paused driver got trips';
+  end if;
+end $$;
+
 select 'All recurring trip checks passed' as result;
 rollback;
