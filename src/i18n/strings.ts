@@ -589,6 +589,24 @@ export const strings = {
     en: 'No card needed. Pay the driver in cash when you get in. No service fee during the pilot.',
   },
 
+  // ─── Share my trip and Emergency (slice 12) ────────────────────────────────
+  followLive: { ar_m: 'تابع الرحلة مباشرة:', en: 'Follow it live:' },
+  emergencyButton: { ar_m: 'طوارئ', en: 'Emergency' },
+  sosTitle: { ar_m: 'هل تحتاج مساعدة؟', ar_f: 'هل تحتاجين مساعدة؟', en: 'Need help?' },
+  sosBody: {
+    ar_m: 'اتصل بالطوارئ، أو أرسل رحلتك المباشرة لمن تثق به.',
+    ar_f: 'اتصلي بالطوارئ، أو أرسلي رحلتك المباشرة لمن تثقين به.',
+    en: 'Call for help, or send your live trip to someone you trust.',
+  },
+  callPolice: { ar_m: 'اتصل بالشرطة', ar_f: 'اتصلي بالشرطة', en: 'Call the police' },
+  callAmbulance: { ar_m: 'اتصل بالإسعاف', ar_f: 'اتصلي بالإسعاف', en: 'Call an ambulance' },
+  textContact: { ar_m: 'أرسل رحلتك المباشرة إلى', ar_f: 'أرسلي رحلتك المباشرة إلى', en: 'Text your live trip to' },
+  sendLiveTrip: { ar_m: 'أرسل رحلتك المباشرة لشخص آخر', ar_f: 'أرسلي رحلتك المباشرة لشخص آخر', en: 'Send your live trip to someone else' },
+  sosMessage: {
+    ar_m: 'أحتاج مساعدة. هذه رحلتي على رفيق مباشرة:',
+    en: 'I need help. This is my Rafiq trip, live:',
+  },
+
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 } satisfies Record<string, Variants>;
 

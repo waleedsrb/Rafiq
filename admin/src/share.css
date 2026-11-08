@@ -1,0 +1,16 @@
+/* Share my trip: one calm card for family. Phone first. */
+.share { max-width: 520px; display: grid; gap: 16px; }
+.share h1 { font-size: 24px; line-height: 1.3; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 15px; }
+.status::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--ink-2); }
+.status.live::before { background: var(--open); }
+.status.done::before { background: var(--ink); }
+.status.off::before { background: var(--clay); }
+.card { background: var(--card); border: 1px solid var(--hairline); border-radius: 20px; padding: 16px 18px; display: grid; gap: 10px; }
+.row { display: flex; justify-content: space-between; gap: 12px; font-size: 16px; }
+.row .k { color: var(--ink-2); }
+.row .v { font-weight: 500; text-align: end; }
+.plate { font-family: 'IBM Plex Sans', monospace; direction: ltr; unicode-bidi: isolate; letter-spacing: 0.04em; }
+.map { width: 100%; aspect-ratio: 4 / 3; border: 1px solid var(--hairline); border-radius: 20px; overflow: hidden; background: var(--sunken); }
+.map iframe { width: 100%; height: 100%; border: 0; }
+.share .btn { text-decoration: none; }
