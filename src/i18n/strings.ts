@@ -48,6 +48,13 @@ export const strings = {
   },
   slideLabel: { ar_m: 'الشريحة', en: 'Slide' },
   startWithPhone: { ar_m: 'ابدأ برقم هاتفك', en: 'Start with your phone number' },
+  orSignInWith: { ar_m: 'أو تابع بواسطة', en: 'Or continue with' },
+  withEmail: { ar_m: 'البريد الإلكتروني', en: 'Email' },
+  withGoogle: { ar_m: 'Google', en: 'Google' },
+  signInFailed: {
+    ar_m: 'لم يكتمل تسجيل الدخول. حاول مرة أخرى أو استخدم رقم هاتفك.',
+    en: "Signing in didn't finish. Try again, or use your phone number.",
+  },
   termsNote: {
     ar_m: 'بالمتابعة توافق على الشروط وسياسة الخصوصية.',
     en: 'By continuing you agree to the Terms and Privacy Policy.',
@@ -80,6 +87,21 @@ export const strings = {
     en: 'Enter a mobile number starting with 59 or 56',
   },
 
+  // Sign up: email
+  emailTitle: { ar_m: 'أدخل بريدك الإلكتروني', en: 'Enter your email' },
+  emailHint: {
+    ar_m: 'سنرسل لك رمزًا من 6 أرقام. لا يرى أحد بريدك.',
+    en: "We'll email you a 6-digit code. Nobody else sees your email.",
+  },
+  emailLabel: { ar_m: 'البريد الإلكتروني', en: 'Email' },
+  emailInvalid: { ar_m: 'أدخل بريدًا إلكترونيًا صحيحًا', en: 'Enter a valid email address' },
+  emailTooMany: {
+    ar_m: 'أرسلنا رموزًا كثيرة مؤخرًا. انتظر قليلًا أو استخدم رقم هاتفك.',
+    en: "We've sent a lot of codes lately. Wait a little, or use your phone number.",
+  },
+  changeEmail: { ar_m: 'غيّر البريد', en: 'Change the email' },
+  codeSpamHint: { ar_m: 'لم يصلك؟ تفقّد مجلد الرسائل غير المرغوب فيها.', en: "Can't see it? Check your spam folder." },
+
   // Sign up: code
   codeTitle: { ar_m: 'أدخل الرمز', en: 'Enter the code' },
   codeHint: { ar_m: 'أرسلناه إلى', en: 'We sent it to' },
@@ -98,6 +120,11 @@ export const strings = {
   firstName: { ar_m: 'الاسم الأول', en: 'First name' },
   lastName: { ar_m: 'اسم العائلة', en: 'Last name' },
   namePreviewHint: { ar_m: 'هكذا يظهر اسمك للآخرين', en: 'This is how others see your name' },
+  reachPhoneLabel: { ar_m: 'رقم جوالك', en: 'Your mobile number' },
+  reachPhoneHint: {
+    ar_m: 'ليتصل بك السائق أو الراكب بعد قبول الرحلة فقط.',
+    en: 'So your driver or passenger can call you, only after a trip is accepted.',
+  },
   genderLabel: { ar_m: 'كيف نخاطبك؟', en: 'How should we address you?' },
   genderM: { ar_m: 'ذكر', en: 'Male' },
   genderF: { ar_m: 'أنثى', en: 'Female' },
