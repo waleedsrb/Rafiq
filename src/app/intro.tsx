@@ -1,8 +1,8 @@
 // Intro ("/intro"): the first thing a signed-out person sees, right after the graphite splash.
 // A driver at the wheel, drawn in negative space on graphite; then the graphite
-// springs into the R and the driver's head becomes its counter. Then the name,
-// the line, and the two ways in fade up.
-// Motion and numbers come from the Counter Head studio and the Intro board.
+// springs into the R, the driver's head becomes its counter, and the road
+// sweeps out beside the leg. Then the name, the line, and the two ways in fade up.
+// Motion and numbers come from the logo studio and the Intro board.
 
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { R_HEAD, R_POINTS } from '@/components/intro-points';
+import { R_HEAD, R_POINTS, R_ROAD } from '@/components/intro-points';
 import { Button, useFont } from '@/components/ui';
 import { useT } from '@/lib/session';
 import { colors, space } from '@/theme/tokens';
@@ -36,6 +36,7 @@ const END = C + UI_DELAY + 900;
 const MORPH = { k: 140, c: 24 };
 const HEAD = { k: 200, c: 15 };
 const BOUNCE = { k: 300, c: 9, amount: 0.12 };
+const ROAD = { delay: 220, k: 170, c: 20, from: 14 }; // the road sweeps out after the collapse
 
 // The scene is 390 units wide (the board), as tall as the screen needs.
 const W = 390;
@@ -181,6 +182,30 @@ export default function Intro() {
     };
   });
 
+  // The road: slides out along its own direction (from the tip toward the base) and fades in.
+  const roadProps = useAnimatedProps(() => {
+    const tt = time.value;
+    const q = spring(tt - C - ROAD.delay, ROAD.k, ROAD.c);
+    const b = 1 - BOUNCE.amount * impulse(tt - C - 260, BOUNCE.k, BOUNCE.c);
+    const off = (1 - q) * ROAD.from;
+    let d = '';
+    let n = 0;
+    for (let i = 0; i < R_ROAD.length; i++) {
+      const v = R_ROAD[i];
+      if (typeof v === 'string') {
+        d += v;
+        n = 0;
+        continue;
+      }
+      const isX = n % 2 === 0;
+      const scene = isX ? PL.x + v * PL.s + off * 0.6 : PL.y + v * PL.s - off * 0.8;
+      const c = isX ? CX : CY;
+      d += (isX ? (n ? ' ' : '') : ',') + (c + (scene - c) * b).toFixed(1);
+      n++;
+    }
+    return { d, opacity: clamp((tt - C - ROAD.delay) / 260) };
+  });
+
   const uiStyle = useAnimatedStyle(() => {
     const u = outCubic(clamp((time.value - C - UI_DELAY) / 600));
     return { opacity: u, transform: [{ translateY: (1 - u) * 14 }] };
@@ -198,6 +223,7 @@ export default function Intro() {
       >
         <Rect width={W} height={H} fill={colors.surface} />
         <AnimatedPath animatedProps={inkProps} fill={colors.ink} />
+        <AnimatedPath animatedProps={roadProps} fill={colors.ink} />
         <AnimatedPath animatedProps={bodyProps} fill={colors.surface} />
         <AnimatedPath animatedProps={wheelProps} fill={colors.surface} />
         <AnimatedCircle animatedProps={headProps} fill={colors.surface} />
