@@ -10,7 +10,7 @@ import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import { Icon, type IconName } from '@/components/icon';
 import { Body, Button, IconCircle, Screen, Title, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
-import { choose as askChoice } from '@/lib/dialog';
+import { choose as askChoice, dialogsClosed } from '@/lib/dialog';
 import { goBack } from '@/lib/nav';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -57,8 +57,11 @@ export default function Verify() {
         { label: t('choosePhoto'), value: 'library' as const, icon: 'image' },
       ],
       cancel: t('cancel'),
-    }).then((from) => {
-      if (from) pick(slot, from);
+    }).then(async (from) => {
+      if (!from) return;
+      // Let the pop-up finish leaving first: iOS can't open the camera or photos on top of it.
+      await dialogsClosed();
+      pick(slot, from);
     });
   }
 

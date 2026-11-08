@@ -5,12 +5,20 @@
 // the main action on top and the quiet one under it. The backdrop is a soft
 // graphite veil. Clay appears only for warnings and dangerous actions.
 
-import { useEffect, useSyncExternalStore } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { answerDialog, cancelDialog, currentDialog, subscribeDialogs, type DialogTone } from '@/lib/dialog';
+import {
+  answerDialog,
+  cancelDialog,
+  currentDialog,
+  setDialogOnScreen,
+  subscribeDialogs,
+  type DialogEntry,
+  type DialogTone,
+} from '@/lib/dialog';
 import { selectFeel, tapFeel, warnFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
 import { colors, radii, sizes, space } from '@/theme/tokens';
@@ -26,7 +34,13 @@ const TONES: Record<DialogTone, { icon: IconName; fg: string; bg: string; button
 };
 
 export function DialogHost() {
-  const entry = useSyncExternalStore(subscribeDialogs, currentDialog, currentDialog);
+  const current = useSyncExternalStore(subscribeDialogs, currentDialog, currentDialog);
+  // Keep drawing the last pop-up while the Modal slides away, so it can close properly
+  // (instead of being torn out mid-way) and tell us when it has really gone.
+  const [last, setLast] = useState<DialogEntry | null>(null);
+  if (current && current !== last) setLast(current);
+  const entry = current ?? last;
+  const visible = !!current;
   const insets = useSafeAreaInsets();
   const { f, rtl, direction } = useFont();
   const { t } = useT();
@@ -40,12 +54,41 @@ export function DialogHost() {
     if (entry && (entry.spec.tone === 'warning' || entry.spec.tone === 'danger')) warnFeel();
   }, [entry?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Report when the pop-up layer is up, and when it is fully gone. iOS says so through
+  // onDismiss; elsewhere the Modal goes away at once, so report on the next frame.
+  useEffect(() => {
+    if (visible) {
+      setDialogOnScreen(true);
+      return;
+    }
+    if (Platform.OS !== 'ios') {
+      const frame = requestAnimationFrame(() => {
+        setLast(null);
+        setDialogOnScreen(false);
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [visible]);
+
+  const onDismiss = () => {
+    setLast(null);
+    setDialogOnScreen(false);
+  };
+
   if (!entry) return null;
   const { spec } = entry;
   const cancel = () => cancelDialog(entry.id);
 
   return (
-    <Modal transparent visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={cancel}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={cancel}
+      onDismiss={onDismiss}
+    >
       <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(160)} style={StyleSheet.absoluteFill}>
         <Pressable accessibilityRole="button" accessibilityLabel={spec.cancelLabel ?? t('cancel')} onPress={cancel} style={styles.veil} />
       </Animated.View>
