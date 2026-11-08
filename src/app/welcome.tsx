@@ -61,7 +61,8 @@ const card = {
   crowded: '#D9A53A',
   closed: '#E0566A',
 };
-const snappy = { damping: 18, stiffness: 240, mass: 0.8 };
+// One calm ease-out for every entrance: quick to arrive, no overshoot or bounce.
+const calm = Easing.bezier(0.2, 0.8, 0.2, 1);
 
 export default function Welcome() {
   const { t, lang } = useT();
@@ -150,7 +151,7 @@ function StoryCard() {
   }, [story, run, progress]);
 
   // Forward is to the left in Arabic, to the right in English.
-  const entering = (rtl ? FadeInLeft : FadeInRight).springify().damping(snappy.damping).stiffness(snappy.stiffness);
+  const entering = (rtl ? FadeInLeft : FadeInRight).duration(300).easing(calm);
   const exiting = (rtl ? FadeOutRight : FadeOutLeft).duration(160);
   const cardHeight = Math.max(420, Math.min(480, height - 380));
 
@@ -226,13 +227,13 @@ function SeatStory() {
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
         <View style={[styles.seat, { backgroundColor: colors.onInk }]} />
         <View style={[styles.seat, styles.seatEmpty]}>
-          <Animated.View entering={ZoomIn.delay(650).springify().damping(12).stiffness(260)} style={[styles.seat, styles.seatMine]}>
+          <Animated.View entering={ZoomIn.delay(650).duration(260).easing(calm)} style={[styles.seat, styles.seatMine]}>
             <Icon name="check" size={18} color={card.bg} />
           </Animated.View>
         </View>
         <View style={[styles.seat, styles.seatEmpty]} />
       </View>
-      <Animated.View entering={FadeInDown.delay(950).springify()} style={styles.priceChip}>
+      <Animated.View entering={FadeInDown.delay(950).duration(280).easing(calm)} style={styles.priceChip}>
         <Text style={[styles.priceText, { fontFamily: fonts.en.bold }]}>{ltr('25₪')}</Text>
         <Text style={[styles.priceText, { fontFamily: f.regular, color: card.muted }]}> · {t('cash')}</Text>
       </Animated.View>
@@ -255,13 +256,13 @@ function DriverStory() {
         <View style={styles.avatar}>
           <Text style={[styles.avatarText, { fontFamily: f.bold }]}>{t('demoDriver').charAt(0)}</Text>
         </View>
-        <Animated.View entering={ZoomIn.delay(250).springify().damping(10).stiffness(280)} style={styles.avatarBadge}>
+        <Animated.View entering={ZoomIn.delay(250).duration(260).easing(calm)} style={styles.avatarBadge}>
           <Icon name="check" size={14} color={card.bg} />
         </Animated.View>
       </View>
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {checks.map(([icon, key], k) => (
-          <Animated.View key={key} entering={FadeInDown.delay(380 + k * 140).springify().damping(14)} style={styles.checkChip}>
+          <Animated.View key={key} entering={FadeInDown.delay(380 + k * 140).duration(280).easing(calm)} style={styles.checkChip}>
             <Icon name={icon} size={12} color={colors.onInk} />
             <Text style={[styles.checkText, { fontFamily: f.medium }]}>{t(key)}</Text>
           </Animated.View>
@@ -355,9 +356,8 @@ function WomenStory() {
               key={p}
               entering={(k === 0 ? (rtl ? FadeInRight : FadeInLeft) : k === 2 ? (rtl ? FadeInLeft : FadeInRight) : ZoomIn)
                 .delay(80 + k * 90)
-                .springify()
-                .damping(14)
-                .stiffness(220)}
+                .duration(320)
+                .easing(calm)}
               style={[styles.person, k > 0 && { marginStart: -16 }, { backgroundColor: k === 1 ? card.line : card.raised }]}
             >
               <Icon name="user" size={26} color={colors.onInk} />
@@ -365,7 +365,7 @@ function WomenStory() {
           ))}
         </View>
       </View>
-      <Animated.View entering={ZoomIn.delay(520).springify().damping(11).stiffness(260)} style={styles.womenChip}>
+      <Animated.View entering={ZoomIn.delay(520).duration(260).easing(calm)} style={styles.womenChip}>
         <FemaleIcon />
         <Text style={[styles.womenText, { fontFamily: f.bold }]}>{t('womenOnly')}</Text>
       </Animated.View>
