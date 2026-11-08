@@ -5,12 +5,20 @@
 // the main action on top and the quiet one under it. The backdrop is a soft
 // graphite veil. Clay appears only for warnings and dangerous actions.
 
-import { useEffect, useSyncExternalStore } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { answerDialog, cancelDialog, currentDialog, subscribeDialogs, type DialogTone } from '@/lib/dialog';
+import {
+  answerDialog,
+  cancelDialog,
+  currentDialog,
+  setCloseWaiter,
+  subscribeDialogs,
+  type DialogEntry,
+  type DialogTone,
+} from '@/lib/dialog';
 import { selectFeel, tapFeel, warnFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
 import { colors, radii, sizes, space } from '@/theme/tokens';
@@ -26,7 +34,31 @@ const TONES: Record<DialogTone, { icon: IconName; fg: string; bg: string; button
 };
 
 export function DialogHost() {
-  const entry = useSyncExternalStore(subscribeDialogs, currentDialog, currentDialog);
+  const live = useSyncExternalStore(subscribeDialogs, currentDialog, currentDialog);
+
+  // After an answer, keep the last pop-up mounted but hidden until iOS says the
+  // modal is gone, and only then hand the answer back (see setCloseWaiter).
+  const [shown, setShown] = useState<DialogEntry | null>(null);
+  const waiting = useRef<(() => void)[]>([]);
+  useEffect(() => {
+    if (live) setShown(live);
+  }, [live]);
+  const closed = useCallback(() => {
+    const done = waiting.current;
+    waiting.current = [];
+    setShown(null);
+    done.forEach((d) => d());
+  }, []);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    return setCloseWaiter((done) => {
+      if (currentDialog()) return done(); // the next pop-up reuses the open modal
+      waiting.current.push(done);
+      setTimeout(closed, 700); // in case onDismiss never comes
+    });
+  }, [closed]);
+
+  const entry = live ?? (Platform.OS === 'ios' ? shown : null);
   const insets = useSafeAreaInsets();
   const { f, rtl, direction } = useFont();
   const { t } = useT();
@@ -45,7 +77,15 @@ export function DialogHost() {
   const cancel = () => cancelDialog(entry.id);
 
   return (
-    <Modal transparent visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={cancel}>
+    <Modal
+      transparent
+      visible={!!live}
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={cancel}
+      onDismiss={closed}
+    >
       <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(160)} style={StyleSheet.absoluteFill}>
         <Pressable accessibilityRole="button" accessibilityLabel={spec.cancelLabel ?? t('cancel')} onPress={cancel} style={styles.veil} />
       </Animated.View>

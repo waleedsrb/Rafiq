@@ -2,7 +2,17 @@
 import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
-import { answerDialog, cancelDialog, choose, confirm, currentDialog, notify, resetDialogs, subscribeDialogs } from './dialog.ts';
+import {
+  answerDialog,
+  cancelDialog,
+  choose,
+  confirm,
+  currentDialog,
+  notify,
+  resetDialogs,
+  setCloseWaiter,
+  subscribeDialogs,
+} from './dialog.ts';
 
 beforeEach(() => resetDialogs());
 
@@ -44,4 +54,21 @@ test('the host is told when the queue changes', () => {
   stop();
   void notify({ title: 'Again', ok: 'OK' });
   assert.equal(calls, 2);
+});
+
+test('with a host waiting for the close, the answer comes only once the pop-up is gone', async () => {
+  let gone: (() => void) | null = null;
+  setCloseWaiter((done) => {
+    gone = done;
+  });
+  let answered = false;
+  const pick = choose({ title: 'From', options: [{ label: 'Camera', value: 'camera' }], cancel: 'Cancel' }).then((v) => {
+    answered = true;
+    return v;
+  });
+  answerDialog(currentDialog()!.id, 'camera');
+  await Promise.resolve();
+  assert.equal(answered, false); // still closing: too early to open the camera
+  gone!();
+  assert.equal(await pick, 'camera');
 });

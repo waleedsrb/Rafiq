@@ -48,6 +48,20 @@ let queue: DialogEntry[] = [];
 let nextId = 1;
 const listeners = new Set<() => void>();
 
+// The host can ask us to hold an answer until the pop-up is fully off screen.
+// iOS needs this: if a screen opens the camera or photo picker while the pop-up
+// is still closing, iOS refuses to show the picker and the app looks frozen.
+type CloseWaiter = (done: () => void) => void;
+let closeWaiter: CloseWaiter | null = null;
+
+/** For the host: run done() once the closed pop-up is really gone. Returns an undo. */
+export function setCloseWaiter(fn: CloseWaiter) {
+  closeWaiter = fn;
+  return () => {
+    if (closeWaiter === fn) closeWaiter = null;
+  };
+}
+
 function emit() {
   for (const l of listeners) l();
 }
@@ -79,7 +93,9 @@ export function answerDialog(id: number, value: unknown) {
   if (!entry) return; // already answered (e.g. a double tap)
   queue = queue.filter((e) => e.id !== id);
   emit();
-  entry.resolve(value);
+  const done = () => entry.resolve(value);
+  if (closeWaiter) closeWaiter(done);
+  else done();
 }
 
 /** Close the front pop-up as if the person cancelled. */
@@ -134,4 +150,5 @@ export function notify(o: { title: string; body?: string; ok: string; tone?: Dia
 export function resetDialogs() {
   queue = [];
   nextId = 1;
+  closeWaiter = null;
 }
