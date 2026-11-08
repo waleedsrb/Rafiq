@@ -20,3 +20,15 @@ export function successFeel() {
 export function warnFeel() {
   if (on) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
 }
+
+/** One step of a building hold: 0 soft ... 3 heavy (hold to report). */
+export function buildFeel(level: 0 | 1 | 2 | 3) {
+  if (!on) return;
+  const style = [
+    Haptics.ImpactFeedbackStyle.Soft,
+    Haptics.ImpactFeedbackStyle.Light,
+    Haptics.ImpactFeedbackStyle.Medium,
+    Haptics.ImpactFeedbackStyle.Heavy,
+  ][level];
+  Haptics.impactAsync(style).catch(() => {});
+}

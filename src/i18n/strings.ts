@@ -617,9 +617,27 @@ export const strings = {
   source_driver: { ar_m: 'سائق في رحلة', en: 'A driver on a trip' },
   source_channel: { ar_m: 'قناة عامة', en: 'A public channel' },
   statusRule: {
-    ar_m: 'البلاغات من الركاب والسائقين. الحالة هي رأي الأغلبية في آخر 30 دقيقة، ولا نُظهر من أرسل البلاغ.',
-    en: "Reports come from passengers and drivers. The status follows the majority of the last 30 minutes, and we never show who reported.",
+    ar_m: 'البلاغات من الركاب والسائقين والقنوات العامة. الحالة رأي الأغلبية في آخر 30 دقيقة، ويُحسب كل شخص مرة واحدة، ولمن صدقت بلاغاته من قبل وزن أكبر قليلًا. تصبح الحالة مؤكدة عندما يتفق اثنان أو أكثر. لا نُظهر من أرسل البلاغ.',
+    en: "Reports come from passengers, drivers and public channels. The status follows the majority of the last 30 minutes, each person counted once, and people whose reports others have backed up count a little more. It's confirmed once two or more agree. We never show who reported.",
   },
+  holdToReport: {
+    ar_m: 'اضغط مطوّلًا على الحالة لترسل بلاغك',
+    ar_f: 'اضغطي مطوّلًا على الحالة لترسلي بلاغك',
+    en: 'Press and hold a status to report it',
+  },
+  holdToReportHint: {
+    ar_m: 'اضغط مطوّلًا لثانية لإرسال البلاغ',
+    ar_f: 'اضغطي مطوّلًا لثانية لإرسال البلاغ',
+    en: 'Press and hold for a second to send this report',
+  },
+  holdLonger: {
+    ar_m: 'استمر بالضغط حتى يمتلئ الزر.',
+    ar_f: 'استمري بالضغط حتى يمتلئ الزر.',
+    en: 'Keep holding until the button fills.',
+  },
+  reportSent: { ar_m: 'أُرسل', en: 'Sent' },
+  statusConfirmed: { ar_m: 'مؤكد', en: 'Confirmed' },
+  statusUnconfirmed: { ar_m: 'غير مؤكد بعد', en: 'Not confirmed yet' },
   thanksReport: { ar_m: 'شكرًا، وصل بلاغك.', en: 'Thanks, your report is in.' },
   justReported: {
     ar_m: 'أرسلت بلاغًا عن هذا الحاجز قبل قليل. جرّب بعد دقائق.',

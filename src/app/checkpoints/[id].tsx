@@ -1,13 +1,16 @@
-// One checkpoint: its status, the last hour of reports, and one tap to report it.
+// One checkpoint: its status (and whether it's confirmed), the last hour of reports, and
+// press-and-hold to report it (a stray tap sends nothing).
 
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { STATUS_LOOK, StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
-import { Body, Button, Label, ListRow, Screen, SectionTitle, TextLink, Title, ltr, useFont } from '@/components/ui';
-import { STATUSES, type CheckpointStatus } from '@/lib/checkpoints';
+import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
+import { HoldToReport } from '@/components/hold-to-report';
+import { Body, Label, ListRow, Screen, SectionTitle, TextLink, Title, ltr, useFont } from '@/components/ui';
+import { STATUSES, confidence, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
+import { warnFeel } from '@/lib/haptics';
 import type { StringKey } from '@/i18n/strings';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -56,6 +59,7 @@ export default function CheckpointDetail() {
     const { error } = await supabase.from('checkpoint_reports').insert({ checkpoint_id: id, status });
     setSending(null);
     if (error) {
+      warnFeel();
       return setNote({ text: error.message.includes('just reported') ? t('justReported') : t('somethingWrong'), error: true });
     }
     setNote({ text: t('thanksReport') });
@@ -88,10 +92,21 @@ export default function CheckpointDetail() {
           <View style={styles.buttons}>
             {STATUSES.map((s) => (
               <View key={s} style={{ flex: 1 }}>
-                <Button variant="secondary" label={t(STATUS_LOOK[s].word)} onPress={() => report(s)} loading={sending === s} disabled={!!sending} />
+                <HoldToReport
+                  status={s}
+                  onComplete={report}
+                  onTooShort={() => setNote({ text: t('holdLonger') })}
+                  busy={sending === s}
+                  disabled={!!sending && sending !== s}
+                />
               </View>
             ))}
           </View>
+          {!note ? (
+            <Body small muted style={{ textAlign: 'center' }}>
+              {t('holdToReport')}
+            </Body>
+          ) : null}
           {note ? (
             <Body small error={note.error} muted={!note.error} style={{ textAlign: 'center' }}>
               {note.text}
@@ -109,6 +124,11 @@ export default function CheckpointDetail() {
         <StatusWord status={cp.status} />
         {cp.last_report_at ? <Body muted small>· {ago(cp.last_report_at, now)}</Body> : null}
       </View>
+      {confidence(cp) ? (
+        <Body small muted={confidence(cp) === 'unconfirmed'}>
+          {t(confidence(cp) === 'confirmed' ? 'statusConfirmed' : 'statusUnconfirmed')}
+        </Body>
+      ) : null}
 
       {following !== null ? (
         <ListRow

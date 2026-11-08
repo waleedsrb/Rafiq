@@ -52,18 +52,18 @@ do $$ begin
   end if;
 end $$;
 
--- 4. After 10 minutes a real change goes out again (Amir reported it, so only Aya hears).
+-- 4. After 10 minutes a real change goes out again: Omar now says open too (each person
+--    counts once, so it's 2 open to 1 closed). Both followers hear; Omar doesn't follow.
 update public.checkpoint_announcements set announced_at = now() - interval '11 minutes';
 alter table public.checkpoint_reports disable trigger checkpoint_reports_guard;
 insert into public.checkpoint_reports (checkpoint_id, reporter_id, status) values
-  ('huwara', '00000000-0000-0000-0000-0000000004a1', 'open'),
-  ('huwara', '00000000-0000-0000-0000-0000000004a1', 'open');
+  ('huwara', '00000000-0000-0000-0000-0000000004a3', 'open');
 alter table public.checkpoint_reports enable trigger checkpoint_reports_guard;
 do $$ begin
-  if (select count(*) from public.notifications where kind = 'checkpoint_status') <> 3
+  if (select count(*) from public.notifications where kind = 'checkpoint_status') <> 4
      or not exists (select 1 from public.notifications where kind = 'checkpoint_status'
                      and user_id = '00000000-0000-0000-0000-0000000004a2' and title = 'Huwara: open') then
-    raise exception 'FAIL: change after 10 minutes not announced once to Aya';
+    raise exception 'FAIL: change after 10 minutes not announced to both followers';
   end if;
 end $$;
 

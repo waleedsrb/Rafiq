@@ -1,5 +1,6 @@
 // Checkpoints tab: every checkpoint on the road with its current status.
-// The status comes from checkpoint_overview() in the database (majority of the last 30 minutes).
+// The status comes from checkpoint_overview() in the database (weighted majority of the last
+// 30 minutes); a status only one reporter has given is marked "not confirmed yet".
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -8,6 +9,7 @@ import { View } from 'react-native';
 import { StatusCircle, StatusWord } from '@/components/checkpoint-badge';
 import { Body, GlassButton, ListRow, Screen, Title, TopBar, ltr } from '@/components/ui';
 import { useAgo, type Overview } from '@/components/checkpoint-badge';
+import { confidence } from '@/lib/checkpoints';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -54,7 +56,9 @@ export default function Checkpoints() {
             title={lang === 'ar' ? r.name_ar : r.name_en}
             subtitle={
               r.last_report_at
-                ? `${r.reports_30m > 0 ? `${ltr(r.reports_30m)} ${t('reportsWord')} · ` : ''}${ago(r.last_report_at, now)}`
+                ? `${r.reports_30m > 0 ? `${ltr(r.reports_30m)} ${t('reportsWord')} · ` : ''}${ago(r.last_report_at, now)}${
+                    confidence(r) === 'unconfirmed' ? ` · ${t('statusUnconfirmed')}` : ''
+                  }`
                 : t('noRecentReports')
             }
             trailing={r.status ? <StatusWord status={r.status} /> : undefined}
