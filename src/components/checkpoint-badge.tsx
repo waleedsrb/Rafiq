@@ -54,6 +54,8 @@ export type Overview = {
   status: CheckpointStatus | null;
   reports_30m: number;
   last_report_at: string | null;
+  confirmed?: boolean; // 2+ different reporters agree (slice 15c)
+  agreeing_30m?: number;
 };
 
 /** "8 min ago" / "قبل 8 د", or "just now". */
