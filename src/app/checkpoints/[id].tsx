@@ -5,11 +5,11 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { STATUS_LOOK, StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
-import { Body, Button, Label, ListRow, Screen, SectionTitle, Title, ltr, useFont } from '@/components/ui';
+import { Body, Button, Label, ListRow, Screen, SectionTitle, TextLink, Title, ltr, useFont } from '@/components/ui';
 import { STATUSES, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
 import type { StringKey } from '@/i18n/strings';
-import { useT } from '@/lib/session';
+import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { colors, space } from '@/theme/tokens';
 
@@ -25,13 +25,17 @@ export default function CheckpointDetail() {
   const [now, setNow] = useState(() => new Date());
   const [sending, setSending] = useState<CheckpointStatus | null>(null);
   const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
+  const { session } = useSession();
+  const [following, setFollowing] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [overview, recent] = await Promise.all([
+    const [overview, recent, follow] = await Promise.all([
       supabase.rpc('checkpoint_overview'),
       supabase.rpc('checkpoint_recent', { p_checkpoint_id: id }),
+      supabase.from('checkpoint_follows').select('checkpoint_id').eq('checkpoint_id', id).maybeSingle(),
     ]);
+    setFollowing(!!follow.data);
     setCp(((overview.data as Overview[] | null) ?? []).find((r) => r.id === id) ?? null);
     setReports((recent.data as Report[] | null) ?? []);
     setNow(new Date());
@@ -56,6 +60,20 @@ export default function CheckpointDetail() {
     }
     setNote({ text: t('thanksReport') });
     await load();
+  }
+
+  // Follow: a push when this checkpoint's status changes.
+  async function toggleFollow() {
+    if (!id || !session || following === null) return;
+    const next = !following;
+    setFollowing(next); // feels instant; put it back if saving fails
+    const { error } = next
+      ? await supabase.from('checkpoint_follows').insert({ user_id: session.user.id, checkpoint_id: id })
+      : await supabase.from('checkpoint_follows').delete().eq('checkpoint_id', id).eq('user_id', session.user.id);
+    if (error && error.code !== '23505') {
+      setFollowing(!next);
+      setNote({ text: t('somethingWrong'), error: true });
+    }
   }
 
   if (!cp) return <Screen back>{null}</Screen>;
@@ -91,6 +109,16 @@ export default function CheckpointDetail() {
         <StatusWord status={cp.status} />
         {cp.last_report_at ? <Body muted small>· {ago(cp.last_report_at, now)}</Body> : null}
       </View>
+
+      {following !== null ? (
+        <ListRow
+          last
+          icon="bell"
+          title={t(following ? 'followingCheckpoint' : 'followCheckpoint')}
+          subtitle={t('followCheckpointNote')}
+          trailing={<TextLink label={t(following ? 'unfollow' : 'follow')} onPress={toggleFollow} />}
+        />
+      ) : null}
 
       <View style={styles.sectionHead}>
         <SectionTitle>{t('lastHour')}</SectionTitle>

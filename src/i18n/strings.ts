@@ -263,6 +263,19 @@ export const strings = {
 
   remindHourBefore: { ar_m: 'سنذكّرك قبل الانطلاق بساعة.', en: "We'll remind you an hour before departure." },
 
+  notifyCheckpoints: { ar_m: 'تنبيهات الحواجز', en: 'Checkpoint alerts' },
+  notifyCheckpointsNote: { ar_m: 'عندما يتغير وضع حاجز تتابعه', en: 'When a checkpoint you follow changes' },
+  askNearCheckpoints: { ar_m: 'اسألني عند المرور بحاجز', ar_f: 'اسأليني عند المرور بحاجز', en: 'Ask me near checkpoints' },
+  askNearCheckpointsNote: {
+    ar_m: 'سؤال واحد أثناء الرحلة: كيف الوضع الآن؟',
+    en: 'One question during a trip: how is it now?',
+  },
+  followCheckpoint: { ar_m: 'تابع هذا الحاجز', ar_f: 'تابعي هذا الحاجز', en: 'Follow this checkpoint' },
+  followingCheckpoint: { ar_m: 'تتابع هذا الحاجز', ar_f: 'تتابعين هذا الحاجز', en: "You're following this checkpoint" },
+  followCheckpointNote: { ar_m: 'نرسل لك إشعارًا عندما يتغير وضعه', en: 'We let you know when its status changes' },
+  follow: { ar_m: 'متابعة', en: 'Follow' },
+  unfollow: { ar_m: 'إلغاء المتابعة', en: 'Unfollow' },
+
   // Ride alerts
   alertMe: { ar_m: 'نبّهني عند نشر رحلة', en: 'Alert me when a trip is posted' },
   alertSaved: { ar_m: 'سنخبرك فور نشر رحلة في هذا الوقت.', en: "We'll tell you as soon as a trip is posted for this time." },
