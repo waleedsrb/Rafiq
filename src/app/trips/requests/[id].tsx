@@ -21,7 +21,9 @@ import { formatCountdown, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
 import { isLateTripCancel } from '@/lib/rules';
+import { useDriverPosition } from '@/lib/position';
 import { useSession, useT } from '@/lib/session';
+import { openEmergency, shareTrip } from '@/lib/share-trip';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { noShowFrom, noShowOpen, pickupOpen, startOpen, tripState } from '@/lib/trip-day';
@@ -107,6 +109,10 @@ export default function TripRequests() {
   // New requests appear without pulling to refresh.
   useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
   useTripChanges(load, id);
+
+  // While the trip is underway, the car's position feeds Share my trip links.
+  const underway = !!trip && !!trip.started_at && !trip.finished_at && !trip.cancelled_at;
+  useDriverPosition(trip?.id ?? null, underway);
 
   // Trip day actions. The database checks the timing again; its message picks our text.
   async function act(key: string, fn: () => PromiseLike<{ error: { message: string } | null }>) {
@@ -236,7 +242,21 @@ export default function TripRequests() {
             {allAccounted ? null : <Body muted small style={{ textAlign: 'center' }}>{t('startNeedsAll')}</Body>}
           </>
         ) : state === 'underway' ? (
-          <Button label={t('weArrived')} icon="mapPin" onPress={finish} loading={busy === 'trip'} />
+          <>
+            <Button label={t('weArrived')} icon="mapPin" onPress={finish} loading={busy === 'trip'} />
+            <Button
+              variant="secondary"
+              label={t('shareTrip')}
+              icon="shareNetwork"
+              onPress={() => shareTrip(trip.id, `${t(trip.origin)} ${lang === 'ar' ? '←' : '→'} ${t(trip.destination)}`, lang, t)}
+            />
+            <Button
+              variant="plain"
+              label={t('emergencyButton')}
+              icon="warning"
+              onPress={() => session && openEmergency(trip.id, session.user.id, lang, t)}
+            />
+          </>
         ) : canCancelTrip ? (
           <Button variant="plain" label={t('cancelTrip')} onPress={cancelTrip} loading={busy === 'trip'} />
         ) : undefined
