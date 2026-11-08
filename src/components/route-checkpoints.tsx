@@ -14,7 +14,11 @@ import type { City } from '@/lib/trip-form';
 
 type Row = Overview & { road_order: number };
 
-export function RouteCheckpoints({ origin }: { origin: City }) {
+/**
+ * `reportedOnly` keeps just the checkpoints someone reported on recently (Home uses it,
+ * so the list is short and every line is news); `limit` caps how many show.
+ */
+export function RouteCheckpoints({ origin, reportedOnly, limit }: { origin: City; reportedOnly?: boolean; limit?: number }) {
   const { t, lang } = useT();
   const ago = useAgo();
   const [rows, setRows] = useState<Row[]>([]);
@@ -25,9 +29,10 @@ export function RouteCheckpoints({ origin }: { origin: City }) {
     const list = ((data as Row[] | null) ?? []).slice();
     // road_order counts from Ramallah, so reverse it when leaving from Nablus.
     list.sort((a, b) => (origin === 'ramallah' ? a.road_order - b.road_order : b.road_order - a.road_order));
-    setRows(list);
+    const shown = reportedOnly ? list.filter((r) => r.status) : list;
+    setRows(limit ? shown.slice(0, limit) : shown);
     setNow(new Date());
-  }, [origin]);
+  }, [origin, reportedOnly, limit]);
 
   useEffect(() => {
     load();

@@ -1,172 +1,314 @@
-// Home: what's next for you, the main actions, and "where to?".
-// Lists of all your bookings and trips live in My trips (the second tab).
+// Home: one block at the top that answers "what's next for me?", then "where to?",
+// the checkpoints on your route, and one quiet row for the other role.
+// Which block shows is decided in src/lib/home-state.ts (pickHero). Every block that
+// belongs to a trip opens that trip's own screen (heroLink), so Home never repeats a page.
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { STATUS_LOOK, type Overview } from '@/components/checkpoint-badge';
-import { Icon } from '@/components/icon';
-import { SeatDots } from '@/components/seat-dots';
-import { TripHero } from '@/components/trip-hero';
 import {
-  Body,
-  Countdown,
-  GlassButton,
-  IconCircle,
-  ListRow,
-  QuickAction,
-  Screen,
-  SectionTitle,
-  TopBar,
-  ltr,
-  useFont,
-} from '@/components/ui';
-import { clock, formatCountdown, formatLongDay } from '@/lib/format';
+  CancelledBlock,
+  DriveBlock,
+  IdleDriver,
+  IdlePassenger,
+  RateBlock,
+  SeatBlock,
+  type DriveInfo,
+  type Route,
+  type SeatInfo,
+} from '@/components/home-hero';
+import { Icon } from '@/components/icon';
+import { RouteCheckpoints } from '@/components/route-checkpoints';
+import { Body, GlassButton, ListRow, Screen, TopBar, useFont } from '@/components/ui';
+import { formatLongDay } from '@/lib/format';
+import { heroLink, pickHero, usualTime, type CancelledHero, type DriveHero, type RateHero, type SeatHero } from '@/lib/home-state';
 import { useBookingChanges } from '@/lib/live';
-import { shortName } from '@/lib/names';
 import { useUnreadCount } from '@/lib/notifications';
 import { useSession, useT } from '@/lib/session';
+import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
+import { colors, radii, shadows, sizes, space } from '@/theme/tokens';
 
-type NextBooking = {
-  id: string;
-  status: 'requested' | 'accepted';
-  created_at: string;
-  respond_by: string | null;
-  trips: {
-    id: string;
-    origin: City;
-    destination: City;
-    departs_at: string;
-    driver: { full_name: string } | null;
-  };
-};
+const LATER_KEY = 'rafiq.home.later';
+// A trip that left a few hours ago is still "next" until it finishes (trip day).
+const LOOKBACK_MS = 5 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** A place you rode to before: one row per direction, newest first. */
-type Recent = { origin: City; destination: City; departs_at: string };
-
-type DriveBooking = {
-  id: string;
-  status: string;
-  seats: number;
-  created_at: string;
-  respond_by: string | null;
-  passenger: { full_name: string } | null;
-};
-type NextDrive = {
+type TripCols = {
   id: string;
   origin: City;
   destination: City;
   departs_at: string;
-  seats_total: number;
-  bookings: DriveBooking[];
+  started_at: string | null;
+  driver: { full_name: string } | null;
 };
+type SeatRow = { id: string; status: 'requested' | 'accepted'; created_at: string; respond_by: string | null; trips: TripCols };
+type DriveRow = {
+  id: string;
+  origin: City;
+  destination: City;
+  departs_at: string;
+  started_at: string | null;
+  seats_total: number;
+  bookings: {
+    id: string;
+    status: string;
+    seats: number;
+    created_at: string;
+    respond_by: string | null;
+    boarded_at: string | null;
+    passenger: { full_name: string } | null;
+  }[];
+};
+type Ended = { id: string; trips: { id: string; departs_at: string; finished_at: string | null; driver: { full_name: string } | null } };
+
+type Loaded = {
+  seat: (SeatHero & { info: SeatInfo }) | null;
+  drive: (DriveHero & { info: DriveInfo }) | null;
+  driveWithRequests: (DriveHero & { info: DriveInfo }) | null;
+  cancelled: (CancelledHero & { driver: string | null }) | null;
+  rate: (RateHero & { driver: string | null }) | null;
+  route: Route | null;
+  driving: { route: Route; time: string } | null;
+  prefersDriving: boolean;
+  stats: Stats | null;
+};
+
+function toDrive(trip: DriveRow): DriveHero & { info: DriveInfo } {
+  const accepted = trip.bookings.filter((b) => b.status === 'accepted');
+  const pending = trip.bookings
+    .filter((b) => b.status === 'requested' && b.respond_by)
+    .sort((a, b) => a.respond_by!.localeCompare(b.respond_by!));
+  const first = pending[0];
+  return {
+    tripId: trip.id,
+    departsAt: trip.departs_at,
+    startedAt: trip.started_at,
+    pending: pending.length,
+    info: {
+      departsAt: trip.departs_at,
+      startedAt: trip.started_at,
+      origin: trip.origin,
+      destination: trip.destination,
+      seatsTotal: trip.seats_total,
+      booked: accepted.reduce((n, b) => n + b.seats, 0),
+      asked: pending.reduce((n, b) => n + b.seats, 0),
+      riders: accepted.filter((b) => b.boarded_at).reduce((n, b) => n + b.seats, 0),
+      firstPending: first ? { name: first.passenger?.full_name ?? null, createdAt: first.created_at, respondBy: first.respond_by! } : null,
+    },
+  };
+}
 
 export default function Home() {
   const { t, lang } = useT();
   const { f, rtl } = useFont();
   const { unread } = useUnreadCount();
   const { profile, session } = useSession();
-  const [next, setNext] = useState<NextBooking | null>(null);
-  const [waiting, setWaiting] = useState<{ count: number; tripId: string } | null>(null);
-  const [drive, setDrive] = useState<NextDrive | null>(null);
-  const [recent, setRecent] = useState<Recent[]>([]);
-  const [checkpoints, setCheckpoints] = useState<Overview[]>([]);
+  const [data, setData] = useState<Loaded | null>(null);
+  const [later, setLater] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(() => new Date());
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
-  const load = useCallback(() => {
+  useEffect(() => {
+    AsyncStorage.getItem(LATER_KEY)
+      .then((v) => setLater(new Set(v ? (JSON.parse(v) as string[]) : [])))
+      .catch(() => {});
+  }, []);
+  const putOff = useCallback((bookingId: string) => {
+    setLater((prev) => {
+      const next = new Set(prev).add(bookingId);
+      AsyncStorage.setItem(LATER_KEY, JSON.stringify([...next].slice(-50))).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const load = useCallback(async () => {
     if (!session) return;
+    const me = session.user.id;
+    const since = new Date(Date.now() - LOOKBACK_MS).toISOString();
+    const dayAgo = new Date(Date.now() - DAY_MS).toISOString();
     const nowIso = new Date().toISOString();
-    // A trip that left a few hours ago is still "next" until it finishes (trip day).
-    const sinceIso = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
-    // Your next seat (asked for or confirmed).
-    supabase
-      .from('bookings')
-      .select('id, status, created_at, respond_by, trips!inner(id, origin, destination, departs_at, cancelled_at, driver:profiles(full_name))')
-      .eq('passenger_id', session.user.id)
-      .in('status', ['requested', 'accepted'])
-      .gte('trips.departs_at', sinceIso)
-      .is('trips.cancelled_at', null)
-      .is('trips.finished_at', null)
-      .then(({ data }) => {
-        const list = (data as unknown as NextBooking[] | null) ?? [];
-        list.sort((a, b) => a.trips.departs_at.localeCompare(b.trips.departs_at));
-        setNext(list[0] ?? null);
-      });
-    // As a driver: seat requests you still need to answer.
-    supabase
-      .from('trips')
-      .select(
-        'id, origin, destination, departs_at, seats_total, bookings(id, status, seats, created_at, respond_by, passenger:profiles!bookings_passenger_id_fkey(full_name))',
-      )
-      .eq('driver_id', session.user.id)
-      .is('cancelled_at', null)
-      .is('finished_at', null)
-      .gte('departs_at', sinceIso)
-      .order('departs_at')
-      .then(({ data }) => {
-        const trips = (data as unknown as NextDrive[] | null) ?? [];
-        setDrive(trips[0] ?? null);
-        let count = 0;
-        let tripId = '';
-        for (const trip of trips) {
-          const n = trip.bookings.filter((b) => b.status === 'requested').length;
-          if (n > 0 && !tripId) tripId = trip.id;
-          count += n;
-        }
-        setWaiting(count > 0 ? { count, tripId } : null);
-      });
-    // Places you rode to before, so a repeat trip is one tap.
-    supabase
-      .from('bookings')
-      .select('trips!inner(origin, destination, departs_at)')
-      .eq('passenger_id', session.user.id)
-      .in('status', ['accepted', 'completed'])
-      .lt('trips.departs_at', nowIso)
-      .order('created_at', { ascending: false })
-      .limit(20)
-      .then(({ data }) => {
-        const rows = ((data as unknown as { trips: Recent }[] | null) ?? []).map((r) => r.trips);
-        rows.sort((a, b) => b.departs_at.localeCompare(a.departs_at));
-        const seen = new Set<string>();
-        setRecent(
-          rows.filter((r) => {
-            const key = `${r.origin}-${r.destination}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          }).slice(0, 2),
-        );
-      });
-    // The checkpoint strip under "Where to?".
-    supabase.rpc('checkpoint_overview').then(({ data }) => setCheckpoints((data as Overview[] | null) ?? []));
+    const tripCols = 'id, origin, destination, departs_at, started_at, driver:profiles(full_name)';
+
+    const [seats, drives, cancelled, ended, ratings, lastSeat, lastDrive, car] = await Promise.all([
+      // Your next seat (asked for or confirmed).
+      supabase
+        .from('bookings')
+        .select(`id, status, created_at, respond_by, trips!inner(${tripCols})`)
+        .eq('passenger_id', me)
+        .in('status', ['requested', 'accepted'])
+        .gte('trips.departs_at', since)
+        .is('trips.cancelled_at', null)
+        .is('trips.finished_at', null),
+      // Trips you drive that haven't finished.
+      supabase
+        .from('trips')
+        .select(
+          'id, origin, destination, departs_at, started_at, seats_total, bookings(id, status, seats, created_at, respond_by, boarded_at, passenger:profiles!bookings_passenger_id_fkey(full_name))',
+        )
+        .eq('driver_id', me)
+        .is('cancelled_at', null)
+        .is('finished_at', null)
+        .gte('departs_at', since)
+        .order('departs_at'),
+      // A seat whose driver cancelled in the last day, for a trip that hasn't left yet.
+      supabase
+        .from('bookings')
+        .select(`id, trips!inner(id, departs_at, cancelled_at, finished_at, driver:profiles(full_name))`)
+        .eq('passenger_id', me)
+        .eq('status', 'cancelled')
+        .not('trips.cancelled_at', 'is', null)
+        .gte('trips.cancelled_at', dayAgo)
+        .gte('trips.departs_at', nowIso)
+        .limit(1),
+      // A trip you finished in the last day, to rate.
+      supabase
+        .from('bookings')
+        .select(`id, trips!inner(id, departs_at, finished_at, driver:profiles(full_name))`)
+        .eq('passenger_id', me)
+        .eq('status', 'completed')
+        .gte('trips.finished_at', dayAgo)
+        .limit(5),
+      supabase.from('ratings').select('booking_id').eq('rater_id', me),
+      // Your usual route and role: whatever you did last.
+      supabase
+        .from('bookings')
+        .select('created_at, trips!inner(origin, destination)')
+        .eq('passenger_id', me)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('trips')
+        .select('created_at, origin, destination, departs_at')
+        .eq('driver_id', me)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from('driver_details').select('verified_at').eq('driver_id', me).maybeSingle(),
+    ]);
+
+    const seatList = ((seats.data as unknown as SeatRow[] | null) ?? []).sort((a, b) => a.trips.departs_at.localeCompare(b.trips.departs_at));
+    const s = seatList[0];
+    const driveList = ((drives.data as unknown as DriveRow[] | null) ?? []).map(toDrive);
+    const rated = new Set(((ratings.data as { booking_id: string }[] | null) ?? []).map((r) => r.booking_id));
+    const c = ((cancelled.data as unknown as Ended[] | null) ?? [])[0];
+    const r = ((ended.data as unknown as Ended[] | null) ?? []).find((b) => !rated.has(b.id) && b.trips.finished_at);
+
+    const ls = lastSeat.data as unknown as { created_at: string; trips: Route } | null;
+    const ld = lastDrive.data as { created_at: string; origin: City; destination: City; departs_at: string } | null;
+    const canDrive = !!(car.data as { verified_at: string | null } | null)?.verified_at;
+    const prefersDriving = canDrive && !!ld && (!ls || ld.created_at > ls.created_at);
+
+    let stats: Stats | null = null;
+    if (prefersDriving) {
+      const { data: st } = await supabase.rpc('person_stats', { p_person: me });
+      stats = ((st as Stats[] | null) ?? [])[0] ?? null;
+    }
+
+    setData({
+      seat: s
+        ? {
+            bookingId: s.id,
+            tripId: s.trips.id,
+            status: s.status,
+            departsAt: s.trips.departs_at,
+            startedAt: s.trips.started_at,
+            info: {
+              status: s.status,
+              departsAt: s.trips.departs_at,
+              startedAt: s.trips.started_at,
+              createdAt: s.created_at,
+              respondBy: s.respond_by,
+              origin: s.trips.origin,
+              destination: s.trips.destination,
+              driver: s.trips.driver?.full_name ?? null,
+            },
+          }
+        : null,
+      drive: driveList[0] ?? null,
+      driveWithRequests: driveList.find((d) => d.pending > 0 && !d.startedAt) ?? null,
+      cancelled: c ? { bookingId: c.id, tripId: c.trips.id, departsAt: c.trips.departs_at, driver: c.trips.driver?.full_name ?? null } : null,
+      rate: r ? { bookingId: r.id, finishedAt: r.trips.finished_at!, driver: r.trips.driver?.full_name ?? null } : null,
+      route: ls ? { origin: ls.trips.origin, destination: ls.trips.destination } : ld ? { origin: ld.origin, destination: ld.destination } : null,
+      driving: ld && canDrive ? { route: { origin: ld.origin, destination: ld.destination }, time: usualTime(ld.departs_at) } : null,
+      prefersDriving,
+      stats,
+    });
+    setNow(new Date());
   }, [session]);
 
   // Reload when Home comes back into view and whenever one of your bookings changes.
-  useFocusEffect(load);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
   useBookingChanges(load);
 
-  // Tick once a second while a countdown is on screen.
-  // Show whichever comes first: the seat you booked or the trip you drive.
-  const showDrive = !!drive && (!next || drive.departs_at < next.trips.departs_at);
-  const counting = showDrive ? !!waiting : next?.status === 'requested' && !!next.respond_by;
+  const hero = useMemo(
+    () =>
+      data
+        ? pickHero(
+            {
+              seat: data.seat,
+              drive: data.drive,
+              driveWithRequests: data.driveWithRequests,
+              cancelled: data.cancelled,
+              rate: data.rate,
+              dismissed: later,
+              prefersDriving: data.prefersDriving && !!data.driving,
+            },
+            now,
+          )
+        : null,
+    [data, later, now],
+  );
+
+  // Tick once a second while a countdown or "leaves in" is on screen.
+  const ticking = !!hero && (hero.kind === 'seat' || hero.kind === 'drive');
   useEffect(() => {
-    if (!counting) return;
+    if (!ticking) return;
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
-  }, [counting]);
+  }, [ticking]);
 
   const greeting = now.getHours() < 12 ? t('greetingMorning') : t('greetingEvening');
+  const link = hero ? heroLink(hero) : null;
+  const open = () => link && router.push(link);
+
+  let block = null;
+  if (hero && data) {
+    if (hero.kind === 'seat' && data.seat) block = <SeatBlock seat={data.seat.info} phase={hero.phase} now={now} />;
+    else if (hero.kind === 'drive') {
+      const d = hero.drive.tripId === data.driveWithRequests?.tripId ? data.driveWithRequests : data.drive;
+      if (d) block = <DriveBlock drive={d.info} phase={hero.phase} now={now} />;
+    } else if (hero.kind === 'cancelled' && data.cancelled)
+      block = <CancelledBlock departsAt={data.cancelled.departsAt} driver={data.cancelled.driver} onOpen={open} onLater={() => putOff(data.cancelled!.bookingId)} />;
+    else if (hero.kind === 'rate' && data.rate)
+      block = <RateBlock driver={data.rate.driver} onOpen={open} onLater={() => putOff(data.rate!.bookingId)} />;
+    else if (hero.kind === 'idleDriver' && data.driving) block = <IdleDriver route={data.driving.route} time={data.driving.time} stats={data.stats} />;
+    else block = <IdlePassenger route={data.route} verified={!!profile?.id_verified_at} />;
+  }
+
+  // The route whose checkpoints we show: the trip on top, else your usual route.
+  const heroOrigin: City =
+    (hero?.kind === 'seat' && data?.seat?.info.origin) ||
+    (hero?.kind === 'drive' && hero.drive.tripId === data?.driveWithRequests?.tripId && data.driveWithRequests?.info.origin) ||
+    (hero?.kind === 'drive' && data?.drive?.info.origin) ||
+    (hero?.kind === 'idleDriver' && data?.driving?.route.origin) ||
+    data?.route?.origin ||
+    'ramallah';
+
+  const quiet = hero?.kind === 'idleDriver' ? 'seat' : hero && hero.kind !== 'drive' ? 'post' : null;
 
   return (
     <Screen
       scroll
       tab
-      // No avatar button: Account is already a tab, so it would be a second way to the same place.
       // The bell opens the inbox; its clay dot means something arrived you haven't seen.
       top={
         <TopBar
@@ -182,29 +324,27 @@ export default function Home() {
       }
       contentStyle={{ paddingTop: space.sm }}
     >
-      {showDrive && drive ? (
-        <NextDriveHero trip={drive} now={now} />
-      ) : next ? (
-        <NextTrip booking={next} now={now} />
-      ) : (
-        <View style={{ gap: space.xs }}>
-          <Body muted small>
-            {formatLongDay(now, lang)}
-          </Body>
-          <Text style={[styles.greeting, { fontFamily: f.bold }]}>
-            {greeting}
-            {rtl ? '، ' : ', '}
-            {firstName}.
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.quickRow}>
-        <QuickAction icon="search" label={t('quickSearch')} onPress={() => router.push('/trips/search')} />
-        <QuickAction icon="plus" label={t('postTrip')} onPress={() => router.push('/trips/new')} />
-        <QuickAction icon="barricade" label={t('tabCheckpoints')} onPress={() => router.navigate('/checkpoints')} />
-        <QuickAction icon="ticket" label={t('tabTrips')} onPress={() => router.navigate('/trips/mine')} />
+      <View style={{ gap: 2 }}>
+        <Body muted small>
+          {formatLongDay(now, lang)}
+        </Body>
+        <Text style={[styles.greeting, { fontFamily: f.bold }]}>
+          {greeting}
+          {rtl ? '، ' : ', '}
+          {firstName}
+        </Text>
       </View>
+
+      {link ? (
+        <Pressable accessibilityRole="button" onPress={open} style={({ pressed }) => [styles.hero, pressed && { opacity: 0.7 }]}>
+          <View style={styles.openCue}>
+            <Icon name={rtl ? 'caretLeft' : 'caretRight'} size={14} />
+          </View>
+          {block}
+        </Pressable>
+      ) : (
+        <View style={styles.hero}>{block}</View>
+      )}
 
       <Pressable accessibilityRole="button" onPress={() => router.push('/trips/search')} style={styles.whereTo}>
         <Icon name="search" />
@@ -215,203 +355,39 @@ export default function Home() {
         </View>
       </Pressable>
 
-      {recent.length > 0 ? (
-        <View>
-          {recent.map((r, i) => (
-            <ListRow
-              key={`${r.origin}-${r.destination}`}
-              last={i === recent.length - 1}
-              icon="clock"
-              title={t(r.destination)}
-              subtitle={`${t('fromCity')} ${t(r.origin)} · ${t('lastTrip')} ${formatLongDay(new Date(r.departs_at), lang)}`}
-              onPress={() =>
-                router.push({ pathname: '/trips/results', params: { origin: r.origin, destination: r.destination, day: '0' } })
-              }
-            />
-          ))}
-        </View>
-      ) : null}
+      {data ? <RouteCheckpoints origin={heroOrigin} reportedOnly limit={3} /> : null}
 
-      <CheckpointStrip rows={checkpoints} />
-
-      {waiting && !showDrive ? (
+      {quiet === 'post' ? (
+        <ListRow last icon="plus" title={t('homeDriving')} subtitle={t('homeDrivingSub')} onPress={() => router.push('/trips/new')} />
+      ) : quiet === 'seat' && data?.driving ? (
         <ListRow
           last
-          icon="bell"
-          title={t('requestsWaiting')}
-          trailing={
-            <View style={styles.badge}>
-              <Text style={[styles.badgeText, { fontFamily: fonts.en.bold }]}>{waiting.count}</Text>
-            </View>
-          }
-          onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: waiting.tripId } })}
+          icon="ticket"
+          title={t('homeNeedSeat')}
+          subtitle={t('homeNeedSeatSub')}
+          onPress={() => router.push({ pathname: '/trips/results', params: { ...data.driving!.route, day: '0' } })}
         />
       ) : null}
-
-      {showDrive && drive ? <Passengers trip={drive} /> : null}
     </Screen>
   );
 }
 
-/** One line under "Where to?": the checkpoints with a recent report, as dot + name + status word. */
-function CheckpointStrip({ rows }: { rows: Overview[] }) {
-  const { t, lang } = useT();
-  const { f } = useFont();
-  // Closed first, then crowded, then open: the strip is for what could change your plans.
-  const order = { closed: 0, crowded: 1, open: 2 } as const;
-  const shown = rows
-    .filter((r) => r.status)
-    .sort((a, b) => order[a.status!] - order[b.status!])
-    .slice(0, 2);
-  if (shown.length === 0) return null;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t('tabCheckpoints')}
-      onPress={() => router.navigate('/checkpoints')}
-      style={({ pressed }) => [styles.strip, pressed && { opacity: 0.6 }]}
-    >
-      <Text style={[styles.stripLabel, { fontFamily: f.medium }]}>{t('tabCheckpoints')}</Text>
-      {shown.map((r) => {
-        const look = STATUS_LOOK[r.status!];
-        return (
-          <View key={r.id} style={styles.stripItem}>
-            <View style={[styles.stripDot, { backgroundColor: r.status === 'crowded' ? colors.statusCrowdedDot : look.color }]} />
-            <Text style={[styles.stripName, { fontFamily: f.medium }]}>
-              {lang === 'ar' ? r.name_ar : r.name_en} <Text style={{ color: look.color }}>{t(look.word)}</Text>
-            </Text>
-          </View>
-        );
-      })}
-    </Pressable>
-  );
-}
-
-/** Your next trip as a driver: time, route, seats, and the newest request waiting for you. */
-function NextDriveHero({ trip, now }: { trip: NextDrive; now: Date }) {
-  const { t } = useT();
-  const accepted = trip.bookings.filter((b) => b.status === 'accepted');
-  const pending = trip.bookings
-    .filter((b) => b.status === 'requested' && b.respond_by)
-    .sort((a, b) => a.respond_by!.localeCompare(b.respond_by!));
-  const booked = accepted.reduce((n, b) => n + b.seats, 0);
-  const asked = pending.reduce((n, b) => n + b.seats, 0);
-  const first = pending[0];
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
-      style={({ pressed }) => [{ gap: space.sm }, pressed && { opacity: 0.7 }]}
-    >
-      <TripHero
-        label={<Body muted small>{t('yourNextDrive')}</Body>}
-        departsAt={trip.departs_at}
-        origin={trip.origin}
-        destination={trip.destination}
-      />
-      <SeatDots total={trip.seats_total} booked={booked} pending={Math.min(asked, trip.seats_total - booked)} />
-      {first ? (
-        <Countdown
-          label={`${t('newRequestFrom')} ${first.passenger ? shortName(first.passenger.full_name) : ''} · ${t('answerWithin')}`}
-          remaining={formatCountdown(new Date(first.respond_by!).getTime() - now.getTime())}
-          progress={(() => {
-            const start = new Date(first.created_at).getTime();
-            const end = new Date(first.respond_by!).getTime();
-            return end > start ? (end - now.getTime()) / (end - start) : 0;
-          })()}
-        />
-      ) : null}
-          </Pressable>
-  );
-}
-
-/** Who rides with you on your next trip. */
-function Passengers({ trip }: { trip: NextDrive }) {
-  const { t } = useT();
-  const riders = trip.bookings.filter((b) => b.status === 'accepted' && b.passenger);
-  if (riders.length === 0) return null;
-  return (
-    <View>
-      <SectionTitle>{t('passengers')}</SectionTitle>
-      {riders.map((b, i) => {
-        const name = shortName(b.passenger!.full_name);
-        return (
-          <ListRow
-            key={b.id}
-            last={i === riders.length - 1}
-            leading={<IconCircle letter={name.charAt(0)} />}
-            title={name}
-            subtitle={`${ltr(b.seats)} ${t('seatOne')}`}
-            onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
-          />
-        );
-      })}
-    </View>
-  );
-}
-
-/** The big "your next trip" block: time, route, driver, and where the request stands. */
-function NextTrip({ booking, now }: { booking: NextBooking; now: Date }) {
-  const { t, lang } = useT();
-  const { f, rtl } = useFont();
-  const departs = new Date(booking.trips.departs_at);
-  const { time, pm } = clock(departs);
-  const arrow = rtl ? '←' : '→';
-  const driver = booking.trips.driver ? shortName(booking.trips.driver.full_name) : '';
-
-  let countdown = null;
-  if (booking.status === 'requested' && booking.respond_by) {
-    const start = new Date(booking.created_at).getTime();
-    const end = new Date(booking.respond_by).getTime();
-    const left = end - now.getTime();
-    countdown = (
-      <Countdown
-        label={t('waitingForDriver')}
-        remaining={formatCountdown(left)}
-        progress={end > start ? left / (end - start) : 0}
-      />
-    );
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/trips/[id]', params: { id: booking.trips.id } })}
-      style={({ pressed }) => [{ gap: space.sm }, pressed && { opacity: 0.7 }]}
-    >
-      <Body muted small>
-        {t('yourNextTrip')} · {formatLongDay(departs, lang)}
-      </Body>
-      <View style={styles.timeRow}>
-        <Text style={styles.heroTime}>{time}</Text>
-        <Text style={[styles.heroPart, { fontFamily: f.regular }]}>{pm ? t('pm') : t('am')}</Text>
-      </View>
-      <View style={styles.routeRow}>
-        <Body>
-          {t(booking.trips.origin)} {arrow} {t(booking.trips.destination)}
-          {driver ? ` · ${driver}` : ''}
-        </Body>
-      </View>
-      {countdown ?? (
-        <View style={styles.confirmed}>
-          <Icon name="check" size={16} />
-          <Text style={[styles.confirmedText, { fontFamily: f.medium }]}>{t('seatConfirmed')}</Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  greeting: { fontSize: 34, lineHeight: 42, color: colors.ink, letterSpacing: -0.5 },
-  timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
-  heroTime: { fontFamily: fonts.en.bold, fontSize: 56, lineHeight: 62, color: colors.ink, letterSpacing: -1.6 },
-  heroPart: { fontSize: 16, color: colors.inkSecondary },
-  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  confirmed: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  confirmedText: { fontSize: 14, color: colors.ink },
-  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space.md, paddingHorizontal: space.sm },
+  greeting: { fontSize: 22, lineHeight: 30, color: colors.ink },
+  hero: { marginTop: space.md, minHeight: 120 },
+  // A small round arrow at the top end: this block opens a screen of its own.
+  openCue: {
+    position: 'absolute',
+    top: 0,
+    end: 0,
+    zIndex: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.sunken,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   whereTo: {
     height: sizes.button,
     borderRadius: radii.capsule,
@@ -436,19 +412,4 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
   },
   dayPillText: { fontSize: 13, color: colors.ink },
-  strip: { flexDirection: 'row', alignItems: 'center', gap: 18, minHeight: 40, flexWrap: 'wrap' },
-  stripLabel: { fontSize: 12, letterSpacing: 0.2, color: colors.inkSecondary },
-  stripItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stripDot: { width: 8, height: 8, borderRadius: 4 },
-  stripName: { fontSize: 14, color: colors.ink },
-  badge: {
-    minWidth: 24,
-    height: 24,
-    paddingHorizontal: 7,
-    borderRadius: 12,
-    backgroundColor: colors.clay,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { fontSize: 13, color: colors.onInk },
 });
