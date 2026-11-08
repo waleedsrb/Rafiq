@@ -6,11 +6,12 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { StatsRow } from '@/components/stats-row';
 import { IconCircle, ListRow, Screen, Title, ltr, useFont } from '@/components/ui';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
-import { formatStats, type PersonStats } from '@/lib/profile-stats';
+import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import { useCheckStatus } from '@/lib/verification';
 import type { StringKey } from '@/i18n/strings';
@@ -24,7 +25,7 @@ export default function Account() {
   const { profile, session } = useSession();
   const [car, setCar] = useState<{ car_model: string; car_color: string; plate: string } | null>(null);
   const [extra, setExtra] = useState<Extra | null>(null);
-  const [stats, setStats] = useState<PersonStats | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const idCheck = useCheckStatus(session?.user.id, 'passenger').status;
   const driverCheck = useCheckStatus(session?.user.id, 'driver').status;
 
@@ -44,11 +45,10 @@ export default function Account() {
         .eq('id', me)
         .maybeSingle()
         .then(({ data }) => setExtra((data as Extra | null) ?? null));
-      // Trips, reliability and rating come from trip day (slice 8-9). Until that is
-      // live the function doesn't exist yet, and the numbers simply don't show.
+      // Trips, reliability and rating (trip day, slice 9).
       supabase.rpc('person_stats', { p_person: me }).then(({ data, error }) => {
         const row = Array.isArray(data) ? data[0] : data;
-        setStats(error || !row ? null : (row as PersonStats));
+        setStats(error || !row ? null : (row as Stats));
       });
     }, [session]),
   );
@@ -61,7 +61,6 @@ export default function Account() {
       )
     : null;
   const role = car ? t('rolePassengerDriver') : t('rolePassenger');
-  const numbers = stats ? formatStats(stats) : null;
   const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
@@ -84,20 +83,7 @@ export default function Account() {
         </View>
       </View>
 
-      {numbers ? (
-        <View style={styles.stats}>
-          {[
-            [numbers.trips, t('statTrips')],
-            [numbers.reliability, t('statReliable')],
-            [numbers.rating, t('statRating')],
-          ].map(([value, label], i) => (
-            <View key={label} style={[styles.stat, i > 0 && styles.statLine]}>
-              <Text style={[styles.statValue, { fontFamily: f.bold }]}>{ltr(value)}</Text>
-              <Text style={[styles.meta, { fontFamily: f.regular }]}>{label}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
+      {stats ? <StatsRow stats={stats} /> : null}
 
       <View>
         <ListRow
@@ -112,6 +98,9 @@ export default function Account() {
           subtitle={idCheck ? t(`checkState_${idCheck.state}` as StringKey) : undefined}
           onPress={() => router.push({ pathname: '/verify', params: { kind: 'passenger' } })}
         />
+        {car ? (
+          <ListRow icon="wallet" title={t('earningsTitle')} subtitle={t('earningsRowSub')} onPress={() => router.push('/earnings')} />
+        ) : null}
         {car ? (
           <ListRow
             icon="sealCheck"
@@ -146,13 +135,4 @@ const styles = StyleSheet.create({
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { fontSize: 20, lineHeight: 26, color: colors.ink, flexShrink: 1 },
   meta: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
-  stats: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.hairline,
-  },
-  stat: { flex: 1, paddingVertical: space.md, alignItems: 'center', gap: 2 },
-  statLine: { borderStartWidth: 1, borderColor: colors.hairline },
-  statValue: { fontSize: 22, lineHeight: 28, color: colors.ink },
 });

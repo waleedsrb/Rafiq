@@ -310,6 +310,7 @@ export default function TripRequests() {
                 last
                 leading={<IconCircle letter={name.charAt(0)} />}
                 title={name}
+                onPress={() => router.push({ pathname: '/people/[id]', params: { id: r.passenger_id } })}
                 subtitle={
                   <View style={{ gap: 2 }}>
                     <Body muted small>{statusText}</Body>
