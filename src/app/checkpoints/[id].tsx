@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { HoldToReport } from '@/components/hold-to-report';
 import { Body, Label, ListRow, Screen, SectionTitle, TextLink, Title, ltr, useFont } from '@/components/ui';
-import { STATUSES, confidence, rowSide, type CheckpointStatus } from '@/lib/checkpoints';
+import { STATUSES, confidence, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
 import { warnFeel } from '@/lib/haptics';
 import type { StringKey } from '@/i18n/strings';
@@ -90,12 +90,11 @@ export default function CheckpointDetail() {
         <View style={{ gap: space.sm }}>
           <Label>{t('howIsItNow')}</Label>
           <View style={styles.buttons}>
-            {STATUSES.map((s, i) => (
+            {STATUSES.map((s) => (
               <HoldToReport
                 key={s}
                 style={{ flex: 1 }}
                 status={s}
-                side={rowSide(i, STATUSES.length)}
                 onComplete={report}
                 onTooShort={() => setNote({ text: t('holdLonger') })}
                 busy={sending === s}
@@ -167,7 +166,7 @@ export default function CheckpointDetail() {
 }
 
 const styles = StyleSheet.create({
-  buttons: { flexDirection: 'row', gap: space.sm },
+  buttons: { flexDirection: 'row', gap: space.sm, zIndex: -1 }, // the growing circle stays behind the text around it
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: space.md },
   time: { width: 48, fontSize: 15, color: colors.ink },
