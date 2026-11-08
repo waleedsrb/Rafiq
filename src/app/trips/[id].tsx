@@ -8,6 +8,7 @@ import { Linking, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContactCard, useContact } from '@/components/contact-card';
+import { DriverCancelled } from '@/components/driver-cancelled';
 import { Plate } from '@/components/plate';
 import { RouteCheckpoints } from '@/components/route-checkpoints';
 import { StatsLine, usePeopleStats } from '@/components/stats-line';
@@ -41,6 +42,8 @@ type Trip = {
   departs_at: string;
   price_ils: number;
   cancelled_at: string | null;
+  cancelled_late: boolean | null;
+  cancel_reason: string | null;
   started_at: string | null;
   finished_at: string | null;
   profiles: { full_name: string }; // the driver, joined through trips.driver_id
@@ -73,7 +76,7 @@ export default function TripDetails() {
     const [tripRes, seatsRes, bookingRes] = await Promise.all([
       supabase
         .from('trips')
-        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, profiles!trips_driver_id_fkey(full_name), trip_series(weekdays, stopped_at)')
+        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, profiles!trips_driver_id_fkey(full_name), trip_series(weekdays, stopped_at)')
         .eq('id', id)
         .single(),
       supabase.rpc('seats_left', { p_trip_id: id }),
@@ -194,6 +197,8 @@ export default function TripDetails() {
   const canRequest =
     status === null && !trip.cancelled_at && (seatsLeft ?? 0) > 0 && trip.driver_id !== session?.user.id;
   const state = tripState(trip);
+  // The driver cancelled a trip I had asked to ride on.
+  const driverCancelled = !!trip.cancelled_at && status === 'cancelled';
   const canCancel = (status === 'requested' || status === 'accepted') && departs > new Date() && state === 'scheduled';
   // Trip day phases for a confirmed seat.
   const findCar = status === 'accepted' && state === 'scheduled' && startOpen(now, departs);
@@ -296,9 +301,22 @@ export default function TripDetails() {
     >
       <TripHero label={label} departsAt={trip.departs_at} origin={trip.origin} destination={trip.destination} />
 
-      {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
+      {driverCancelled ? (
+        <DriverCancelled
+          tripId={trip.id}
+          origin={trip.origin}
+          destination={trip.destination}
+          departsAt={trip.departs_at}
+          cancelledAt={trip.cancelled_at!}
+          late={!!trip.cancelled_late}
+          excused={trip.cancel_reason === 'checkpoint_closed'}
+          refunded={payment && (payment.status === 'refunded' || payment.status === 'released') ? Number(payment.total_ils) : null}
+        />
+      ) : trip.cancelled_at ? (
+        <Body error>{t('tripCancelled')}</Body>
+      ) : null}
       {status === 'no_show' ? <Body muted>{t('leftWithoutYou')}</Body> : null}
-      {status && !['requested', 'accepted', 'completed', 'no_show'].includes(status) ? (
+      {status && !driverCancelled && !['requested', 'accepted', 'completed', 'no_show'].includes(status) ? (
         <Body muted>{t(`status_${status}` as StringKey)}</Body>
       ) : null}
       {arrived && myStars !== null ? (
@@ -337,6 +355,7 @@ export default function TripDetails() {
           <ListRow
             leading={<IconCircle letter={driverName.charAt(0)} />}
             title={driverName}
+            onPress={() => router.push({ pathname: '/people/[id]', params: { id: trip.driver_id } })}
             subtitle={
               <View style={{ gap: 2 }}>
                 {driverVerified ? <VerifiedLine /> : <Body muted small>{t('driverLabel')}</Body>}
@@ -347,12 +366,14 @@ export default function TripDetails() {
           {trip.trip_series && !trip.trip_series.stopped_at ? (
             <ListRow icon="calendar" title={repeatsText(trip.trip_series.weekdays)} />
           ) : null}
-          <ListRow
-            last
-            icon="armchair"
-            title={seatsLeft !== null ? (seatsLeft > 0 ? `${ltr(seatsLeft)} ${t('seatsFree')}` : t('full')) : ''}
-            subtitle={`${price} ${t('perSeat')}`}
-          />
+          {trip.cancelled_at ? null : (
+            <ListRow
+              last
+              icon="armchair"
+              title={seatsLeft !== null ? (seatsLeft > 0 ? `${ltr(seatsLeft)} ${t('seatsFree')}` : t('full')) : ''}
+              subtitle={`${price} ${t('perSeat')}`}
+            />
+          )}
         </View>
       )}
       {payment ? (
