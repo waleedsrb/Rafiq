@@ -16,7 +16,7 @@ import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { colors, space } from '@/theme/tokens';
 
-type Prefs = { notify_trips: boolean; emergency_name: string | null };
+type Prefs = { notify_trips: boolean; notify_alerts: boolean; emergency_name: string | null };
 
 export default function Settings() {
   const { t, lang } = useT();
@@ -31,14 +31,14 @@ export default function Settings() {
       if (!session) return;
       supabase
         .from('profiles')
-        .select('notify_trips, emergency_name')
+        .select('notify_trips, notify_alerts, emergency_name')
         .eq('id', session.user.id)
         .maybeSingle()
         .then(({ data }) => setPrefs((data as Prefs | null) ?? null));
     }, [session]),
   );
 
-  async function setSwitch(key: 'notify_trips', value: boolean) {
+  async function setSwitch(key: 'notify_trips' | 'notify_alerts', value: boolean) {
     if (!session || !prefs) return;
     setPrefs({ ...prefs, [key]: value }); // feels instant; put it back if saving fails
     const { error: err } = await supabase.from('profiles').update({ [key]: value }).eq('id', session.user.id);
@@ -90,11 +90,17 @@ export default function Settings() {
       <View style={{ gap: space.xs }}>
         <Label>{t('notificationsSection')}</Label>
         <ListRow
-          last
           icon="ticket"
           title={t('notifyTrips')}
           subtitle={t('notifyTripsNote')}
           trailing={prefs ? toggle(prefs.notify_trips, (v) => setSwitch('notify_trips', v), t('notifyTrips')) : undefined}
+        />
+        <ListRow
+          last
+          icon="bell"
+          title={t('notifyAlerts')}
+          subtitle={t('notifyAlertsNote')}
+          trailing={prefs ? toggle(prefs.notify_alerts, (v) => setSwitch('notify_alerts', v), t('notifyAlerts')) : undefined}
         />
       </View>
 

@@ -87,6 +87,8 @@ function Routes() {
         <Stack.Screen name="notifications" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="emergency" />
+        <Stack.Screen name="earnings" />
+        <Stack.Screen name="people/[id]" />
         <Stack.Screen name="trips/new" />
         <Stack.Screen name="trips/search" />
         <Stack.Screen name="trips/results" />

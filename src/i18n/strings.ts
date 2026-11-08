@@ -254,6 +254,25 @@ export const strings = {
     ar_m: 'تنبيهات الرحلات المؤكدة لا يمكن إيقافها',
     en: "Alerts about confirmed trips can't be turned off",
   },
+  notifyAlerts: { ar_m: 'تنبيهات الرحلات', en: 'Ride alerts' },
+  notifyAlertsNote: {
+    ar_m: 'عند نشر رحلة طلبتَ التنبيه لها، أو عندما ينتظر ركاب على طريقك',
+    ar_f: 'عند نشر رحلة طلبتِ التنبيه لها، أو عندما ينتظر ركاب على طريقك',
+    en: 'When a trip you asked for is posted, or riders wait on your route',
+  },
+
+  remindHourBefore: { ar_m: 'سنذكّرك قبل الانطلاق بساعة.', en: "We'll remind you an hour before departure." },
+
+  // Ride alerts
+  alertMe: { ar_m: 'نبّهني عند نشر رحلة', en: 'Alert me when a trip is posted' },
+  alertSaved: { ar_m: 'سنخبرك فور نشر رحلة في هذا الوقت.', en: "We'll tell you as soon as a trip is posted for this time." },
+  alertTooMany: { ar_m: 'لديك 10 تنبيهات مفتوحة بالفعل.', en: 'You already have 10 open alerts.' },
+  demandWaiting: { ar_m: 'ركاب ينتظرون', en: 'Riders waiting' },
+  demandHint: {
+    ar_m: 'انشر رحلة في ذلك اليوم وسنخبرهم.',
+    ar_f: 'انشري رحلة في ذلك اليوم وسنخبرهم.',
+    en: "Post a trip that day and we'll tell them.",
+  },
   safetySection: { ar_m: 'الأمان والحساب', en: 'Safety and account' },
   deleteAccount: { ar_m: 'حذف الحساب', en: 'Delete account' },
   deleteAccountQ: { ar_m: 'حذف حسابك؟', en: 'Delete your account?' },
@@ -633,6 +652,51 @@ export const strings = {
     ar_f: 'لا حاجة لبطاقة. ادفعي الأجرة للسائق نقدًا عند الركوب. لا رسوم خدمة خلال التجربة.',
     en: 'No card needed. Pay the driver in cash when you get in. No service fee during the pilot.',
   },
+
+  // A person's page (slice 10b)
+  drivingSince: { ar_m: 'يسوق منذ', en: 'Driving since' },
+  drivingSinceF: { ar_m: 'تسوق منذ', en: 'Driving since' },
+  onRafiqSince: { ar_m: 'على رفيق منذ', en: 'On Rafiq since' },
+  idVerifiedBadge: { ar_m: 'هوية موثّقة', en: 'ID verified' },
+  driverCheckBadge: { ar_m: 'الرخصة والسيارة موثّقتان', en: 'Licence and car verified' },
+  plateAfterAccept: { ar_m: 'اللوحة بعد القبول', en: 'plate after acceptance' },
+  whatPeopleSay: { ar_m: 'ما يقوله الآخرون', en: 'What people say' },
+  reviewsCount: { ar_m: 'تقييمًا', en: 'reviews' },
+  noReviewsYet: { ar_m: 'لا تقييمات بعد.', en: 'No reviews yet.' },
+  deletedPerson: { ar_m: 'حساب محذوف', en: 'Deleted account' },
+  seeProfile: { ar_m: 'عرض الملف', en: 'See profile' },
+
+  // Earnings (cash pilot)
+  earningsTitle: { ar_m: 'الأرباح', en: 'Earnings' },
+  earningsOf: { ar_m: 'أرباح', en: 'earnings' },
+  thisMonth: { ar_m: 'هذا الشهر', en: 'this month' },
+  fromWord: { ar_m: 'من', en: 'from' },
+  ridersOne: { ar_m: 'راكب', en: 'passenger' },
+  ridersMany: { ar_m: 'ركّاب', en: 'passengers' },
+  noShowsWord: { ar_m: 'لم يحضر', en: 'no-show' },
+  earningsCashNote: {
+    ar_m: 'يدفع الركّاب نقدًا في السيارة، والنشر مجاني حاليًا: المبلغ كاملًا لك. الراكب الذي لم يحضر لا يُحتسب.',
+    en: "Passengers pay you cash in the car, and posting is free for now: you keep the full amount. A no-show isn't counted.",
+  },
+  noEarningsYet: { ar_m: 'لا رحلات منتهية هذا الشهر بعد.', en: 'No finished trips this month yet.' },
+
+  // Driver cancelled
+  sorryCancelled: { ar_m: 'نأسف، أُلغيت رحلتك', en: 'Sorry, your trip was cancelled' },
+  cancelledHoursBefore: { ar_m: 'ألغى السائق قبل {n} من الموعد', en: 'The driver cancelled {n} before departure' },
+  cancelledCashNote: { ar_m: 'لم تدفع شيئًا: الدفع نقدًا في السيارة.', ar_f: 'لم تدفعي شيئًا: الدفع نقدًا في السيارة.', en: "You didn't pay anything: you pay cash in the car." },
+  cancelledRefund: { ar_m: 'أعدنا {amount} كاملة إلى بطاقتك.', en: 'We refunded the full {amount} to your card.' },
+  otherTripsThatDay: { ar_m: 'رحلات أخرى في نفس اليوم', en: 'Other trips that day' },
+  noOtherTrips: { ar_m: 'لا رحلات أخرى في هذا اليوم.', en: 'No other trips that day.' },
+  searchAgain: { ar_m: 'ابحث من جديد', ar_f: 'ابحثي من جديد', en: 'Search again' },
+  hoursWord: { ar_m: 'ساعة', en: 'hours' },
+  hoursWordFew: { ar_m: 'ساعات', en: 'hours' },
+  hourWordOne: { ar_m: 'ساعة', en: 'hour' },
+  minutesWord: { ar_m: 'دقيقة', en: 'minutes' },
+  minutesWordFew: { ar_m: 'دقائق', en: 'minutes' },
+  cancelCounts: { ar_m: 'يُحتسب هذا الإلغاء المتأخر على سجل السائق.', en: "This late cancellation counts against the driver's record." },
+  cancelExcused: { ar_m: 'ألغى بسبب حاجز مغلق، فلا يُحتسب عليه.', en: "A checkpoint was closed, so it doesn't count against the driver." },
+  weekOf: { ar_m: 'أسبوع', en: 'Week of' },
+  earningsRowSub: { ar_m: 'ما جمعته من الركّاب هذا الشهر', en: 'What passengers paid you this month' },
 
   // ─── Share my trip and Emergency (slice 12) ────────────────────────────────
   followLive: { ar_m: 'تابع الرحلة مباشرة:', en: 'Follow it live:' },
