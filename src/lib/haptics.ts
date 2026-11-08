@@ -1,7 +1,7 @@
 // Small taps you feel, used sparingly (Apple HIG): a light tap for the main button
 // on a screen, a selection tick when you pick a chip, a tab or a number.
 import * as Haptics from 'expo-haptics';
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 
 const on = Platform.OS === 'ios' || Platform.OS === 'android';
 
@@ -21,16 +21,19 @@ export function warnFeel() {
   if (on) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
 }
 
-/** One step of a building hold: 0 soft ... 3 heavy (hold to report). */
-export function buildFeel(level: 0 | 1 | 2 | 3) {
-  if (!on) return;
-  const style = [
-    Haptics.ImpactFeedbackStyle.Soft,
-    Haptics.ImpactFeedbackStyle.Light,
-    Haptics.ImpactFeedbackStyle.Medium,
-    Haptics.ImpactFeedbackStyle.Heavy,
-  ][level];
-  Haptics.impactAsync(style).catch(() => {});
+/** One pulse of the hold-to-report hum (iPhone): the same light tap every time, so the
+ *  pulses blend into one hum as they speed up. */
+export function humPulse() {
+  if (Platform.OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+}
+
+/** Android: play the whole speeding-up hum as one vibration pattern; stopHum() ends it. */
+export function startHumAndroid(pattern: number[]) {
+  if (Platform.OS === 'android') Vibration.vibrate(pattern);
+}
+
+export function stopHum() {
+  if (Platform.OS === 'android') Vibration.cancel();
 }
 
 /** The report went through: a firm knock, then the success pattern (hold to report). */

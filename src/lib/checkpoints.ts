@@ -11,40 +11,42 @@ export function minutesAgo(then: Date, now: Date): number {
 
 // ─── Hold to report (slice 15c) ──────────────────────────────────────────────
 // A report is sent only after the button is held for HOLD_MS, so a stray tap sends
-// nothing. While holding, quick taps you feel come closer together and get stronger,
-// then a confirming buzz when the circle completes.
+// nothing. While holding, a hum speeds up like a motor, then a confirming buzz when the
+// circle completes.
 
 export const HOLD_MS = 1000;
 
 /** Let go before this and we show "keep holding"; shorter is just a tap. */
 export const TOO_SHORT_MS = 400;
 
-/** 0 soft, 1 light, 2 medium, 3 heavy. */
-export type FeelLevel = 0 | 1 | 2 | 3;
+// The hum while holding: like a motor speeding up. Pulses start HUM_SLOW_MS apart and
+// close in to HUM_FAST_MS, so by the end they blur into one buzz.
+export const HUM_SLOW_MS = 45;
+export const HUM_FAST_MS = 12;
 
-// Fast and building: the first gap is 80 ms, each next one a little shorter, down to 35 ms.
-export const HOLD_TICKS: { at: number; level: FeelLevel }[] = (() => {
-  const ticks: { at: number; level: FeelLevel }[] = [];
+/** Time to the next pulse, from how long the button has been held. */
+export function humGap(elapsedMs: number): number {
+  const share = Math.min(1, Math.max(0, elapsedMs / HOLD_MS));
+  const eased = share * share * (3 - 2 * share); // smooth start and end
+  return Math.round(HUM_SLOW_MS - (HUM_SLOW_MS - HUM_FAST_MS) * eased);
+}
+
+/** Android vibrates from a pattern instead: [wait, buzz, wait, buzz, ...] in ms, the
+ *  waits shrinking to nothing, so it ends as one continuous buzz. */
+export function humPattern(): number[] {
+  const pattern = [0];
   let at = 0;
-  let gap = 80;
-  while (at < HOLD_MS - 30) {
-    const share = at / HOLD_MS;
-    ticks.push({ at, level: share < 0.3 ? 0 : share < 0.6 ? 1 : share < 0.85 ? 2 : 3 });
-    at += gap;
-    gap = Math.max(35, gap - 5);
+  while (at < HOLD_MS) {
+    const buzz = 18;
+    const wait = Math.max(0, humGap(at) - buzz);
+    pattern.push(buzz, wait);
+    at += buzz + wait;
   }
-  return ticks;
-})();
+  return pattern;
+}
 
 /** What to say under the status: confirmed, not yet, or nothing when there is no status. */
 export function confidence(row: { status: CheckpointStatus | null; confirmed?: boolean | null }): 'confirmed' | 'unconfirmed' | null {
   if (!row.status) return null;
   return row.confirmed ? 'confirmed' : 'unconfirmed';
-}
-
-/** Where a report button sits in its row: the circle leans toward the middle of the row. */
-export type RowSide = 'start' | 'middle' | 'end';
-export function rowSide(index: number, count: number): RowSide {
-  if (count < 2 || (count % 2 === 1 && index === (count - 1) / 2)) return 'middle';
-  return index < count / 2 ? 'start' : 'end';
 }
