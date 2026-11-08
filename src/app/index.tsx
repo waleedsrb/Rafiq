@@ -1,14 +1,12 @@
-// The app's front door ("/"). It only decides where you belong and sends you there:
-// the intro when signed out, the last sign-up step if your profile is missing, Home otherwise.
-// It sits outside the guarded groups so "/" always matches something.
+// The launch gate lives above navigation. This front door only resolves the
+// session destination; revisiting it within a process never replays branding.
 
 import { Redirect } from 'expo-router';
 
 import { useSession } from '@/lib/session';
+import { launchDestination } from '@/lib/launch-state';
 
 export default function Index() {
   const { session, profile } = useSession();
-  if (!session) return <Redirect href="/intro" />;
-  if (!profile) return <Redirect href="/sign-up/profile" />;
-  return <Redirect href="/home" />;
+  return <Redirect href={launchDestination(!!session, !!profile)} />;
 }
