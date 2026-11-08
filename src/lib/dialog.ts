@@ -48,6 +48,13 @@ let queue: DialogEntry[] = [];
 let nextId = 1;
 const listeners = new Set<() => void>();
 
+// Is the pop-up still on screen? Answering a pop-up empties the queue at once, but on
+// iOS the sheet takes a moment to leave. Opening the camera, the photo library or a
+// permission prompt during that moment makes iOS refuse it and the app looks frozen.
+// The host tells us when the pop-up has really gone (see setDialogOnScreen).
+let onScreen = false;
+let closedWaiters: (() => void)[] = [];
+
 function emit() {
   for (const l of listeners) l();
 }
@@ -80,6 +87,36 @@ export function answerDialog(id: number, value: unknown) {
   queue = queue.filter((e) => e.id !== id);
   emit();
   entry.resolve(value);
+}
+
+/** For the host: the pop-up layer has appeared (true) or fully gone away (false). */
+export function setDialogOnScreen(shown: boolean) {
+  onScreen = shown;
+  if (!shown && queue.length === 0) {
+    const waiters = closedWaiters;
+    closedWaiters = [];
+    for (const w of waiters) w();
+  }
+}
+
+/**
+ * Wait until no pop-up is on screen. Call it before opening anything native
+ * (camera, photo library, share sheet) right after a pop-up answer.
+ * `maxWaitMs` is a safety net in case the host never reports back.
+ */
+export function dialogsClosed(maxWaitMs = 1000): Promise<void> {
+  if (!onScreen && queue.length === 0) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      closedWaiters = closedWaiters.filter((w) => w !== finish);
+      resolve();
+    };
+    closedWaiters.push(finish);
+    setTimeout(finish, maxWaitMs);
+  });
 }
 
 /** Close the front pop-up as if the person cancelled. */
@@ -134,4 +171,6 @@ export function notify(o: { title: string; body?: string; ok: string; tone?: Dia
 export function resetDialogs() {
   queue = [];
   nextId = 1;
+  onScreen = false;
+  closedWaiters = [];
 }

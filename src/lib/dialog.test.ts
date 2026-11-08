@@ -45,3 +45,28 @@ test('the host is told when the queue changes', () => {
   void notify({ title: 'Again', ok: 'OK' });
   assert.equal(calls, 2);
 });
+
+test('dialogsClosed waits until the host says the pop-up has left the screen', async () => {
+  const { dialogsClosed, setDialogOnScreen } = await import('./dialog.ts');
+  const pick = choose({ title: 'Photo', options: [{ label: 'Camera', value: 'camera' }], cancel: 'Cancel' });
+  setDialogOnScreen(true);
+  answerDialog(currentDialog()!.id, 'camera');
+  assert.equal(await pick, 'camera');
+
+  let closed = false;
+  const wait = dialogsClosed(5000).then(() => (closed = true));
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(closed, false, 'still sliding away');
+  setDialogOnScreen(false);
+  await wait;
+  assert.equal(closed, true);
+});
+
+test('dialogsClosed resolves at once when nothing is showing, and has a safety timeout', async () => {
+  const { dialogsClosed, setDialogOnScreen } = await import('./dialog.ts');
+  await dialogsClosed();
+  setDialogOnScreen(true);
+  const started = Date.now();
+  await dialogsClosed(30);
+  assert.ok(Date.now() - started >= 25);
+});
