@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { HOLD_MS, HOLD_TICKS, confidence, minutesAgo } from './checkpoints.ts';
+import { HOLD_MS, HOLD_TICKS, confidence, minutesAgo, rowSide } from './checkpoints.ts';
 
 test('minutes ago rounds down and never goes negative', () => {
   const now = new Date('2026-11-07T08:30:00Z');
@@ -29,4 +29,16 @@ test('confidence: nothing without a status, otherwise confirmed or not yet', () 
   assert.equal(confidence({ status: 'open', confirmed: true }), 'confirmed');
   assert.equal(confidence({ status: 'closed', confirmed: false }), 'unconfirmed');
   assert.equal(confidence({ status: 'crowded' }), 'unconfirmed'); // an older app version's row
+});
+
+test('hold ticks are fast: many of them, never more than 80 ms apart', () => {
+  assert.ok(HOLD_TICKS.length >= 15);
+  for (let i = 1; i < HOLD_TICKS.length; i++) assert.ok(HOLD_TICKS[i].at - HOLD_TICKS[i - 1].at <= 80);
+  assert.equal(HOLD_TICKS[HOLD_TICKS.length - 1].level, 3);
+});
+
+test('row side: outer buttons lean in, the middle one stays centred', () => {
+  assert.deepEqual([0, 1, 2].map((i) => rowSide(i, 3)), ['start', 'middle', 'end']);
+  assert.deepEqual([0, 1].map((i) => rowSide(i, 2)), ['start', 'end']);
+  assert.equal(rowSide(0, 1), 'middle');
 });

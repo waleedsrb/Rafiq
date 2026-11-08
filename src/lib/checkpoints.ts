@@ -11,8 +11,8 @@ export function minutesAgo(then: Date, now: Date): number {
 
 // ─── Hold to report (slice 15c) ──────────────────────────────────────────────
 // A report is sent only after the button is held for HOLD_MS, so a stray tap sends
-// nothing. While holding, taps you feel come closer together and get stronger, then a
-// success buzz when the fill completes.
+// nothing. While holding, quick taps you feel come closer together and get stronger,
+// then a confirming buzz when the circle completes.
 
 export const HOLD_MS = 1000;
 
@@ -22,18 +22,29 @@ export const TOO_SHORT_MS = 400;
 /** 0 soft, 1 light, 2 medium, 3 heavy. */
 export type FeelLevel = 0 | 1 | 2 | 3;
 
-export const HOLD_TICKS: { at: number; level: FeelLevel }[] = [
-  { at: 0, level: 0 },
-  { at: 260, level: 0 },
-  { at: 460, level: 1 },
-  { at: 620, level: 1 },
-  { at: 750, level: 2 },
-  { at: 860, level: 2 },
-  { at: 940, level: 3 },
-];
+// Fast and building: the first gap is 80 ms, each next one a little shorter, down to 35 ms.
+export const HOLD_TICKS: { at: number; level: FeelLevel }[] = (() => {
+  const ticks: { at: number; level: FeelLevel }[] = [];
+  let at = 0;
+  let gap = 80;
+  while (at < HOLD_MS - 30) {
+    const share = at / HOLD_MS;
+    ticks.push({ at, level: share < 0.3 ? 0 : share < 0.6 ? 1 : share < 0.85 ? 2 : 3 });
+    at += gap;
+    gap = Math.max(35, gap - 5);
+  }
+  return ticks;
+})();
 
 /** What to say under the status: confirmed, not yet, or nothing when there is no status. */
 export function confidence(row: { status: CheckpointStatus | null; confirmed?: boolean | null }): 'confirmed' | 'unconfirmed' | null {
   if (!row.status) return null;
   return row.confirmed ? 'confirmed' : 'unconfirmed';
+}
+
+/** Where a report button sits in its row: the circle leans toward the middle of the row. */
+export type RowSide = 'start' | 'middle' | 'end';
+export function rowSide(index: number, count: number): RowSide {
+  if (count < 2 || (count % 2 === 1 && index === (count - 1) / 2)) return 'middle';
+  return index < count / 2 ? 'start' : 'end';
 }
