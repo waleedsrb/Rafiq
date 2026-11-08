@@ -1,6 +1,6 @@
 // Driver posts a trip: route, day (or weekly days), time, seats, price.
 
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
@@ -22,11 +22,13 @@ export default function NewTrip() {
   const { session, profile } = useSession();
   const canWomenOnly = isVerifiedWoman(profile);
 
-  const [route, setRoute] = useState<Route>('ramallah>nablus');
-  const [day, setDay] = useState(0);
+  // Home's "post your usual trip" opens this screen already filled in.
+  const params = useLocalSearchParams<{ origin?: City; day?: string; time?: string }>();
+  const [route, setRoute] = useState<Route>(params.origin === 'nablus' ? 'nablus>ramallah' : 'ramallah>nablus');
+  const [day, setDay] = useState(() => Math.min(6, Math.max(0, Number(params.day) || 0)));
   const [repeat, setRepeat] = useState<'once' | 'weekly'>('once');
   const [weekdays, setWeekdays] = useState<number[]>(WORK_WEEK);
-  const [time, setTime] = useState('');
+  const [time, setTime] = useState(params.time && /^\d{1,2}:\d{2}$/.test(params.time) ? params.time : '');
   const [seats, setSeats] = useState(3);
   const [price, setPrice] = useState(String(SUGGESTED_PRICE));
   const [error, setError] = useState<string | null>(null);
