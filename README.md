@@ -33,7 +33,7 @@ Publish the current code to Expo's servers, then open it in Expo Go from anywher
 npx eas-cli@latest update --branch preview --environment preview --message "what changed"
 ```
 
-In Expo Go (signed in as the project owner): Rafiq → Branches → preview → newest update.
+This happens automatically on every merge to main (`.eas/workflows/publish-preview.yml`, needs the GitHub repo linked in the Expo project settings). In Expo Go (signed in as the project owner): Rafiq → Branches → preview → newest update.
 
 `runtimeVersion` uses the `sdkVersion` policy (`exposdk:58.0.0`), which is what Expo Go can load. Before the first store or development build, switch it to `appVersion` or `fingerprint`, because Expo Go compatibility stops mattering then.
 

@@ -1,0 +1,21 @@
+# Every merge to main publishes the app to the "preview" branch,
+# so it shows up in Expo Go (Rafiq -> Branches -> preview) a few minutes later.
+name: Publish preview
+
+on:
+  push:
+    branches: ['main']
+  workflow_dispatch: {}
+
+jobs:
+  publish_preview:
+    name: Publish to preview
+    type: update
+    environment: preview
+    env:
+      # Public client values (they ship inside the app anyway). Never put secret keys here.
+      EXPO_PUBLIC_SUPABASE_URL: https://pomyvelsxfzvplkzjlou.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvbXl2ZWxzeGZ6dnBsa3pqbG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzY4OTYsImV4cCI6MjEwOTYxMjg5Nn0.W9mAoQI73fwTIusBKIKOZDtxKxiqGBZvAaaYzZOoh3M
+    params:
+      branch: preview
+      platform: all
