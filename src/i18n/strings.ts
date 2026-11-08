@@ -32,24 +32,32 @@ export const strings = {
   // Welcome
   otherLanguage: { ar_m: 'English', en: 'العربية' },
   slide1Title: { ar_m: 'الرفيق قبل الطريق.', en: 'The company before the road.' },
-  slide1Body: {
-    ar_m: 'مقعد محجوز مسبقًا بين المدن، مع سائق موثّق وسعر واضح.',
-    en: 'A seat booked ahead between cities, with a verified driver and a clear price.',
+  storyLabel: { ar_m: 'التالي', en: 'Next' },
+  story1Title: { ar_m: 'مقعدك محجوز قبل الرحلة.', en: 'Your seat, booked before the trip.' },
+  story1Body: {
+    ar_m: 'احجز بين المدن بسعر واضح، وادفع نقدًا للسائق.',
+    en: 'Book between cities at a clear price, and pay the driver in cash.',
   },
-  slide2Title: { ar_m: 'تعرف من يقود قبل أن تركب.', en: 'Know who drives before you ride.' },
-  slide2Body: {
+  story2Title: { ar_m: 'تعرف من يقود قبل أن تركب.', en: 'Know who drives before you ride.' },
+  story2Body: {
     ar_m: 'نراجع كل سائق بأنفسنا: الهوية والرخصة والسيارة واللوحة.',
     en: 'We check every driver ourselves: ID, licence, car and plate.',
   },
-  slide3Title: { ar_m: 'الحواجز قبل أن تصلها.', en: 'Checkpoints before you reach them.' },
-  slide3Body: {
-    ar_m: 'حالة كل حاجز على طريقك، من الركّاب والسائقين، لحظة بلحظة.',
-    en: 'The status of every checkpoint on your way, from riders and drivers, as it happens.',
+  story3Title: { ar_m: 'الحواجز قبل أن تصلها.', en: 'Checkpoints before you reach them.' },
+  story3Body: {
+    ar_m: 'حال كل حاجز على طريقك، من الركّاب والسائقين، لحظة بلحظة.',
+    en: 'Every checkpoint on your way, from riders and drivers, as it happens.',
   },
-  slideLabel: { ar_m: 'الشريحة', en: 'Slide' },
-  startWithPhone: { ar_m: 'ابدأ برقم هاتفك', en: 'Start with your phone number' },
-  orSignInWith: { ar_m: 'أو تابع بواسطة', en: 'Or continue with' },
-  withEmail: { ar_m: 'البريد الإلكتروني', en: 'Email' },
+  story4Title: { ar_m: 'رحلات للنساء فقط.', en: 'Trips for women only.' },
+  story4Body: {
+    ar_m: 'سائقات وراكبات موثّقات فقط، متى أردتِ ذلك.',
+    en: 'Only verified women drivers and riders, whenever you want it.',
+  },
+  cash: { ar_m: 'نقدًا', en: 'cash' },
+  startWithPhone: { ar_m: 'تابع برقم هاتفك', en: 'Continue with your phone' },
+  orSignInWith: { ar_m: 'أو', en: 'or' },
+  withApple: { ar_m: 'Apple', en: 'Apple' },
+  withEmail: { ar_m: 'البريد', en: 'Email' },
   withGoogle: { ar_m: 'Google', en: 'Google' },
   signInFailed: {
     ar_m: 'لم يكتمل تسجيل الدخول. حاول مرة أخرى أو استخدم رقم هاتفك.',
@@ -59,12 +67,7 @@ export const strings = {
     ar_m: 'بالمتابعة توافق على الشروط وسياسة الخصوصية.',
     en: 'By continuing you agree to the Terms and Privacy Policy.',
   },
-  demoFrom: { ar_m: 'رام الله · دوار المنارة', en: 'Ramallah · Al-Manara Sq.' },
-  demoTo: { ar_m: 'نابلس · دوار الشهداء', en: 'Nablus · Martyrs Sq.' },
-  demoSeat: { ar_m: 'مقعدك محجوز', en: 'Your seat is booked' },
-  demoCar: { ar_m: 'إلنترا فضّية', en: 'Silver Elantra' },
   demoDriver: { ar_m: 'محمد عواد', en: 'Mohammad Awad' },
-  demoStats: { ar_m: '142 رحلة · 4.9 تقييم · سائق مؤسس', en: '142 trips · 4.9 rating · Founding driver' },
   idVerified: { ar_m: 'هوية موثّقة', en: 'ID verified' },
   licenseVerified: { ar_m: 'رخصة موثّقة', en: 'Licence verified' },
   carVerified: { ar_m: 'سيارة موثّقة', en: 'Car verified' },
