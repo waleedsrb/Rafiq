@@ -8,7 +8,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { RouteCard } from '@/components/route-card';
 import { Icon } from '@/components/icon';
 import { StatsLine, useTripDriverStats } from '@/components/stats-line';
-import { Body, Chip, IconCircle, ListRow, Screen, ltr, useFont } from '@/components/ui';
+import { Body, Button, Chip, IconCircle, ListRow, Screen, ltr, useFont } from '@/components/ui';
+import { alertWindow } from '@/lib/alerts';
 import { dayPart, formatLongDay, shortTime, type DayPart } from '@/lib/format';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -35,7 +36,7 @@ const partLabel = { morning: 'partMorning', afternoon: 'partAfternoon', evening:
 export default function Results() {
   const { t, lang } = useT();
   const { f, rtl } = useFont();
-  const { profile } = useSession();
+  const { session, profile } = useSession();
   const [womenOnly, setWomenOnly] = useState(false);
   const params = useLocalSearchParams<{ origin: City; destination: City; day: string; part?: DayPart }>();
   const origin: City = params.origin === 'nablus' ? 'nablus' : 'ramallah';
@@ -43,6 +44,7 @@ export default function Results() {
   const day = Number(params.day ?? 0) || 0;
   const [part, setPart] = useState<DayPart | null>(params.part && PARTS.includes(params.part) ? params.part : null);
   const [results, setResults] = useState<Result[] | null>(null);
+  const [alert, setAlert] = useState<'idle' | 'saving' | 'saved' | 'tooMany' | 'error'>('idle');
 
   // The chosen day, from local midnight to the next midnight.
   const from = new Date();
@@ -70,6 +72,26 @@ export default function Results() {
   );
   const driverStats = useTripDriverStats((results ?? []).map((r) => r.id));
 
+  // No free seat in what you're looking at? Save the search and hear about the next trip.
+  const win = alertWindow(from, part, new Date());
+  const canAlert = !!results && !!win && !shown.some((r) => r.seats_left > 0);
+  useEffect(() => setAlert('idle'), [part, fromIso, origin]);
+
+  async function saveAlert() {
+    if (!session || !win) return;
+    setAlert('saving');
+    const { error } = await supabase.from('ride_alerts').insert({
+      passenger_id: session.user.id,
+      origin,
+      destination,
+      window_from: win.from.toISOString(),
+      window_to: win.to.toISOString(),
+    });
+    // 23505 = the same alert already exists, which is what the person wanted anyway.
+    if (!error || error.code === '23505') setAlert('saved');
+    else setAlert(error.message.includes('10 alerts') ? 'tooMany' : 'error');
+  }
+
   return (
     <Screen back scroll>
       <RouteCard origin={origin} destination={destination} note={formatLongDay(from, lang)} />
@@ -89,6 +111,17 @@ export default function Results() {
         </Body>
       ) : null}
       {results && shown.length === 0 ? <Body muted>{t('noResults')}</Body> : null}
+      {canAlert ? (
+        alert === 'saved' ? (
+          <Body muted small>{t('alertSaved')}</Body>
+        ) : (
+          <>
+            <Button variant="secondary" icon="bell" label={t('alertMe')} onPress={saveAlert} loading={alert === 'saving'} />
+            {alert === 'tooMany' ? <Body error>{t('alertTooMany')}</Body> : null}
+            {alert === 'error' ? <Body error>{t('somethingWrong')}</Body> : null}
+          </>
+        )
+      ) : null}
 
       <View>
         {shown.map((r, i) => {

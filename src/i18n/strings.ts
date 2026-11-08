@@ -227,6 +227,23 @@ export const strings = {
     ar_m: 'تنبيهات الرحلات المؤكدة لا يمكن إيقافها',
     en: "Alerts about confirmed trips can't be turned off",
   },
+  notifyAlerts: { ar_m: 'تنبيهات الرحلات', en: 'Ride alerts' },
+  notifyAlertsNote: {
+    ar_m: 'عند نشر رحلة طلبتَ التنبيه لها، أو عندما ينتظر ركاب على طريقك',
+    ar_f: 'عند نشر رحلة طلبتِ التنبيه لها، أو عندما ينتظر ركاب على طريقك',
+    en: 'When a trip you asked for is posted, or riders wait on your route',
+  },
+
+  // Ride alerts
+  alertMe: { ar_m: 'نبّهني عند نشر رحلة', en: 'Alert me when a trip is posted' },
+  alertSaved: { ar_m: 'سنخبرك فور نشر رحلة في هذا الوقت.', en: "We'll tell you as soon as a trip is posted for this time." },
+  alertTooMany: { ar_m: 'لديك 10 تنبيهات مفتوحة بالفعل.', en: 'You already have 10 open alerts.' },
+  demandWaiting: { ar_m: 'ركاب ينتظرون', en: 'Riders waiting' },
+  demandHint: {
+    ar_m: 'انشر رحلة في ذلك اليوم وسنخبرهم.',
+    ar_f: 'انشري رحلة في ذلك اليوم وسنخبرهم.',
+    en: "Post a trip that day and we'll tell them.",
+  },
   safetySection: { ar_m: 'الأمان والحساب', en: 'Safety and account' },
   deleteAccount: { ar_m: 'حذف الحساب', en: 'Delete account' },
   deleteAccountQ: { ar_m: 'حذف حسابك؟', en: 'Delete your account?' },
