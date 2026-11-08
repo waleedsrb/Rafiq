@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { HoldToReport } from '@/components/hold-to-report';
 import { Body, Label, ListRow, Screen, SectionTitle, TextLink, Title, ltr, useFont } from '@/components/ui';
-import { STATUSES, confidence, type CheckpointStatus } from '@/lib/checkpoints';
+import { STATUSES, confidence, rowSide, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
 import { warnFeel } from '@/lib/haptics';
 import type { StringKey } from '@/i18n/strings';
@@ -90,16 +90,17 @@ export default function CheckpointDetail() {
         <View style={{ gap: space.sm }}>
           <Label>{t('howIsItNow')}</Label>
           <View style={styles.buttons}>
-            {STATUSES.map((s) => (
-              <View key={s} style={{ flex: 1 }}>
-                <HoldToReport
-                  status={s}
-                  onComplete={report}
-                  onTooShort={() => setNote({ text: t('holdLonger') })}
-                  busy={sending === s}
-                  disabled={!!sending && sending !== s}
-                />
-              </View>
+            {STATUSES.map((s, i) => (
+              <HoldToReport
+                key={s}
+                style={{ flex: 1 }}
+                status={s}
+                side={rowSide(i, STATUSES.length)}
+                onComplete={report}
+                onTooShort={() => setNote({ text: t('holdLonger') })}
+                busy={sending === s}
+                disabled={!!sending && sending !== s}
+              />
             ))}
           </View>
           {!note ? (

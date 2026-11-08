@@ -32,3 +32,10 @@ export function buildFeel(level: 0 | 1 | 2 | 3) {
   ][level];
   Haptics.impactAsync(style).catch(() => {});
 }
+
+/** The report went through: a firm knock, then the success pattern (hold to report). */
+export function confirmFeel() {
+  if (!on) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
+  setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 90);
+}
