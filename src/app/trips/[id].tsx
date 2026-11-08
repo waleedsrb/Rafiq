@@ -349,7 +349,12 @@ export default function TripDetails() {
       {onRoad ? <RouteCheckpoints origin={trip.origin} /> : null}
 
       {(status === 'accepted' || arrived) && contact ? (
-        <ContactCard contact={contact} />
+        <>
+          <ContactCard contact={contact} />
+          {status === 'accepted' && !trip.started_at && departs.getTime() - Date.now() > 60 * 60 * 1000 ? (
+            <Body muted small>{t('remindHourBefore')}</Body>
+          ) : null}
+        </>
       ) : (
         <View>
           <ListRow
