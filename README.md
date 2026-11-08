@@ -24,6 +24,19 @@ npx expo start               # scan the QR code with Expo Go, or press w for web
 npm run typecheck
 ```
 
+## Test on a phone without your computer (EAS Update)
+
+Publish the current code to Expo's servers, then open it in Expo Go from anywhere:
+
+```bash
+# .env.local must hold the Supabase URL + anon key: they are baked into the bundle
+npx eas-cli@latest update --branch preview --environment preview --message "what changed"
+```
+
+In Expo Go (signed in as the project owner): Rafiq → Branches → preview → newest update.
+
+`runtimeVersion` uses the `sdkVersion` policy (`exposdk:58.0.0`), which is what Expo Go can load. Before the first store or development build, switch it to `appVersion` or `fingerprint`, because Expo Go compatibility stops mattering then.
+
 ## Database
 
 Apply migrations with the Supabase CLI (`supabase db push`) or paste them into the SQL editor in order. To check the booking rules:
