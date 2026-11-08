@@ -34,6 +34,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Icon, type IconName } from '@/components/icon';
 import { PsPlate } from '@/components/ps-plate';
+import { RafiqMark } from '@/components/rafiq-mark';
 import { Body, Button, Screen, TopBar, ltr, useFont } from '@/components/ui';
 import { selectFeel } from '@/lib/haptics';
 import { useSession, useT } from '@/lib/session';
@@ -74,6 +75,9 @@ export default function Welcome() {
         <TopBar
           start={
             <View style={styles.wordmark}>
+              <View style={styles.markWrap}>
+                <RafiqMark size={20} />
+              </View>
               <Text style={[styles.wordmarkAr, { fontFamily: fonts.ar.bold }]}>رفيق</Text>
               <Text style={[styles.wordmarkEn, { fontFamily: fonts.en.medium }]}>Rafiq</Text>
             </View>
@@ -468,6 +472,7 @@ function WayButton({
 
 const styles = StyleSheet.create({
   wordmark: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  markWrap: { alignSelf: 'center' },
   wordmarkAr: { fontSize: 22, color: colors.ink },
   wordmarkEn: { fontSize: 13, color: colors.inkSecondary },
   langButton: {
