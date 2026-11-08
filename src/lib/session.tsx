@@ -4,10 +4,11 @@
 // passing it down by hand. Here that value is the session + profile.
 
 import type { Session } from '@supabase/supabase-js';
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { deviceLanguage, t as translate, type Gender, type Language } from '@/i18n';
 import type { StringKey } from '@/i18n/strings';
+import { createAuthSync } from '@/lib/auth-sync';
 import { supabase } from '@/lib/supabase';
 
 export type Profile = {
@@ -39,36 +40,43 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [chosenLanguage, setChosenLanguage] = useState<Language | null>(null);
 
-  const loadProfile = useCallback(async (userId: string | undefined) => {
-    if (!userId) {
-      setProfile(null);
-      return;
-    }
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, gender, language, id_verified_at, gender_verified_at')
-      .eq('id', userId)
-      .maybeSingle();
-    setProfile((data as Profile | null) ?? null);
-  }, []);
+  // One "apply" for every auth change: it fetches the profile first, then sets
+  // session and profile in the same render (see src/lib/auth-sync.ts for why).
+  const sessionRef = useRef<Session | null>(null);
+  const [apply] = useState(() =>
+    createAuthSync<Session, Profile>(
+      async (userId) => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, gender, language, id_verified_at, gender_verified_at')
+          .eq('id', userId)
+          .maybeSingle();
+        if (error) throw error;
+        return (data as Profile | null) ?? null;
+      },
+      (nextSession, nextProfile) => {
+        sessionRef.current = nextSession;
+        setSession(nextSession);
+        setProfile(nextProfile);
+        // Loading ends with the first answer that lands, whichever source sent it.
+        setLoading(false);
+      },
+    ),
+  );
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      await loadProfile(data.session?.user.id);
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data }) => apply(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-      loadProfile(next?.user.id);
+      // Supabase asks not to call it again from inside this callback, so the
+      // profile query starts on the next tick.
+      setTimeout(() => void apply(next), 0);
     });
     return () => sub.subscription.unsubscribe();
-  }, [loadProfile]);
+  }, [apply]);
 
-  const refreshProfile = useCallback(
-    () => loadProfile(session?.user.id),
-    [loadProfile, session?.user.id],
-  );
+  const refreshProfile = useCallback(async () => {
+    await apply(sessionRef.current);
+  }, [apply]);
 
   return (
     <SessionContext.Provider value={{ loading, session, profile, refreshProfile, chosenLanguage, setChosenLanguage }}>
