@@ -276,8 +276,6 @@ export const strings = {
   followCheckpoint: { ar_m: 'تابع هذا الحاجز', ar_f: 'تابعي هذا الحاجز', en: 'Follow this checkpoint' },
   followingCheckpoint: { ar_m: 'تتابع هذا الحاجز', ar_f: 'تتابعين هذا الحاجز', en: "You're following this checkpoint" },
   followCheckpointNote: { ar_m: 'نرسل لك إشعارًا عندما يتغير وضعه', en: 'We let you know when its status changes' },
-  follow: { ar_m: 'متابعة', en: 'Follow' },
-  unfollow: { ar_m: 'إلغاء المتابعة', en: 'Unfollow' },
 
   // Ride alerts
   alertMe: { ar_m: 'نبّهني عند نشر رحلة', en: 'Alert me when a trip is posted' },

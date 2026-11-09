@@ -6,8 +6,9 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
+import { FollowBell } from '@/components/follow-bell';
 import { HoldToReport } from '@/components/hold-to-report';
-import { Body, Label, ListRow, Screen, SectionTitle, TextLink, Title, ltr, useFont } from '@/components/ui';
+import { Body, Label, ListRow, Screen, SectionTitle, Title, ltr, useFont } from '@/components/ui';
 import { STATUSES, confidence, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
 import { warnFeel } from '@/lib/haptics';
@@ -133,10 +134,9 @@ export default function CheckpointDetail() {
       {following !== null ? (
         <ListRow
           last
-          icon="bell"
+          leading={<FollowBell following={following} onToggle={toggleFollow} />}
           title={t(following ? 'followingCheckpoint' : 'followCheckpoint')}
           subtitle={t('followCheckpointNote')}
-          trailing={<TextLink label={t(following ? 'unfollow' : 'follow')} onPress={toggleFollow} />}
         />
       ) : null}
 
