@@ -190,6 +190,7 @@ export function TabScreen({
   kicker,
   action,
   fixed,
+  pinned,
   children,
 }: {
   /** The page name: the large title, and the small one in the bar once scrolled. */
@@ -201,6 +202,8 @@ export function TabScreen({
   action?: ReactNode;
   /** Stays put under the title; only the children scroll. */
   fixed?: ReactNode;
+  /** Keeps the kicker and large title still (Home's date and greeting); only the children scroll. */
+  pinned?: boolean;
   children: ReactNode;
 }) {
   const { f, direction } = useFont();
@@ -231,7 +234,7 @@ export function TabScreen({
     </View>
   );
 
-  if (fixed) {
+  if (fixed || pinned) {
     return (
       <View style={[styles.safe, { direction, paddingTop: insets.top + space.sm }]}>
         <View style={[styles.tabFixed]}>
@@ -243,6 +246,7 @@ export function TabScreen({
             onScroll={onScroll}
             scrollEventThrottle={16}
             contentContainerStyle={[styles.content, { paddingBottom: 120 }]}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             {children}
