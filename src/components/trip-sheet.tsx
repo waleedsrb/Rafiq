@@ -14,11 +14,15 @@
 
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
+  FadeIn,
+  FadeInLeft,
+  FadeInRight,
+  useAnimatedRef,
   runOnJS,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -51,8 +55,11 @@ const BAR_SIDE = 12;
 const POS: Record<Detent, number> = { mini: 0, mid: 1, full: 2 };
 const DETENTS: Detent[] = ['mini', 'mid', 'full'];
 
-const OPEN = { damping: 20, stiffness: 190, mass: 1 };
+const OPEN = { damping: 24, stiffness: 200, mass: 1 };
 const SNAP = { damping: 26, stiffness: 260, mass: 1, overshootClamping: true };
+// A step asking for a new height (Request opening up): a softer spring that may overshoot a
+// hair, so the card breathes into place instead of snapping.
+const SHIFT = { damping: 22, stiffness: 190, mass: 1 };
 const CLOSE = { damping: 30, stiffness: 280, mass: 1, overshootClamping: true };
 // A flick faster than this (points per second) moves one height in that direction.
 const FLICK = 600;
@@ -78,6 +85,7 @@ export function TripSheet({
   onRequestClose,
   onClosed,
   onShare,
+  step,
 }: {
   origin: City;
   destination: City;
@@ -97,6 +105,9 @@ export function TripSheet({
   onRequestClose: () => void;
   onClosed: () => void;
   onShare?: (() => void) | null;
+  /** Which step is showing (details, request...) and how deep it is, so a new step slides in
+   *  from the side it comes from instead of swapping in place. */
+  step?: { key: string; depth: number };
 }) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
@@ -115,6 +126,13 @@ export function TripSheet({
   const dragTop = useSharedValue(0);
   const [at, setAt] = useState<Detent>(start);
   const [moving, setMoving] = useState(false);
+  // The map is heavy to start, so it comes in once the card has landed (a plain backdrop
+  // fades in under the morph instead); starting both at once made the morph stutter.
+  const [mapOn, setMapOn] = useState(!!settled);
+  useEffect(() => {
+    const id = setTimeout(() => setMapOn(true), 700); // in case the spring is interrupted
+    return () => clearTimeout(id);
+  }, []);
 
   // Where the card starts: on the row you tapped, or just below the screen.
   const origin0 = from
@@ -152,19 +170,19 @@ export function TripSheet({
     setAt(d);
     setMoving(false);
   };
-  const goTo = (d: Detent) => {
+  const goTo = (d: Detent, soft = false) => {
     'worklet';
     pos.value = reduced
       ? withTiming(POS[d], { duration: 160 }, (ok) => {
           if (ok) runOnJS(landed)(d);
         })
-      : withSpring(POS[d], SNAP, (ok) => {
+      : withSpring(POS[d], soft ? SHIFT : SNAP, (ok) => {
           if (ok) runOnJS(landed)(d);
         });
   };
-  const moveTo = (d: Detent) => {
+  const moveTo = (d: Detent, soft = false) => {
     setMoving(true);
-    goTo(d);
+    goTo(d, soft);
   };
 
   // Open: grow out of the row. Close: fold back into it.
@@ -177,12 +195,16 @@ export function TripSheet({
       setMoving(true);
       p.value = reduced ? withTiming(0, { duration: 140 }, done) : withSpring(0, CLOSE, done);
     } else if (!settled) {
-      p.value = reduced ? withTiming(1, { duration: 140 }) : withSpring(1, OPEN);
+      const opened = (ok?: boolean) => {
+        'worklet';
+        if (ok) runOnJS(setMapOn)(true);
+      };
+      p.value = reduced ? withTiming(1, { duration: 140 }, opened) : withSpring(1, OPEN, opened);
     }
   }, [closing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (want) moveTo(want.to);
+    if (want) moveTo(want.to, true);
   }, [want?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drag the card (by its top or the bar) between the three heights.
@@ -247,9 +269,16 @@ export function TripSheet({
   });
   // Contents fade in late in the morph, and swap between the card's and the bar's by height.
   // (One opacity per view: two animated styles on one view would fight over it.)
-  const fullStyle = useAnimatedStyle(() => ({
-    opacity: clamp01((p.value - 0.35) / 0.45) * clamp01((pos.value - 0.35) / 0.5),
-  }));
+  // The details are laid out at the card's real size (its height, not the morph's), so while
+  // the card grows they don't re-flow every frame; the card's rounded clip just reveals them.
+  const fullStyle = useAnimatedStyle(() => {
+    const g = frameAt(pos.value);
+    return {
+      width: g.width,
+      height: g.height,
+      opacity: clamp01((p.value - 0.35) / 0.45) * clamp01((pos.value - 0.35) / 0.5),
+    };
+  });
   const barStyle = useAnimatedStyle(() => ({
     opacity: clamp01((p.value - 0.35) / 0.45) * clamp01((0.4 - pos.value) / 0.4),
   }));
@@ -261,20 +290,42 @@ export function TripSheet({
   const topStyle = useAnimatedStyle(() => ({ opacity: clamp01((p.value - 0.5) / 0.5) }));
 
   const glassBar = LIQUID_GLASS && at === 'mini' && !moving && !closing;
+
+  // Steps: the new one slides in a little from the side it comes from (deeper: from the end,
+  // back: from the start) while fading up, and the list starts at the top again.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const stepKey = step?.key ?? 'details';
+  const depth = step?.depth ?? 0;
+  const prev = useRef({ key: stepKey, depth, changed: false, deeper: true });
+  if (prev.current.key !== stepKey) {
+    prev.current = { key: stepKey, depth, changed: true, deeper: depth >= prev.current.depth };
+  }
+  const fromEnd = prev.current.deeper !== rtl; // in Arabic "the end" is the left
+  const enter =
+    reduced || !prev.current.changed
+      ? undefined
+      : (fromEnd ? FadeInRight : FadeInLeft).springify().damping(20).stiffness(170);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const time = shortTime(new Date(departsAt));
   const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={closing ? 'none' : 'box-none'}>
-      <Animated.View style={[StyleSheet.absoluteFill, mapStyle]}>
-        <RouteMap
-          origin={origin}
-          destination={destination}
-          height={H}
-          topInset={insets.top + 60}
-          bottomInset={H - midTop}
-          interactive
-        />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, mapStyle]}>
+        {mapOn ? (
+          <Animated.View style={StyleSheet.absoluteFill} entering={reduced || settled ? undefined : FadeIn.duration(320)}>
+            <RouteMap
+              origin={origin}
+              destination={destination}
+              height={H}
+              topInset={insets.top + 60}
+              bottomInset={H - midTop}
+              interactive
+            />
+          </Animated.View>
+        ) : null}
       </Animated.View>
 
       <Animated.View style={[styles.top, { top: insets.top + 6, direction }, topStyle]} pointerEvents="box-none">
@@ -285,7 +336,11 @@ export function TripSheet({
       <Animated.View style={[styles.card, cardStyle]}>
         <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
           {glassBar ? (
-            <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" isInteractive />
+            <>
+              {/* Tinted, so the bar still reads over a dark or busy map. */}
+              <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" tintColor={colors.glassTint} isInteractive />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassVeil }]} pointerEvents="none" />
+            </>
           ) : (
             <>
               <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
@@ -296,7 +351,7 @@ export function TripSheet({
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, skin]} pointerEvents="none" />
 
           {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
-          <Animated.View style={[StyleSheet.absoluteFill, fullStyle]} pointerEvents={at === 'mini' && !moving ? 'none' : 'box-none'}>
+          <Animated.View style={[styles.full, fullStyle]} pointerEvents={at === 'mini' && !moving ? 'none' : 'box-none'}>
             <GestureDetector gesture={panTop}>
               <View style={[styles.head, { direction }]}>
                 <Pressable
@@ -308,10 +363,13 @@ export function TripSheet({
                 >
                   <View style={styles.grab} />
                 </Pressable>
-                {header}
+                <Animated.View key={stepKey} entering={enter}>
+                  {header}
+                </Animated.View>
               </View>
             </GestureDetector>
             <Animated.ScrollView
+              ref={scrollRef}
               onScroll={onScroll}
               scrollEventThrottle={16}
               keyboardShouldPersistTaps="handled"
@@ -319,10 +377,16 @@ export function TripSheet({
               style={{ flex: 1 }}
               contentContainerStyle={[styles.body, { direction }]}
             >
-              {body}
+              <Animated.View key={stepKey} entering={enter} style={{ gap: space.md }}>
+                {body}
+              </Animated.View>
             </Animated.ScrollView>
             {footer ? (
-              <View style={[styles.footer, { paddingBottom: Math.max(space.md, insets.bottom - M + 6), direction }]}>{footer}</View>
+              <View style={[styles.footer, { paddingBottom: Math.max(space.md, insets.bottom - M + 6), direction }]}>
+                <Animated.View key={stepKey} entering={enter} style={{ gap: space.sm }}>
+                  {footer}
+                </Animated.View>
+              </View>
             ) : (
               <View style={{ height: Math.max(space.md, insets.bottom - M) }} />
             )}
@@ -411,6 +475,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.8)',
   },
+  full: { position: 'absolute', top: 0, left: 0 },
   cardFill: { backgroundColor: 'rgba(247,246,243,0.62)' },
   head: { paddingHorizontal: 18, paddingBottom: space.sm },
   grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
