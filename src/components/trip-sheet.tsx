@@ -121,6 +121,8 @@ export function TripSheet({
   // Like iOS's floating tab bar: the bar dips into the home indicator's area a little
   // instead of stacking on top of it.
   const barBottom = Math.max(insets.bottom - 12, 12);
+  // The card's bottom edge sits exactly where the bar's does, at every height, so expanding
+  // only ever grows it upward (its corners never drop below the bar's into the screen corner).
   const barTop = H - barBottom - BAR_H;
 
   const p = useSharedValue(settled ? 1 : 0);
@@ -139,7 +141,7 @@ export function TripSheet({
   // Where the card starts: on the row you tapped, or just below the screen.
   const origin0 = from
     ? { top: from.y, left: from.x, width: from.width, height: from.height, radius: 14 }
-    : { top: H + 24, left: M, width: W - 2 * M, height: H - M - midTop, radius: R };
+    : { top: H + 24, left: M, width: W - 2 * M, height: H - barBottom - midTop, radius: R };
 
   const topOf = (v: number) => {
     'worklet';
@@ -155,7 +157,7 @@ export function TripSheet({
     'worklet';
     if (v >= 1) {
       const top = topOf(v);
-      return { top, left: M, width: W - 2 * M, height: H - M - top, radius: R };
+      return { top, left: M, width: W - 2 * M, height: H - barBottom - top, radius: R };
     }
     const k = Math.max(0, v);
     const mix = (a: number, b: number) => a + (b - a) * k;
@@ -163,7 +165,7 @@ export function TripSheet({
       top: mix(barTop, midTop),
       left: mix(BAR_SIDE, M),
       width: mix(W - 2 * BAR_SIDE, W - 2 * M),
-      height: mix(BAR_H, H - M - midTop),
+      height: mix(BAR_H, H - barBottom - midTop),
       radius: mix(BAR_H / 2, R),
     };
   };
@@ -291,9 +293,9 @@ export function TripSheet({
   const mapStyle = useAnimatedStyle(() => ({ opacity: clamp01(p.value / 0.6) }));
   const topStyle = useAnimatedStyle(() => ({ opacity: clamp01((p.value - 0.5) / 0.5) }));
 
-  // The main button's bottom edge lines up with the bar's (just above the home indicator),
-  // so it sits where your thumb already is in every state.
-  const footerBottom = Math.max(space.sm, barBottom - M);
+  // The card already ends where the bar does, so the main button keeps a small, even gap
+  // above that shared edge and stays where your thumb already is in every state.
+  const footerBottom = 12;
   const glassBar = LIQUID_GLASS && at === 'mini' && !moving && !closing;
 
   // Steps: the new one slides in a little from the side it comes from (deeper: from the end,
@@ -393,7 +395,7 @@ export function TripSheet({
                 </Animated.View>
               </View>
             ) : (
-              <View style={{ height: Math.max(space.md, insets.bottom - M) }} />
+              <View style={{ height: space.md }} />
             )}
           </Animated.View>
 
