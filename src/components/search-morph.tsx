@@ -38,7 +38,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DialogLayer } from '@/components/dialog-host';
 import { Icon } from '@/components/icon';
@@ -241,6 +241,9 @@ export function SearchMorph({
   return (
     <Modal visible={!hidden} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => (trip ? tripBack.current?.() : requestClose())}>
       {/* A Modal is its own native window, so gestures need their own root inside it. */}
+      {/* Its own safe-area root too: inside a tab, the inherited insets count the tab bar
+          as "unsafe", which pushed the card's buttons and bar about 50pt too high. */}
+      <SafeAreaProvider style={StyleSheet.absoluteFill}>
       <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents={closing ? 'none' : 'auto'}>
         <Animated.View style={[styles.clip, clip]} pointerEvents="box-none">
         <Animated.View style={[styles.unclip, { height: screenH }, unclip]} pointerEvents="box-none">
@@ -335,6 +338,7 @@ export function SearchMorph({
         {/* Pop-ups asked for over the search (the trip's Withdraw, Emergency) draw in this layer. */}
         <DialogLayer />
       </GestureHandlerRootView>
+      </SafeAreaProvider>
     </Modal>
   );
 

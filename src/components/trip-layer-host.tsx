@@ -9,6 +9,7 @@ import { router, usePathname } from 'expo-router';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Modal, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { DialogLayer } from '@/components/dialog-host';
 import { TripDetails } from '@/components/trip-details';
@@ -47,6 +48,9 @@ export function TripLayerHost() {
       onRequestClose={() => (back.current ? back.current() : setClosing(true))}
     >
       {/* A Modal is its own native window, so gestures and pop-ups need their own roots inside it. */}
+      {/* Its own safe-area root too: inside a tab, the inherited insets count the tab bar
+          as "unsafe", which pushed the card's buttons and bar about 50pt too high. */}
+      <SafeAreaProvider style={StyleSheet.absoluteFill}>
       <GestureHandlerRootView style={StyleSheet.absoluteFill}>
         <TripDetails
           key={req.key}
@@ -68,6 +72,7 @@ export function TripLayerHost() {
         />
         <DialogLayer />
       </GestureHandlerRootView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

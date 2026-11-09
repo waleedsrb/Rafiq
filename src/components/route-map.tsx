@@ -86,7 +86,9 @@ export function RouteMap({
 
   const fit = () =>
     ref.current?.fitToCoordinates(line, {
-      edgePadding: { top: topInset + 40, bottom: bottomInset + 56, left: 48, right: 48 },
+      // Tight: Apple Maps already keeps clear of the safe areas on its own, so big extra
+      // margins on top of the card's space zoomed the trip card's map out to the whole region.
+      edgePadding: { top: topInset + 12, bottom: bottomInset + 20, left: 40, right: 40 },
       animated: false,
     });
   useEffect(() => {
