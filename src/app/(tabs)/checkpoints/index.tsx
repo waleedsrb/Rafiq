@@ -21,7 +21,8 @@ export default function Checkpoints() {
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc('checkpoint_overview');
-    setRows((data as Overview[] | null) ?? []);
+    // Only the Ramallah - Nablus road for now; the whole West Bank comes with the new tab.
+    setRows(((data as (Overview & { road_order: number | null })[] | null) ?? []).filter((r) => r.road_order != null));
     setNow(new Date());
   }, []);
 

@@ -46,13 +46,14 @@ export function useMapCheckpoints(refreshMs?: number) {
           ]),
         );
         const list = ((places.data as
-          | { id: string; name_ar: string; name_en: string; road_order: number; lat: number | null; lng: number | null }[]
+          | { id: string; name_ar: string; name_en: string; road_order: number | null; lat: number | null; lng: number | null }[]
           | null) ?? [])
-          .filter((p) => p.lat !== null && p.lng !== null)
+          // Only the Ramallah - Nablus road for now (the rest of the West Bank has no road_order).
+          .filter((p) => p.lat !== null && p.lng !== null && p.road_order != null)
           .map((p) => ({
             id: p.id,
             name: lang === 'ar' ? p.name_ar : p.name_en,
-            order: p.road_order,
+            order: p.road_order ?? 0,
             latitude: Number(p.lat),
             longitude: Number(p.lng),
             status: over.get(p.id)?.status ?? null,

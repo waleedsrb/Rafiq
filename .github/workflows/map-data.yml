@@ -5,7 +5,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - scripts/map-data/**
+      - scripts/map-data/fetch_osm_checkpoints.py
+      - scripts/map-data/places.py
       - .github/workflows/map-data.yml
 jobs:
   fetch:
