@@ -41,6 +41,7 @@ import { useT } from '@/lib/session';
 import type { LatLng } from '@/lib/places';
 import type { Rect } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
+import { useScreenCorners } from '@/theme/screen-corners';
 import { colors, fonts, shadows, sizes, space } from '@/theme/tokens';
 
 export type Detent = 'mini' | 'mid' | 'full';
@@ -48,10 +49,9 @@ export type SheetAction = { label: string; onPress: () => void; secondary?: bool
 export type SheetMini = { sub: string; tone?: 'clay' | 'ok'; action?: SheetAction | null };
 
 const LIQUID_GLASS = isLiquidGlassAvailable();
-const M = 10; // the card floats this far from the screen edges
-const R = 32; // its corners
 const BAR_H = 64;
-const BAR_SIDE = 12;
+// How far the card floats from the screen edges, and its corners, come from the phone itself
+// (useScreenCorners): the corners are concentric with the display's, like Find My's sheet.
 const POS: Record<Detent, number> = { mini: 0, mid: 1, full: 2 };
 const DETENTS: Detent[] = ['mini', 'mid', 'full'];
 
@@ -128,15 +128,21 @@ export function TripSheet({
   const insets = useSafeAreaInsets();
   const { width: W, height: H } = useWindowDimensions();
   const reduced = useReducedMotion();
+  const corners = useScreenCorners();
+  // The card (middle and full) floats a few points in from the sides and bottom, with corners
+  // that follow the screen's (screen radius minus that gap: concentric, Apple's Liquid Glass rule).
+  const M = corners.inset;
+  const R = corners.card;
+  const cardBottom = corners.inset;
 
   // The three heights, as the card's top edge.
   const fullTop = insets.top + 6 + sizes.touch + 10;
   const midTop = sheetMidTop(H);
-  // Like iOS's floating tab bar: the bar dips into the home indicator's area a little
-  // instead of stacking on top of it.
-  const barBottom = Math.max(insets.bottom - 12, 12);
-  // The card's bottom edge sits exactly where the bar's does, at every height, so expanding
-  // only ever grows it upward (its corners never drop below the bar's into the screen corner).
+  // The bar is a capsule, like iOS's floating tab bar. It sits as far in from the sides and
+  // bottom as it takes for its round ends to run parallel to the screen corners
+  // (screen radius minus half its height), so it never looks pinched into the corner.
+  const barBottom = corners.capsuleInset(BAR_H);
+  const BAR_SIDE = barBottom;
   const barTop = H - barBottom - BAR_H;
 
   const p = useSharedValue(settled ? 1 : 0);
@@ -155,7 +161,7 @@ export function TripSheet({
   // Where the card starts: on the row you tapped, or just below the screen.
   const origin0 = from
     ? { top: from.y, left: from.x, width: from.width, height: from.height, radius: 14 }
-    : { top: H + 24, left: M, width: W - 2 * M, height: H - barBottom - midTop, radius: R };
+    : { top: H + 24, left: M, width: W - 2 * M, height: H - cardBottom - midTop, radius: R };
 
   const topOf = (v: number) => {
     'worklet';
@@ -171,7 +177,7 @@ export function TripSheet({
     'worklet';
     if (v >= 1) {
       const top = topOf(v);
-      return { top, left: M, width: W - 2 * M, height: H - barBottom - top, radius: R };
+      return { top, left: M, width: W - 2 * M, height: H - cardBottom - top, radius: R };
     }
     const k = Math.max(0, v);
     const mix = (a: number, b: number) => a + (b - a) * k;
@@ -179,7 +185,7 @@ export function TripSheet({
       top: mix(barTop, midTop),
       left: mix(BAR_SIDE, M),
       width: mix(W - 2 * BAR_SIDE, W - 2 * M),
-      height: mix(BAR_H, H - barBottom - midTop),
+      height: mix(BAR_H, H - cardBottom - midTop),
       radius: mix(BAR_H / 2, R),
     };
   };
@@ -307,9 +313,9 @@ export function TripSheet({
   const mapStyle = useAnimatedStyle(() => ({ opacity: clamp01(p.value / 0.6) }));
   const topStyle = useAnimatedStyle(() => ({ opacity: clamp01((p.value - 0.5) / 0.5) }));
 
-  // The card already ends where the bar does, so the main button keeps a small, even gap
-  // above that shared edge and stays where your thumb already is in every state.
-  const footerBottom = 12;
+  // The main button keeps the same gap below it as beside it (the body's 18), so its capsule
+  // ends sit concentric inside the card's bottom corners too.
+  const footerBottom = 18;
   // Apple's Liquid Glass on the card and the bar whenever they rest. While the card moves or
   // changes size (a drag, a step asking for room, the open and close morph) it's a frosted
   // stand-in instead: native glass turns into a grey slab while its size animates.

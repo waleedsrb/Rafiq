@@ -41,6 +41,7 @@ import {
 } from '@/lib/dialog';
 import { selectFeel, tapFeel, warnFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
+import { useScreenCorners } from '@/theme/screen-corners';
 import { colors, motion, radii, sizes, space } from '@/theme/tokens';
 
 import { Icon, type IconName } from './icon';
@@ -71,6 +72,7 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
   const [closing, setClosing] = useState(false);
 
   const insets = useSafeAreaInsets();
+  const corners = useScreenCorners();
   const { height: screenH } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const { f, rtl, direction } = useFont();
@@ -273,7 +275,7 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
         </Animated.View>
 
         {isSheet ? (
-          <View pointerEvents="box-none" style={styles.dock}>
+          <View pointerEvents="box-none" style={[styles.dock, { paddingHorizontal: corners.inset }]}>
             <GestureDetector gesture={pan}>
               <Animated.View
                 accessibilityViewIsModal
@@ -285,7 +287,15 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
                 style={[
                   styles.surface,
                   styles.sheet,
-                  { direction, paddingBottom: Math.max(insets.bottom, space.sm) + space.sm },
+                  // Floats a few points in from the sides and bottom (iOS 26 sheets), with all four
+                  // corners concentric with the screen's. Its buttons keep the same gap below as
+                  // beside them, clear of the home indicator.
+                  {
+                    direction,
+                    marginBottom: corners.inset,
+                    borderRadius: corners.card,
+                    paddingBottom: Math.max(space.lg, insets.bottom - corners.inset),
+                  },
                   sheetStyle,
                 ]}
               >
@@ -336,8 +346,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   sheet: {
-    borderTopLeftRadius: radii.sheet,
-    borderTopRightRadius: radii.sheet,
     paddingTop: space.sm,
     maxWidth: 560,
   },
