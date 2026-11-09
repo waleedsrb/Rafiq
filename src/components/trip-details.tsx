@@ -591,7 +591,7 @@ function VerifiedLine() {
 }
 
 /** A calm note in a soft box: what happened, in plain words. */
-function Note({ text, icon, tone }: { text: string; icon?: IconName; tone?: 'ok' }) {
+export function Note({ text, icon, tone }: { text: string; icon?: IconName; tone?: 'ok' }) {
   const fg = tone === 'ok' ? colors.statusOpen : colors.inkSecondary;
   return (
     <View style={[styles.note, { backgroundColor: tone === 'ok' ? colors.statusOpenSoft : 'rgba(23,25,28,0.05)' }]}>

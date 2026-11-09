@@ -15,38 +15,59 @@ import { CITY_POINT, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors, radii, space } from '@/theme/tokens';
+import { colors, radii, shadows, space } from '@/theme/tokens';
 
-export type MapCheckpoint = LatLng & { id: string; name: string; status: CheckpointStatus | null; order: number };
+export type MapCheckpoint = LatLng & {
+  id: string;
+  name: string;
+  status: CheckpointStatus | null;
+  order: number;
+  /** The newest report behind the status (null: none in the last 2 hours). */
+  reportedAt: string | null;
+};
 
-/** Checkpoints with their place and current status, in road order (Ramallah first). */
-export function useMapCheckpoints() {
+/** Checkpoints with their place and current status, in road order (Ramallah first).
+ *  `refreshMs`: fetch the statuses again this often (drive mode keeps them fresh). */
+export function useMapCheckpoints(refreshMs?: number) {
   const { lang } = useT();
   const [rows, setRows] = useState<MapCheckpoint[]>([]);
   useEffect(() => {
-    Promise.all([
-      supabase.from('checkpoints').select('id, name_ar, name_en, road_order, lat, lng'),
-      supabase.rpc('checkpoint_overview'),
-    ]).then(([places, overview]) => {
-      const status = new Map(
-        ((overview.data as { id: string; status: CheckpointStatus | null }[] | null) ?? []).map((o) => [o.id, o.status]),
-      );
-      const list = ((places.data as
-        | { id: string; name_ar: string; name_en: string; road_order: number; lat: number | null; lng: number | null }[]
-        | null) ?? [])
-        .filter((p) => p.lat !== null && p.lng !== null)
-        .map((p) => ({
-          id: p.id,
-          name: lang === 'ar' ? p.name_ar : p.name_en,
-          order: p.road_order,
-          latitude: Number(p.lat),
-          longitude: Number(p.lng),
-          status: status.get(p.id) ?? null,
-        }))
-        .sort((a, b) => a.order - b.order);
-      setRows(list);
-    });
-  }, [lang]);
+    let alive = true;
+    const load = () =>
+      Promise.all([
+        supabase.from('checkpoints').select('id, name_ar, name_en, road_order, lat, lng'),
+        supabase.rpc('checkpoint_overview'),
+      ]).then(([places, overview]) => {
+        if (!alive) return;
+        const over = new Map(
+          ((overview.data as { id: string; status: CheckpointStatus | null; last_report_at: string | null }[] | null) ?? []).map((o) => [
+            o.id,
+            o,
+          ]),
+        );
+        const list = ((places.data as
+          | { id: string; name_ar: string; name_en: string; road_order: number; lat: number | null; lng: number | null }[]
+          | null) ?? [])
+          .filter((p) => p.lat !== null && p.lng !== null)
+          .map((p) => ({
+            id: p.id,
+            name: lang === 'ar' ? p.name_ar : p.name_en,
+            order: p.road_order,
+            latitude: Number(p.lat),
+            longitude: Number(p.lng),
+            status: over.get(p.id)?.status ?? null,
+            reportedAt: over.get(p.id)?.status ? (over.get(p.id)?.last_report_at ?? null) : null,
+          }))
+          .sort((a, b) => a.order - b.order);
+        setRows(list);
+      });
+    load();
+    const timer = refreshMs ? setInterval(load, refreshMs) : null;
+    return () => {
+      alive = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [lang, refreshMs]);
   return rows;
 }
 
@@ -60,7 +81,16 @@ export function RouteMap({
   interactive,
   onExpand,
   start,
+  car,
+  dark,
+  checkpoints: given,
 }: {
+  /** Checkpoints already loaded by the screen (drive mode); else the map loads them. */
+  checkpoints?: MapCheckpoint[];
+  /** Where the car is now (drive mode). */
+  car?: LatLng | null;
+  /** Night colours (drive mode in dark). */
+  dark?: boolean;
   /** The pickup point, when the driver picked one; else the city square. */
   start?: LatLng;
   /** Pan and zoom (the full-screen map). */
@@ -80,7 +110,8 @@ export function RouteMap({
   const { t } = useT();
   const { f, rtl } = useFont();
   const ref = useRef<MapView>(null);
-  const checkpoints = useMapCheckpoints();
+  const loaded = useMapCheckpoints();
+  const checkpoints = given ?? loaded;
   const from = start ?? CITY_POINT[origin];
   const to = CITY_POINT[destination];
   // Checkpoints are stored Ramallah-first; flip them when driving the other way.
@@ -106,7 +137,8 @@ export function RouteMap({
         ref={ref}
         style={StyleSheet.absoluteFill}
         onMapReady={fit}
-        customMapStyle={Platform.OS === 'android' ? GRAPHITE : undefined}
+        customMapStyle={Platform.OS === 'android' ? (dark ? NIGHT : GRAPHITE) : undefined}
+        userInterfaceStyle={dark ? 'dark' : 'light'}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
         // Small maps are a picture of the route (tap to expand); the full-screen one moves.
         scrollEnabled={!!interactive}
@@ -118,13 +150,18 @@ export function RouteMap({
         showsBuildings={false}
         showsTraffic={false}
       >
-        <Polyline coordinates={line} strokeColor={colors.ink} strokeWidth={4} lineJoin="round" lineCap="round" />
+        <Polyline coordinates={line} strokeColor={dark ? '#E9E7E1' : colors.ink} strokeWidth={4} lineJoin="round" lineCap="round" />
         <Marker coordinate={from} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
           <View style={[styles.end, styles.start]} />
         </Marker>
         <Marker coordinate={to} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
           <View style={styles.end} />
         </Marker>
+        {car ? (
+          <Marker coordinate={car} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={10}>
+            <View style={styles.car} />
+          </Marker>
+        ) : null}
         {onRoad.map((c) => (
           <Marker key={c.id} coordinate={c} anchor={{ x: 0.5, y: labels ? 0.2 : 0.5 }} title={c.name} tracksViewChanges={!!labels}>
             <View style={styles.pin}>
@@ -187,6 +224,16 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
   },
   labelText: { fontSize: 12, color: colors.ink },
+  // The car: a bold dot with a white ring, like "you are here".
+  car: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.ink,
+    borderWidth: 4,
+    borderColor: colors.card,
+    ...shadows.float,
+  },
   checkpoint: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: colors.card },
 });
 
@@ -205,4 +252,18 @@ const GRAPHITE: MapStyleElement[] = [
   { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#D9D6CF' }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#D7DCE0' }] },
   { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#E9E7E1' }] },
+];
+
+// Google Maps at night (drive mode, dark): graphite land, dim roads, quiet labels.
+const NIGHT: MapStyleElement[] = [
+  { elementType: 'geometry', stylers: [{ color: '#1E2023' }] },
+  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8A8D92' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#17191C' }] },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2C2F33' }] },
+  { featureType: 'road', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#15181B' }] },
 ];
