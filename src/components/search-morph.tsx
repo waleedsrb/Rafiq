@@ -12,11 +12,10 @@
 // it travels it stretches a little along the way it moves, like a drop. Closing is calmer.
 // With "Reduce motion" on, it just appears and disappears.
 //
-// Glass (iOS 26: Apple's Liquid Glass; elsewhere a frosted blur) is only on the header,
+// Frosted glass is only on the header,
 // because that is the one thing floating over content that scrolls under it.
 
 import { BlurView } from 'expo-blur';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -38,8 +37,6 @@ import { useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
 import { colors, radii, sizes, space } from '@/theme/tokens';
-
-const LIQUID_GLASS = isLiquidGlassAvailable();
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
@@ -163,14 +160,11 @@ export function SearchMorph({
         <Animated.View style={[styles.statusBand, { height: insets.top }, page]} pointerEvents="none" />
 
         <Animated.View style={[styles.glass, glassStyle]}>
-          {LIQUID_GLASS ? (
-            <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" />
-          ) : (
-            <>
-              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
-            </>
-          )}
+          {/* Frosted glass that stays light and readable. Apple's native Liquid Glass view turned
+              into a flat grey slab here (it doesn't survive being resized every frame), so the
+              moving header uses the blur that the app's glass buttons fall back to. */}
+          <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, barSkin]} pointerEvents="none" />
 
           {/* The bar's face, so the first frame looks exactly like what you tapped. */}
@@ -216,7 +210,13 @@ export function SearchMorph({
 const styles = StyleSheet.create({
   page: { backgroundColor: colors.surface },
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
-  glass: { position: 'absolute', overflow: 'hidden', borderRadius: radii.capsule },
+  glass: {
+    position: 'absolute',
+    overflow: 'hidden',
+    borderRadius: radii.capsule,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+  },
   face: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18 },
   faceText: { fontSize: 18, color: colors.ink },
   head: { position: 'absolute', top: 0, left: 0, padding: PAD },
