@@ -12,8 +12,6 @@
 // out from both every frame. Apple's Liquid Glass (tinted) goes on the card and the bar once
 // they've settled: native glass turns into a grey slab while its size animates (see search-morph).
 
-import { BlurView } from 'expo-blur';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
@@ -41,6 +39,7 @@ import { useT } from '@/lib/session';
 import type { LatLng } from '@/lib/places';
 import type { Rect } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
+import { Glass, LIQUID_GLASS } from '@/components/glass';
 import { useScreenCorners } from '@/theme/screen-corners';
 import { colors, fonts, shadows, sizes, space } from '@/theme/tokens';
 
@@ -48,7 +47,6 @@ export type Detent = 'mini' | 'mid' | 'full';
 export type SheetAction = { label: string; onPress: () => void; secondary?: boolean; loading?: boolean };
 export type SheetMini = { sub: string; tone?: 'clay' | 'ok'; action?: SheetAction | null };
 
-const LIQUID_GLASS = isLiquidGlassAvailable();
 const BAR_H = 64;
 // How far the card floats from the screen edges, and its corners, come from the phone itself
 // (useScreenCorners): the corners are concentric with the display's, like Find My's sheet.
@@ -374,34 +372,23 @@ export function TripSheet({
       </Animated.View>
 
       <Animated.View style={[styles.top, { top: insets.top + 6, direction }, topStyle]} pointerEvents="box-none">
-        <GlassButton icon="x" label={t('closeTrip')} onPress={onRequestClose} />
-        {onShare ? <GlassButton icon="shareNetwork" label={t('shareTrip')} onPress={onShare} /> : <View />}
+        {/* These fade in with the open morph and out on close: frosted until they're fully there. */}
+        <GlassButton icon="x" label={t('closeTrip')} onPress={onRequestClose} native={mapOn && !closing} />
+        {onShare ? <GlassButton icon="shareNetwork" label={t('shareTrip')} onPress={onShare} native={mapOn && !closing} /> : <View />}
       </Animated.View>
 
       <Animated.View style={[styles.card, cardStyle]}>
         <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
-          {glass ? (
-            <>
-              {/* Tinted, so the card and the bar still read over a dark or busy map. The card
-                  carries more text than the bar, so its porcelain wash is a little stronger. */}
-              <GlassView
-                style={StyleSheet.absoluteFill}
-                glassEffectStyle="regular"
-                tintColor={colors.glassTint}
-                isInteractive={at === 'mini'}
-              />
-              <View
-                style={[StyleSheet.absoluteFill, { backgroundColor: at === 'mini' ? colors.glassVeil : colors.glassCardVeil }]}
-                pointerEvents="none"
-              />
-            </>
-          ) : (
-            <>
-              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
-              <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} />
-            </>
-          )}
+          {/* Tinted, so the card and the bar still read over a dark or busy map. The card
+              carries more text than the bar, so its porcelain wash is a little stronger. */}
+          <Glass
+            native={glass}
+            tint={colors.glassTint}
+            veil={at === 'mini' ? colors.glassVeil : colors.glassCardVeil}
+            interactive={at === 'mini'}
+            blur={60}
+          />
+          {glass ? null : <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} pointerEvents="none" />}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, skin]} pointerEvents="none" />
 
           {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
@@ -530,7 +517,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.8)',
   },
   full: { position: 'absolute', top: 0, left: 0 },
-  cardFill: { backgroundColor: 'rgba(247,246,243,0.35)' }, // the frosted stand-in, close to the glass's look
+  cardFill: { backgroundColor: 'rgba(247,246,243,0.28)' }, // the frosted stand-in, close to the glass's look
   head: { paddingHorizontal: 18, paddingBottom: space.sm },
   grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
   grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },
