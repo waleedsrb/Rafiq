@@ -289,6 +289,9 @@ export function TripSheet({
   const mapStyle = useAnimatedStyle(() => ({ opacity: clamp01(p.value / 0.6) }));
   const topStyle = useAnimatedStyle(() => ({ opacity: clamp01((p.value - 0.5) / 0.5) }));
 
+  // The main button's bottom edge lines up with the bar's (just above the home indicator),
+  // so it sits where your thumb already is in every state.
+  const footerBottom = Math.max(space.md, barBottom - M);
   const glassBar = LIQUID_GLASS && at === 'mini' && !moving && !closing;
 
   // Steps: the new one slides in a little from the side it comes from (deeper: from the end,
@@ -382,7 +385,7 @@ export function TripSheet({
               </Animated.View>
             </Animated.ScrollView>
             {footer ? (
-              <View style={[styles.footer, { paddingBottom: Math.max(space.md, insets.bottom - M + 6), direction }]}>
+              <View style={[styles.footer, { paddingBottom: footerBottom, direction }]}>
                 <Animated.View key={stepKey} entering={enter} style={{ gap: space.sm }}>
                   {footer}
                 </Animated.View>
