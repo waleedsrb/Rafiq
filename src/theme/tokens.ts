@@ -75,3 +75,14 @@ export const shadows = {
   float: { shadowColor: '#17191C', shadowOpacity: 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   glass: { shadowColor: '#17191C', shadowOpacity: 0.12, shadowRadius: 32, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
 } as const;
+
+// Pop-up motion: one calm rhythm for every pop-up (src/components/dialog-host.tsx).
+// Ease-out in, quicker ease-in out, never a spring: nothing bounces.
+export const motion = {
+  inMs: 280,
+  outMs: 200,
+  /** A sheet closes when dragged past this share of its height... */
+  dismissShare: 0.3,
+  /** ...or flicked down faster than this (points per second). */
+  dismissVelocity: 900,
+} as const;
