@@ -32,6 +32,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { pillBase, usePillBorder, usePillColor, usePillSlide, usePillStyle, type PillSlide } from '@/components/pill-slide';
 import { isRTL } from '@/i18n';
 import { goBack } from '@/lib/nav';
 import { useT } from '@/lib/session';
@@ -464,7 +465,7 @@ export function Chip({
   );
 }
 
-/** A row of chips that scrolls sideways when it doesn't fit (e.g. days). */
+/** A row of chips that scrolls sideways when it doesn't fit (e.g. days). One graphite pill glides to the pick. */
 export function ChipRow<T extends string | number>({
   options,
   value,
@@ -475,18 +476,89 @@ export function ChipRow<T extends string | number>({
   onChange: (v: T) => void;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
-      {options.map((o) => (
-        <Chip key={String(o.value)} label={o.label} selected={o.value === value} onPress={() => {
-            selectFeel();
-            onChange(o.value);
-          }} />
-      ))}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+      <PillChips
+        labels={options.map((o) => o.label)}
+        selected={options.findIndex((o) => o.value === value)}
+        onPick={(i) => onChange(options[i].value)}
+      />
     </ScrollView>
   );
 }
 
-/** Segmented control: a sunken track with a white pill on the chosen option. */
+/**
+ * Chips where exactly one is picked, with a graphite pill that slides between them
+ * (see pill-slide.tsx). Wrap it in a horizontal ScrollView when it may not fit.
+ */
+export function PillChips({
+  labels,
+  selected,
+  onPick,
+  padding = space.md,
+}: {
+  labels: string[];
+  selected: number;
+  onPick: (i: number) => void;
+  padding?: number;
+}) {
+  const { rtl, direction } = useFont();
+  const pill = usePillSlide(selected, rtl);
+  const pillStyle = usePillStyle(pill);
+  return (
+    <View style={[styles.chipRow, { direction }]} onLayout={pill.onTrackLayout}>
+      <Animated.View pointerEvents="none" style={[pillBase, styles.chipPill, pillStyle]} />
+      {labels.map((label, i) => (
+        <PillChip
+          key={i}
+          i={i}
+          pill={pill}
+          label={label}
+          on={i === selected}
+          padding={padding}
+          onPress={() => {
+            selectFeel();
+            onPick(i);
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+function PillChip({
+  i,
+  pill,
+  label,
+  on,
+  padding,
+  onPress,
+}: {
+  i: number;
+  pill: PillSlide;
+  label: string;
+  on: boolean;
+  padding: number;
+  onPress: () => void;
+}) {
+  const { f } = useFont();
+  const text = usePillColor(pill, i, colors.ink, colors.onInk);
+  const border = usePillBorder(pill, i, colors.lineStrong, colors.ink);
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      onLayout={pill.onItemLayout(i)}
+    >
+      <Animated.View style={[styles.chip, { paddingHorizontal: padding }, border]}>
+        <Animated.Text style={[styles.chipText, { fontFamily: f.medium }, text]}>{label}</Animated.Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+/** Segmented control: a sunken track with a white pill that glides to the chosen option. */
 export function Choice<T extends string>({
   options,
   value,
@@ -496,29 +568,45 @@ export function Choice<T extends string>({
   value: T | null;
   onChange: (v: T) => void;
 }) {
-  const { f } = useFont();
+  const { rtl, direction } = useFont();
+  const pill = usePillSlide(
+    options.findIndex((o) => o.value === value),
+    rtl,
+  );
+  const pillStyle = usePillStyle(pill);
   return (
-    <View style={styles.segment}>
-      {options.map((o) => {
-        const selected = o.value === value;
-        return (
-          <Pressable
-            key={o.value}
-            accessibilityRole="radio"
-            accessibilityState={{ selected }}
-            onPress={() => {
-              selectFeel();
-              onChange(o.value);
-            }}
-            style={[styles.segmentItem, selected && styles.segmentSelected]}
-          >
-            <Text style={[styles.segmentText, { fontFamily: f.medium }, !selected && { color: colors.inkSecondary }]}>
-              {o.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View style={[styles.segment, { direction }]} onLayout={pill.onTrackLayout}>
+      <Animated.View pointerEvents="none" style={[pillBase, styles.segmentSelected, pillStyle]} />
+      {options.map((o, i) => (
+        <SegmentItem
+          key={o.value}
+          i={i}
+          pill={pill}
+          label={o.label}
+          on={o.value === value}
+          onPress={() => {
+            selectFeel();
+            onChange(o.value);
+          }}
+        />
+      ))}
     </View>
+  );
+}
+
+function SegmentItem({ i, pill, label, on, onPress }: { i: number; pill: PillSlide; label: string; on: boolean; onPress: () => void }) {
+  const { f } = useFont();
+  const text = usePillColor(pill, i, colors.inkSecondary, colors.ink);
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on }}
+      onPress={onPress}
+      onLayout={pill.onItemLayout(i)}
+      style={styles.segmentItem}
+    >
+      <Animated.Text style={[styles.segmentText, { fontFamily: f.medium }, text]}>{label}</Animated.Text>
+    </Pressable>
   );
 }
 
@@ -763,7 +851,7 @@ const styles = StyleSheet.create({
   },
 
   chipScroll: { flexGrow: 0 },
-  chipRow: { gap: space.sm },
+  chipRow: { flexDirection: 'row', gap: space.sm },
   chip: {
     height: sizes.controlSm,
     paddingHorizontal: space.md,
@@ -776,6 +864,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipPill: { backgroundColor: colors.ink, borderRadius: radii.capsule },
   chipText: { fontSize: 13, color: colors.ink },
 
   segment: {
@@ -786,7 +875,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   segmentItem: { flex: 1, height: 40, borderRadius: radii.capsule, alignItems: 'center', justifyContent: 'center' },
-  segmentSelected: { backgroundColor: colors.card, ...shadows.float, shadowOpacity: 0.06 },
+  // No Android elevation: it would lift the pill over the labels it slides under.
+  segmentSelected: { backgroundColor: colors.card, borderRadius: radii.capsule, ...shadows.float, shadowOpacity: 0.06, elevation: 0 },
   segmentText: { fontSize: 14, color: colors.ink },
 
   stepper: { flexDirection: 'row', alignItems: 'center', gap: space.md, alignSelf: 'flex-start' },

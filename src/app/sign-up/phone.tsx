@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Body, Button, Chip, Field, Screen, Title } from '@/components/ui';
+import { Body, Button, PillChips, Field, Screen, Title } from '@/components/ui';
 import { normalizePhone } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -65,9 +65,12 @@ export default function PhoneStep() {
           onSubmitEditing={submit}
         />
       </View>
-      <View style={{ flexDirection: 'row', gap: space.sm }}>
-        <Chip label={t('countryPS')} selected={prefix === '970'} onPress={() => setPrefix('970')} />
-        <Chip label="+972" selected={prefix === '972'} onPress={() => setPrefix('972')} />
+      <View style={{ flexDirection: 'row' }}>
+        <PillChips
+          labels={[t('countryPS'), '+972']}
+          selected={prefix === '970' ? 0 : 1}
+          onPick={(i) => setPrefix(i === 0 ? '970' : '972')}
+        />
       </View>
       {error ? <Body error>{error}</Body> : null}
     </Screen>
