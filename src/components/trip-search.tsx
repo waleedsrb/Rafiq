@@ -11,7 +11,7 @@ import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from
 
 import { Icon } from '@/components/icon';
 import { StatsLine, useTripDriverStats } from '@/components/stats-line';
-import { Body, Button, Chip, Choice, ltr, useFont } from '@/components/ui';
+import { Body, Button, Chip, ltr, useFont } from '@/components/ui';
 import { alertWindow } from '@/lib/alerts';
 import { formatChipDay, shortTime, type DayPart } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
@@ -93,30 +93,26 @@ export function useTripSearch(start?: { origin?: City; day?: number; part?: DayP
   return { origin, destination, day, part, setOrigin, swap, setDay, setPart, week, loading, counts, dayLabels };
 }
 
-/** The day chips, each with how many trips that day has (none shown when there are none). */
+/** The day chips: one tap picks the day, and the list below changes in place. */
 export function DayChips({ s }: { s: SearchState }) {
   const { f } = useFont();
-  const { t } = useT();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.dayRow}>
       {s.dayLabels.map((label, i) => {
         const on = i === s.day;
-        const n = s.counts[i];
         return (
           <Pressable
             key={i}
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
-            accessibilityLabel={s.week ? `${label}, ${n} ${t('tripsCount')}` : label}
+            accessibilityLabel={label}
             onPress={() => {
               selectFeel();
               s.setDay(i);
             }}
             style={[styles.dayChip, on && styles.dayChipOn]}
           >
-            {/* The day itself always reads clearly; only a day with trips shows its count. */}
             <Text style={[styles.dayText, { fontFamily: f.medium }, on && { color: colors.onInk }]}>{label}</Text>
-            {n > 0 ? <Text style={[styles.dayCount, on && { color: colors.onInk, opacity: 0.75 }]}>{n}</Text> : null}
           </Pressable>
         );
       })}
@@ -164,12 +160,7 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
 
   return (
     <View style={{ gap: space.md }}>
-      <Choice
-        value={s.part}
-        // Tap the chosen part again to see the whole day.
-        onChange={(v) => s.setPart(s.part === v ? null : v)}
-        options={PARTS.map((p) => ({ value: p, label: t(partLabel[p]) }))}
-      />
+      <PartTabs s={s} />
       {isVerifiedWoman(profile) ? (
         <View style={{ flexDirection: 'row' }}>
           <Chip
@@ -183,17 +174,6 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
           />
         </View>
       ) : null}
-
-      <View style={styles.countRow}>
-        {s.week ? (
-          <Body muted small>
-            {ltr(shown.length)} {t('tripsCount')} · {t('earliestFirst')}
-          </Body>
-        ) : (
-          <View />
-        )}
-        {s.loading ? <ActivityIndicator size="small" color={colors.inkSecondary} /> : null}
-      </View>
 
       {s.week && !s.loading && shown.length === 0 ? (
         <Animated.View entering={reduced ? undefined : FadeIn.duration(200)}>
@@ -212,6 +192,8 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
         )
       ) : null}
 
+      {/* First load: a small spinner. After that the old list dims while the new one comes. */}
+      {s.loading && !s.week ? <ActivityIndicator style={{ marginTop: space.md }} color={colors.inkSecondary} /> : null}
       <View style={{ marginTop: -space.sm, opacity: s.loading && s.week ? 0.45 : 1 }}>
         {shown.map((r, i) => (
           <Animated.View
@@ -223,6 +205,38 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
           </Animated.View>
         ))}
       </View>
+    </View>
+  );
+}
+
+/** Time of day as quiet tabs (All day, Morning, Afternoon, Evening): an underline, not a box. */
+function PartTabs({ s }: { s: SearchState }) {
+  const { t } = useT();
+  const { f } = useFont();
+  const tabs: { value: DayPart | null; label: string }[] = [
+    { value: null, label: t('allDay') },
+    ...PARTS.map((p) => ({ value: p, label: t(partLabel[p]) })),
+  ];
+  return (
+    <View style={styles.tabs} accessibilityRole="tablist">
+      {tabs.map((o) => {
+        const on = o.value === s.part;
+        return (
+          <Pressable
+            key={o.value ?? 'all'}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            hitSlop={8}
+            onPress={() => {
+              selectFeel();
+              s.setPart(o.value);
+            }}
+            style={[styles.tab, on && styles.tabOn]}
+          >
+            <Text style={[styles.tabText, { fontFamily: on ? f.bold : f.regular }, on && { color: colors.ink }]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -307,8 +321,10 @@ const styles = StyleSheet.create({
   },
   dayChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   dayText: { fontSize: 13, color: colors.ink },
-  dayCount: { fontFamily: fonts.en.medium, fontSize: 11, color: colors.inkSecondary },
-  countRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 20 },
+  tabs: { flexDirection: 'row', gap: 18 },
+  tab: { paddingBottom: 6, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabOn: { borderBottomColor: colors.ink },
+  tabText: { fontSize: 14, color: colors.inkSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   rowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
   time: { fontFamily: fonts.en.bold, fontSize: 24, color: colors.ink, minWidth: 66 },
