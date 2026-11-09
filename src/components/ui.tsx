@@ -23,6 +23,13 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isRTL } from '@/i18n';
@@ -93,14 +100,14 @@ export function Screen({
         {topBar}
         {scroll ? (
           <ScrollView
-            contentContainerStyle={[styles.content, tab && !topBar ? styles.tabContent : null, overlay || tab ? { paddingBottom: 120 } : null, contentStyle]}
+            contentContainerStyle={[styles.content, overlay || tab ? { paddingBottom: 120 } : null, contentStyle]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             {children}
           </ScrollView>
         ) : (
-          <View style={[styles.content, tab && !topBar ? styles.tabContent : null, contentStyle]}>{children}</View>
+          <View style={[styles.content, contentStyle]}>{children}</View>
         )}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
         {overlay}
@@ -168,22 +175,118 @@ export function BackButton() {
 }
 
 /**
- * The top of a tab's root page (Home, My trips, Checkpoints, Account). No back button
- * here, so the title starts right under the status bar and the page's one action
- * (bell, map) sits on the same line at the far end. Subpages keep the back-button
- * row with the title underneath it.
+ * A tab's root page (Home, My trips, Checkpoints, Account). No back button, so the large
+ * title starts right under the status bar. The way iOS apps do it:
+ * - the page's action (bell, map) is pinned: it never scrolls away;
+ * - the large title scrolls with the content, and as it leaves, a frosted bar fades in
+ *   behind the action with a small centred title, so you always know where you are;
+ * - `fixed` keeps a block (e.g. the profile card) still and scrolls only what's below it.
+ * Subpages use `Screen back` instead: back button row, title underneath.
  */
-export function TabHeader({ title, kicker, action }: { title: ReactNode; kicker?: ReactNode; action?: ReactNode }) {
-  return (
-    <View style={styles.tabHeader}>
+export function TabScreen({
+  title,
+  largeTitle,
+  kicker,
+  action,
+  fixed,
+  children,
+}: {
+  /** The page name: the large title, and the small one in the bar once scrolled. */
+  title: string;
+  /** Replaces the large title (Home's greeting). */
+  largeTitle?: ReactNode;
+  /** Small line above the large title (Home's date). */
+  kicker?: ReactNode;
+  action?: ReactNode;
+  /** Stays put under the title; only the children scroll. */
+  fixed?: ReactNode;
+  children: ReactNode;
+}) {
+  const { f, direction } = useFont();
+  const insets = useSafeAreaInsets();
+  const y = useSharedValue(0);
+  const [headH, setHeadH] = useState<number>(sizes.touch);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    y.value = e.contentOffset.y;
+  });
+  const barH = insets.top + TAB_BAR_ROW;
+
+  // Frost appears as soon as content starts to slide under the bar.
+  const frost = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, 16], [0, 1], Extrapolation.CLAMP) }));
+  // The small title arrives as the large one finishes leaving.
+  const small = useAnimatedStyle(() => ({
+    opacity: interpolate(y.value, [headH * 0.6, headH], [0, 1], Extrapolation.CLAMP),
+  }));
+  const line = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, 16], [0, 1], Extrapolation.CLAMP) }));
+
+  const head = (
+    <View style={styles.tabHeader} onLayout={(e) => setHeadH(e.nativeEvent.layout.height)}>
       <View style={styles.tabHeaderText}>
         {kicker}
-        {typeof title === 'string' ? <Title>{title}</Title> : title}
+        {largeTitle ?? <Title>{title}</Title>}
       </View>
-      {action}
+      {/* Room for the pinned action, which floats over this spot. */}
+      {action ? <View style={styles.topSpacer} /> : null}
+    </View>
+  );
+
+  if (fixed) {
+    return (
+      <View style={[styles.safe, { direction, paddingTop: insets.top + space.sm }]}>
+        <View style={[styles.tabFixed]}>
+          {head}
+          {fixed}
+        </View>
+        <View style={styles.flex}>
+          <Animated.ScrollView
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={[styles.content, { paddingBottom: 120 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {children}
+          </Animated.ScrollView>
+          {/* A hairline once the list slides under the fixed block. */}
+          <Animated.View pointerEvents="none" style={[styles.tabLine, { top: 0 }, line]} />
+        </View>
+        {action ? <View style={[styles.tabAction, { top: insets.top + space.sm }]}>{action}</View> : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.safe, { direction }]}>
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + space.sm, paddingBottom: 120 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {head}
+        {children}
+      </Animated.ScrollView>
+
+      <View pointerEvents="box-none" style={[styles.tabBar, { height: barH }]}>
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, frost]}>
+          <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.glassFill} />
+        </Animated.View>
+        <Animated.View pointerEvents="none" style={[styles.tabLine, { bottom: 0 }, line]} />
+        <Animated.Text
+          numberOfLines={1}
+          style={[styles.tabSmallTitle, { top: insets.top, height: TAB_BAR_ROW, fontFamily: f.bold }, small]}
+        >
+          {title}
+        </Animated.Text>
+        {action ? <View style={[styles.tabAction, { top: insets.top + space.sm }]}>{action}</View> : null}
+      </View>
     </View>
   );
 }
+
+/** Height of the pinned row under the status bar: the 44pt action with 8pt above and below. */
+const TAB_BAR_ROW = sizes.touch + space.sm * 2;
 
 export function Title({ children, size = 'title' }: { children: ReactNode; size?: 'title' | 'display' }) {
   const { f } = useFont();
@@ -554,10 +657,22 @@ const styles = StyleSheet.create({
     paddingBottom: space.md,
   },
   topSpacer: { width: sizes.touch, height: sizes.touch },
-  // Tab roots have no top bar: a small gap under the status bar, then the TabHeader.
-  tabContent: { paddingTop: space.md },
   tabHeader: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: sizes.touch },
   tabHeaderText: { flex: 1, gap: 2 },
+  tabFixed: { paddingHorizontal: space.screen, paddingBottom: space.md, gap: space.md },
+  tabBar: { position: 'absolute', top: 0, left: 0, right: 0 },
+  tabAction: { position: 'absolute', end: space.screen },
+  tabLine: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: colors.hairline },
+  tabSmallTitle: {
+    position: 'absolute',
+    left: 72,
+    right: 72,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: TAB_BAR_ROW,
+    fontSize: 17,
+    color: colors.ink,
+  },
   sheet: {
     marginTop: -radii.sheet,
     borderTopLeftRadius: radii.sheet,

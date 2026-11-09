@@ -23,7 +23,7 @@ import { Icon } from '@/components/icon';
 import { RouteCheckpoints } from '@/components/route-checkpoints';
 import { SearchMorph, type Rect } from '@/components/search-morph';
 import { useTripSearch } from '@/components/trip-search';
-import { Body, GlassButton, ListRow, Screen, TabHeader, useFont } from '@/components/ui';
+import { Body, GlassButton, ListRow, TabScreen, useFont } from '@/components/ui';
 import { formatLongDay } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
 import { heroLink, pickHero, usualTime, type CancelledHero, type DriveHero, type RateHero, type SeatHero } from '@/lib/home-state';
@@ -333,34 +333,30 @@ export default function Home() {
   const quiet = hero?.kind === 'idleDriver' ? 'seat' : hero && hero.kind !== 'drive' ? 'post' : null;
 
   return (
-    <Screen
-      scroll
-      tab
+    <TabScreen
+      title={t('tabHome')}
+      kicker={
+        <Body muted small>
+          {formatLongDay(now, lang)}
+        </Body>
+      }
+      largeTitle={
+        <Text style={[styles.greeting, { fontFamily: f.bold }]}>
+          {greeting}
+          {rtl ? '، ' : ', '}
+          {firstName}
+        </Text>
+      }
+      // The bell opens the inbox; its clay dot means something arrived you haven't seen.
+      action={
+        <GlassButton
+          icon="bell"
+          label={unread > 0 ? `${t('notificationsTitle')} · ${t('unread')}` : t('notificationsTitle')}
+          dot={unread > 0}
+          onPress={() => router.push('/notifications')}
+        />
+      }
     >
-      <TabHeader
-        kicker={
-          <Body muted small>
-            {formatLongDay(now, lang)}
-          </Body>
-        }
-        title={
-          <Text style={[styles.greeting, { fontFamily: f.bold }]}>
-            {greeting}
-            {rtl ? '، ' : ', '}
-            {firstName}
-          </Text>
-        }
-        // The bell opens the inbox; its clay dot means something arrived you haven't seen.
-        action={
-          <GlassButton
-            icon="bell"
-            label={unread > 0 ? `${t('notificationsTitle')} · ${t('unread')}` : t('notificationsTitle')}
-            dot={unread > 0}
-            onPress={() => router.push('/notifications')}
-          />
-        }
-      />
-
       {link ? (
         <Pressable accessibilityRole="button" onPress={open} style={({ pressed }) => [styles.hero, pressed && { opacity: 0.7 }]}>
           <View style={styles.openCue}>
@@ -416,7 +412,7 @@ export default function Home() {
           }}
         />
       ) : null}
-    </Screen>
+    </TabScreen>
   );
 }
 

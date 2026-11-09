@@ -7,7 +7,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { StatsRow } from '@/components/stats-row';
-import { IconCircle, ListRow, Screen, TabHeader, ltr, useFont } from '@/components/ui';
+import { IconCircle, ListRow, TabScreen, ltr, useFont } from '@/components/ui';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
@@ -64,27 +64,30 @@ export default function Account() {
   const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
-    <Screen scroll tab>
-      <TabHeader title={t('yourProfile')} />
-
-      <View style={styles.header}>
-        <IconCircle letter={name.charAt(0)} size={72} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <View style={styles.nameLine}>
-            <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>
-            {verified ? <Icon name="sealCheck" size={20} color={colors.statusOpen} /> : null}
+    <TabScreen
+      title={t('yourProfile')}
+      // Who you are stays put; only the rows from "My car" down scroll.
+      fixed={
+        <>
+          <View style={styles.header}>
+            <IconCircle letter={name.charAt(0)} size={72} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={styles.nameLine}>
+                <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>
+                {verified ? <Icon name="sealCheck" size={20} color={colors.statusOpen} /> : null}
+              </View>
+              <Text style={[styles.meta, { fontFamily: f.regular }, align]}>
+                {since ? `${role} · ${t('memberSince')} ${since}` : role}
+              </Text>
+              {session?.user.phone ? (
+                <Text style={[styles.meta, { fontFamily: f.regular }, align]}>{ltr(formatPhone(session.user.phone))}</Text>
+              ) : null}
+            </View>
           </View>
-          <Text style={[styles.meta, { fontFamily: f.regular }, align]}>
-            {since ? `${role} · ${t('memberSince')} ${since}` : role}
-          </Text>
-          {session?.user.phone ? (
-            <Text style={[styles.meta, { fontFamily: f.regular }, align]}>{ltr(formatPhone(session.user.phone))}</Text>
-          ) : null}
-        </View>
-      </View>
-
-      {stats ? <StatsRow stats={stats} /> : null}
-
+          {stats ? <StatsRow stats={stats} /> : null}
+        </>
+      }
+    >
       <View>
         <ListRow
           icon="carProfile"
@@ -126,7 +129,7 @@ export default function Account() {
           }}
         />
       </View>
-    </Screen>
+    </TabScreen>
   );
 }
 

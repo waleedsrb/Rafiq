@@ -7,7 +7,7 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { StatusCircle, StatusWord } from '@/components/checkpoint-badge';
-import { Body, GlassButton, ListRow, Screen, TabHeader, ltr } from '@/components/ui';
+import { Body, GlassButton, ListRow, TabScreen, ltr } from '@/components/ui';
 import { useAgo, type Overview } from '@/components/checkpoint-badge';
 import { confidence, reportsKey } from '@/lib/checkpoints';
 import { useT } from '@/lib/session';
@@ -37,11 +37,10 @@ export default function Checkpoints() {
   const newest = rows?.map((r) => r.last_report_at).filter(Boolean).sort().pop() ?? null;
 
   return (
-    <Screen scroll tab>
-      <TabHeader
-        title={t('tabCheckpoints')}
-        action={<GlassButton icon="mapTrifold" label={t('checkpointsMap')} onPress={() => router.push('/checkpoints/map')} />}
-      />
+    <TabScreen
+      title={t('tabCheckpoints')}
+      action={<GlassButton icon="mapTrifold" label={t('checkpointsMap')} onPress={() => router.push('/checkpoints/map')} />}
+    >
       <Body muted small>
         {t('onTheRoad')}
         {newest ? ` · ${t('updatedAgo')} ${ago(newest, now)}` : ''}
@@ -65,6 +64,6 @@ export default function Checkpoints() {
           />
         ))}
       </View>
-    </Screen>
+    </TabScreen>
   );
 }
