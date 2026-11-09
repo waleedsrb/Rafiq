@@ -1,0 +1,22 @@
+# Downloads checkpoint and road-closure data from OpenStreetMap for review.
+# Run it from the Actions tab ("Run workflow"), or it runs when the script changes.
+name: Map data
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/map-data/**
+      - .github/workflows/map-data.yml
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/map-data/fetch_osm_checkpoints.py osm-checkpoints.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osm-checkpoints
+          path: osm-checkpoints.json
