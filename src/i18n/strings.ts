@@ -819,6 +819,8 @@ export const strings = {
   homeNeedSeatSub: { ar_m: 'ابحث عن مقعد على طريقك', ar_f: 'ابحثي عن مقعد على طريقك', en: 'Find a seat on your route' },
   homeDriving: { ar_m: 'ذاهب بسيارتك؟ انشر رحلة', ar_f: 'ذاهبة بسيارتك؟ انشري رحلة', en: 'Driving anyway? Post a trip' },
   homeDrivingSub: { ar_m: 'المقاعد الفارغة تغطي البنزين', en: 'Empty seats pay for the fuel' },
+  postAnotherTrip: { ar_m: 'انشر رحلة أخرى', ar_f: 'انشري رحلة أخرى', en: 'Post another trip' },
+  postAnotherSub: { ar_m: 'رحلة العودة أو يوم آخر', en: 'Your way back, or another day' },
   homeLeavesIn: { ar_m: 'تنطلق بعد', en: 'Leaves in' },
   homeMinutes: { ar_m: 'د', en: 'min' },
   homeOnTheRoad: { ar_m: 'على الطريق', en: 'On the road' },

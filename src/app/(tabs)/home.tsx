@@ -332,7 +332,17 @@ export default function Home() {
     data?.route?.origin ||
     'ramallah';
 
-  const quiet = hero?.kind === 'idleDriver' ? 'seat' : hero && hero.kind !== 'drive' ? 'post' : null;
+  // The quiet row under the search: the other role, or (already driving) one more trip.
+  const quiet =
+    hero?.kind === 'idleDriver'
+      ? 'seat'
+      : hero?.kind === 'drive'
+        ? hero.phase === 'onTheRoad'
+          ? null
+          : 'another'
+        : hero
+          ? 'post'
+          : null;
 
   return (
     <TabScreen
@@ -389,6 +399,8 @@ export default function Home() {
 
       {quiet === 'post' ? (
         <ListRow last icon="plus" title={t('homeDriving')} subtitle={t('homeDrivingSub')} onPress={() => router.push('/trips/new')} />
+      ) : quiet === 'another' ? (
+        <ListRow last icon="plus" title={t('postAnotherTrip')} subtitle={t('postAnotherSub')} onPress={() => router.push('/trips/new')} />
       ) : quiet === 'seat' && data?.driving ? (
         <ListRow
           last

@@ -3,15 +3,17 @@
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { TripRow } from '@/components/trip-row';
-import { Body, Choice, TabScreen, ltr } from '@/components/ui';
+import { Body, Button, Choice, GlassButton, TabScreen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useBookingChanges } from '@/lib/live';
 import { useSession, useT } from '@/lib/session';
 import { openTrip } from '@/lib/trip-layer';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { space } from '@/theme/tokens';
 
 type Trip = {
   id: string;
@@ -108,7 +110,11 @@ export default function MyTrips() {
   useBookingChanges(load);
 
   return (
-    <TabScreen title={t('tabTrips')}>
+    <TabScreen
+      title={t('tabTrips')}
+      // Posting is always one tap away, however many trips you already drive.
+      action={<GlassButton icon="plus" label={t('postTrip')} onPress={() => router.push('/trips/new')} />}
+    >
       <Choice<Tab>
         value={tab}
         onChange={setTab}
@@ -155,6 +161,14 @@ export default function MyTrips() {
               />
             );
           })}
+          <View style={styles.post}>
+            <Button
+              variant="secondary"
+              icon="plus"
+              label={t(trips.length === 0 ? 'postTrip' : 'postAnotherTrip')}
+              onPress={() => router.push('/trips/new')}
+            />
+          </View>
         </>
       ) : null}
 
@@ -185,3 +199,7 @@ export default function MyTrips() {
     </TabScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  post: { marginTop: space.md },
+});
