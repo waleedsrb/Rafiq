@@ -118,7 +118,9 @@ export function TripSheet({
   // The three heights, as the card's top edge.
   const fullTop = insets.top + 6 + sizes.touch + 10;
   const midTop = Math.round(H * 0.44);
-  const barBottom = Math.max(insets.bottom, 12);
+  // Like iOS's floating tab bar: the bar dips into the home indicator's area a little
+  // instead of stacking on top of it.
+  const barBottom = Math.max(insets.bottom - 12, 12);
   const barTop = H - barBottom - BAR_H;
 
   const p = useSharedValue(settled ? 1 : 0);
@@ -291,7 +293,7 @@ export function TripSheet({
 
   // The main button's bottom edge lines up with the bar's (just above the home indicator),
   // so it sits where your thumb already is in every state.
-  const footerBottom = Math.max(space.md, barBottom - M);
+  const footerBottom = Math.max(space.sm, barBottom - M);
   const glassBar = LIQUID_GLASS && at === 'mini' && !moving && !closing;
 
   // Steps: the new one slides in a little from the side it comes from (deeper: from the end,
