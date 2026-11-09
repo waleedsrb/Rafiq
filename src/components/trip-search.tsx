@@ -10,7 +10,8 @@ import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from
 
 import { Icon } from '@/components/icon';
 import { StatsLine, useTripDriverStats } from '@/components/stats-line';
-import { Body, Button, Chip, ltr, useFont } from '@/components/ui';
+import { pillBase, usePillColor, usePillSlide, usePillStyle, type PillSlide } from '@/components/pill-slide';
+import { Body, Button, Chip, PillChips, ltr, useFont } from '@/components/ui';
 import { alertWindow } from '@/lib/alerts';
 import { formatChipDay, shortTime, type DayPart } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
@@ -93,29 +94,11 @@ export function useTripSearch(start?: { origin?: City; day?: number; part?: DayP
   return { origin, destination, day, part, setOrigin, swap, setDay, setPart, week, loading, counts, dayLabels };
 }
 
-/** The day chips: one tap picks the day, and the list below changes in place. */
+/** The day chips: one tap picks the day, the graphite pill glides there, and the list below changes in place. */
 export function DayChips({ s }: { s: SearchState }) {
-  const { f } = useFont();
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.dayRow}>
-      {s.dayLabels.map((label, i) => {
-        const on = i === s.day;
-        return (
-          <Pressable
-            key={i}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
-            accessibilityLabel={label}
-            onPress={() => {
-              selectFeel();
-              s.setDay(i);
-            }}
-            style={[styles.dayChip, on && styles.dayChipOn]}
-          >
-            <Text style={[styles.dayText, { fontFamily: f.medium }, on && { color: colors.onInk }]}>{label}</Text>
-          </Pressable>
-        );
-      })}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+      <PillChips labels={s.dayLabels} selected={s.day} onPick={s.setDay} padding={14} />
     </ScrollView>
   );
 }
@@ -214,32 +197,51 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
 /** Time of day as quiet tabs (All day, Morning, Afternoon, Evening): an underline, not a box. */
 function PartTabs({ s }: { s: SearchState }) {
   const { t } = useT();
-  const { f } = useFont();
+  const { rtl, direction } = useFont();
   const tabs: { value: DayPart | null; label: string }[] = [
     { value: null, label: t('allDay') },
     ...PARTS.map((p) => ({ value: p, label: t(partLabel[p]) })),
   ];
+  const pill = usePillSlide(
+    tabs.findIndex((o) => o.value === s.part),
+    rtl,
+  );
+  const line = usePillStyle(pill, 'underline');
   return (
-    <View style={styles.tabs} accessibilityRole="tablist">
-      {tabs.map((o) => {
-        const on = o.value === s.part;
-        return (
-          <Pressable
-            key={o.value ?? 'all'}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: on }}
-            hitSlop={8}
-            onPress={() => {
-              selectFeel();
-              s.setPart(o.value);
-            }}
-            style={[styles.tab, on && styles.tabOn]}
-          >
-            <Text style={[styles.tabText, { fontFamily: on ? f.bold : f.regular }, on && { color: colors.ink }]}>{o.label}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={[styles.tabs, { direction }]} accessibilityRole="tablist" onLayout={pill.onTrackLayout}>
+      {tabs.map((o, i) => (
+        <PartTab
+          key={o.value ?? 'all'}
+          i={i}
+          pill={pill}
+          label={o.label}
+          on={o.value === s.part}
+          onPress={() => {
+            selectFeel();
+            s.setPart(o.value);
+          }}
+        />
+      ))}
+      {/* The underline slides from tab to tab instead of jumping. */}
+      <Animated.View pointerEvents="none" style={[pillBase, styles.tabLine, line]} />
     </View>
+  );
+}
+
+function PartTab({ i, pill, label, on, onPress }: { i: number; pill: PillSlide; label: string; on: boolean; onPress: () => void }) {
+  const { f } = useFont();
+  const text = usePillColor(pill, i, colors.inkSecondary, colors.ink);
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: on }}
+      hitSlop={8}
+      onPress={onPress}
+      onLayout={pill.onItemLayout(i)}
+      style={styles.tab}
+    >
+      <Animated.Text style={[styles.tabText, { fontFamily: on ? f.bold : f.regular }, text]}>{label}</Animated.Text>
+    </Pressable>
   );
 }
 
@@ -313,22 +315,9 @@ function SeatSquares({ left, total }: { left: number; total: number }) {
 }
 
 const styles = StyleSheet.create({
-  dayRow: { gap: space.sm },
-  dayChip: {
-    height: sizes.controlSm,
-    paddingHorizontal: 14,
-    borderRadius: radii.capsule,
-    borderWidth: 1,
-    borderColor: colors.lineStrong,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dayChipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  dayText: { fontSize: 13, color: colors.ink },
   tabs: { flexDirection: 'row', gap: 18 },
-  tab: { paddingBottom: 6, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabOn: { borderBottomColor: colors.ink },
+  tab: { paddingBottom: 8 },
+  tabLine: { backgroundColor: colors.ink, borderRadius: 1 },
   tabText: { fontSize: 14, color: colors.inkSecondary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   rowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
