@@ -1,34 +1,51 @@
-// Driver: see who asked for a seat on one of your trips, and accept or decline.
-// The database decides whether a change is allowed (guard_booking): only the
-// driver may accept, and an accept fails if the car would be overbooked.
-// On the day this is also "Driver at pickup": tick who got in, mark no-shows,
-// Start trip, then Arrived, then rate each passenger.
+// The driver's trip: every state of one of your trips, in the glass card over the map
+// (src/components/trip-sheet.tsx), the same frame passengers see.
+//
+// - Before the day: requests to answer (clay, with a countdown), then your riders as a plain
+//   list with a call button each; the pickup point; Cancel as a quiet button at the end.
+// - At the pickup: one big button per rider, tapped when they get in (no-show after 10 min).
+//   Start turns on once everyone is accounted for.
+// - Underway: drive mode (src/components/drive-mode.tsx), light or dark, slide to arrive.
+// - Arrived: the cash reminder and a row of stars per rider, sent once.
+//
+// A rider's profile and the rating are steps inside the same card. The database decides
+// what's allowed (guard_booking, start_trip, finish_trip): this screen only shows the
+// right button at the right time.
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Avatar } from '@/components/avatar';
-import { BookingContact } from '@/components/contact-card';
+import { useContact } from '@/components/contact-card';
+import { DriveMode, nightNow } from '@/components/drive-mode';
+import { Icon } from '@/components/icon';
+import { PersonProfile } from '@/components/person-profile';
+import { useRateRiders, type RideToRate } from '@/components/rate-riders';
 import { useRepeatsText } from '@/components/repeats';
-import { SeatDots } from '@/components/seat-dots';
-import { TripHero } from '@/components/trip-hero';
-import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
-import { Body, Button, Chip, Countdown, ListRow, Screen, SectionTitle, TextLink, ltr } from '@/components/ui';
+import { StatsLine, usePeopleStats } from '@/components/stats-line';
+import { Note } from '@/components/trip-details';
+import { TripHero } from '@/components/trip-hero';
+import { StepHeader, TripSheet, type Detent, type SheetMini } from '@/components/trip-sheet';
+import { Body, Button, Countdown, ListRow, TextLink, ltr, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatTime } from '@/lib/format';
+import { tapFeel } from '@/lib/haptics';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
+import { goBack } from '@/lib/nav';
+import { formatPhone, telLink } from '@/lib/phone';
 import { CITY_SQUARE } from '@/lib/places';
-import { isLateTripCancel } from '@/lib/rules';
 import { useDriverPosition } from '@/lib/position';
+import { isLateTripCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
 import { openEmergency, shareTrip } from '@/lib/share-trip';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { noShowFrom, noShowOpen, pickupOpen, startOpen, tripState } from '@/lib/trip-day';
+import { noShowFrom, noShowOpen, pickupOpen, ratingOpen, startOpen, tripState } from '@/lib/trip-day';
 import { colors, space } from '@/theme/tokens';
 
 type Trip = {
@@ -37,11 +54,14 @@ type Trip = {
   destination: City;
   departs_at: string;
   price_ils: number;
+  seats_total: number;
   cancelled_at: string | null;
   trip_series: { id: string; weekdays: number[]; stopped_at: string | null } | null; // weekly pattern, if any
   started_at: string | null;
   finished_at: string | null;
   pickup_label: string | null; // where you meet riders (null: the city square)
+  pickup_lat: number | null;
+  pickup_lng: number | null;
 };
 type Request = {
   id: string;
@@ -55,29 +75,44 @@ type Request = {
   profiles: { full_name: string; avatar_path: string | null }; // the passenger
 };
 
-export default function TripRequests() {
+type Step = 'details' | 'rider' | 'arrived';
+
+/** Seats that count as taken: said yes to, or ridden. */
+const holdsSeat = (status: string) => status === 'accepted' || status === 'completed';
+
+export default function DriverTrip() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, lang } = useT();
+  const { f } = useFont();
   const { session } = useSession();
-  const [rated, setRated] = useState<Record<string, number>>({}); // booking id -> stars I gave
   const repeatsText = useRepeatsText();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [requests, setRequests] = useState<Request[]>([]);
-  const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
-  const [busy, setBusy] = useState<string | null>(null); // booking id being updated
+  const [rated, setRated] = useState<Record<string, number>>({}); // booking id -> stars I gave
+  const [busy, setBusy] = useState<string | null>(null); // booking id (or 'trip') being updated
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [step, setStep] = useState<Step>('details');
+  const [riderId, setRiderId] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [want, setWant] = useState<{ to: Detent; key: number } | null>(null);
+  const [dark, setDark] = useState(() => nightNow());
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [tripRes, reqRes, seatsRes] = await Promise.all([
-      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, pickup_label, trip_series(id, weekdays, stopped_at)').eq('id', id).single(),
+    const [tripRes, reqRes] = await Promise.all([
+      supabase
+        .from('trips')
+        .select(
+          'id, origin, destination, departs_at, price_ils, seats_total, cancelled_at, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, trip_series(id, weekdays, stopped_at)',
+        )
+        .eq('id', id)
+        .single(),
       supabase
         .from('bookings')
         .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name, avatar_path)')
         .eq('trip_id', id)
         .order('created_at'),
-      supabase.rpc('seats_left', { p_trip_id: id }),
     ]);
     setTrip((tripRes.data as unknown as Trip | null) ?? null);
     const list = (reqRes.data as unknown as Request[] | null) ?? [];
@@ -87,20 +122,21 @@ export default function TripRequests() {
       const { data } = await supabase.from('ratings').select('booking_id, stars').eq('rater_id', session.user.id).in('booking_id', done);
       setRated(Object.fromEntries(((data as { booking_id: string; stars: number }[] | null) ?? []).map((x) => [x.booking_id, x.stars])));
     }
-    setSeatsLeft((seatsRes.data as number | null) ?? null);
   }, [id, session]);
 
-  // Reload on every visit (e.g. coming back from rating a passenger).
+  // Reload on every visit, and whenever a booking or the trip changes.
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+  useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
+  useTripChanges(load, id);
 
-  // Tick once a second while someone is waiting for your answer.
   const passengerStats = usePeopleStats(requests.map((r) => r.passenger_id));
 
-  // On trip day, tick every 15 seconds so Start and No-show appear on time.
+  // Tick every second while someone waits for your answer; every 15 seconds on trip day,
+  // so Start and No-show appear on time.
   const waiting = requests.some((r) => r.status === 'requested');
   const confirmed = requests.some((r) => r.status === 'accepted');
   useEffect(() => {
@@ -109,15 +145,12 @@ export default function TripRequests() {
     return () => clearInterval(timer);
   }, [waiting, confirmed]);
 
-  // New requests appear without pulling to refresh.
-  useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
-  useTripChanges(load, id);
-
-  // While the trip is underway, the car's position feeds Share my trip links.
+  // While the trip is underway, follow the car (drive mode, Share my trip links).
   const underway = !!trip && !!trip.started_at && !trip.finished_at && !trip.cancelled_at;
-  useDriverPosition(trip?.id ?? null, underway);
+  const car = useDriverPosition(trip?.id ?? null, underway);
 
-  // Trip day actions. The database checks the timing again; its message picks our text.
+  // ---------- Actions ----------
+  // The database checks the timing again; its message picks our text.
   async function act(key: string, fn: () => PromiseLike<{ error: { message: string } | null }>) {
     setBusy(key);
     setError(null);
@@ -129,38 +162,34 @@ export default function TripRequests() {
           ? t('startNeedsAll')
           : err.message.includes('Too early')
             ? t('startOpensNote')
-            : t('somethingWrong'),
+            : err.message.includes('Not enough seats')
+              ? t('noSeatsLeft')
+              : err.message.includes('expired')
+                ? t('status_expired')
+                : t('somethingWrong'),
       );
     }
     await load();
+    return !err;
   }
-  const board = (r: Request) => act(r.id, () => supabase.rpc('mark_boarded', { p_booking_id: r.id, p_boarded: !r.boarded_at }));
+  const decide = (r: Request, status: 'accepted' | 'declined') =>
+    act(r.id, () => supabase.from('bookings').update({ status }).eq('id', r.id));
+  const board = (r: Request) => {
+    tapFeel();
+    return act(r.id, () => supabase.rpc('mark_boarded', { p_booking_id: r.id, p_boarded: !r.boarded_at }));
+  };
   async function noShow(r: Request) {
     const ok = await confirm({ title: t('noShowConfirmTitle'), body: t('noShowConfirmBody'), yes: t('yesNoShow'), no: t('keep'), tone: 'warning' });
     if (ok) await act(r.id, () => supabase.rpc('mark_no_show', { p_booking_id: r.id }));
   }
   const start = () => act('trip', () => supabase.rpc('start_trip', { p_trip_id: id }));
-  async function finish() {
-    const ok = await confirm({ title: t('finishConfirmTitle'), body: t('finishConfirmBody'), yes: t('yesArrived'), no: t('keep') });
-    if (ok) await act('trip', () => supabase.rpc('finish_trip', { p_trip_id: id }));
-  }
-
-  async function decide(bookingId: string, status: 'accepted' | 'declined') {
-    setBusy(bookingId);
-    setError(null);
-    const { error: err } = await supabase.from('bookings').update({ status }).eq('id', bookingId);
-    setBusy(null);
-    if (err) {
-      // The database's own message tells us which rule stopped it.
-      setError(
-        err.message.includes('Not enough seats')
-          ? t('noSeatsLeft')
-          : err.message.includes('expired')
-            ? t('status_expired')
-            : t('somethingWrong'),
-      );
+  // The slide is the confirmation: no pop-up on top of it.
+  async function arrive() {
+    const ok = await act('trip', () => supabase.rpc('finish_trip', { p_trip_id: id }));
+    if (ok) {
+      setStep('arrived');
+      setWant({ to: 'full', key: Date.now() });
     }
-    await load();
   }
 
   // Cancelling close to departure with passengers booked is a late cancel (3 in 30 days
@@ -201,211 +230,443 @@ export default function TripRequests() {
       const ok = await confirm({ title: t('cancelTripTitle'), body: t('cancelTripBody'), yes: t('yesCancel'), no: t('keep'), tone: 'danger' });
       if (!ok) return;
     }
-    setBusy('trip');
-    setError(null);
-    const { error: err } = await supabase.rpc('cancel_trip', { p_trip_id: trip.id, p_reason: reason });
-    setBusy(null);
-    if (err) setError(t('somethingWrong'));
-    await load();
+    await act('trip', () => supabase.rpc('cancel_trip', { p_trip_id: trip.id, p_reason: reason }));
   }
 
   // Stop the weekly pattern: no new trips, and upcoming ones nobody asked for are taken down.
   async function stopRepeating() {
     if (!trip?.trip_series) return;
     const ok = await confirm({ title: t('stopRepeatingTitle'), body: t('stopRepeatingBody'), yes: t('stopRepeating'), no: t('keep') });
-    if (!ok) return;
-    setBusy('series');
-    setError(null);
-    const { error: err } = await supabase.rpc('stop_trip_series', { p_series_id: trip.trip_series.id });
-    setBusy(null);
-    if (err) setError(t('somethingWrong'));
-    await load();
+    if (ok) await act('series', () => supabase.rpc('stop_trip_series', { p_series_id: trip.trip_series!.id }));
   }
 
-  if (!trip) return <Screen back>{null}</Screen>;
-  const departs = new Date(trip.departs_at);
-  const state = tripState(trip);
-  const canCancelTrip = state === 'scheduled' && departs > new Date();
-  const atPickup = state === 'scheduled' && pickupOpen(now, departs);
-  const canStart = state === 'scheduled' && startOpen(now, departs) && confirmed;
-  const allAccounted = requests.every((r) => r.status !== 'accepted' || !!r.boarded_at);
+  // ---------- Where things stand ----------
+  const departs = new Date(trip?.departs_at ?? Date.now());
+  const state = trip ? tripState(trip) : 'scheduled';
+  const price = Number(trip?.price_ils ?? 0);
+  const route = trip ? `${t(trip.origin)} ${lang === 'ar' ? '←' : '→'} ${t(trip.destination)}` : '';
+  const asking = requests.filter((r) => r.status === 'requested');
+  const riders = requests.filter((r) => r.status === 'accepted');
+  const rode = requests.filter((r) => r.status === 'completed');
+  const earlier = requests.filter((r) => !['requested', 'accepted', 'completed'].includes(r.status));
+  const booked = requests.filter((r) => holdsSeat(r.status)).reduce((n, r) => n + r.seats, 0);
+  const total = Math.max(trip?.seats_total ?? 0, booked);
+  const atPickup = state === 'scheduled' && riders.length > 0 && pickupOpen(now, departs);
+  const canStart = state === 'scheduled' && confirmed && startOpen(now, departs);
+  const notIn = riders.filter((r) => !r.boarded_at);
+  const allIn = riders.length > 0 && notIn.length === 0;
   const noShowOk = noShowOpen(now, departs);
-  const booked = requests.filter((r) => r.status === 'accepted').reduce((n, r) => n + r.seats, 0);
-  const pending = requests.filter((r) => r.status === 'requested').reduce((n, r) => n + r.seats, 0);
-  const total = seatsLeft !== null ? seatsLeft + booked : booked;
+  const canCancelTrip = state === 'scheduled' && departs > now;
+  const canRate = state === 'finished' && !!trip?.finished_at && ratingOpen(now, new Date(trip.finished_at));
+  const unrated = rode.filter((r) => rated[r.id] === undefined);
+  const pickupLabel = trip ? (trip.pickup_label ?? t(CITY_SQUARE[trip.origin])) : '';
+  const pickup = trip?.pickup_lat != null && trip.pickup_lng != null ? { latitude: Number(trip.pickup_lat), longitude: Number(trip.pickup_lng) } : null;
 
-  return (
-    <Screen
-      back
-      scroll
-      footer={
-        canStart ? (
-          <>
-            <Button label={t('startTrip')} icon="steeringWheel" onPress={start} loading={busy === 'trip'} disabled={!allAccounted} />
-            {allAccounted ? null : <Body muted small style={{ textAlign: 'center' }}>{t('startNeedsAll')}</Body>}
-          </>
-        ) : state === 'underway' ? (
-          <>
-            <Button label={t('weArrived')} icon="mapPin" onPress={finish} loading={busy === 'trip'} />
-            <Button
-              variant="secondary"
-              label={t('shareTrip')}
-              icon="shareNetwork"
-              onPress={() => shareTrip(trip.id, `${t(trip.origin)} ${lang === 'ar' ? '←' : '→'} ${t(trip.destination)}`, lang, t)}
-            />
-            <Button
-              variant="plain"
-              label={t('emergencyButton')}
-              icon="warning"
-              onPress={() => session && openEmergency(trip.id, session.user.id, lang, t)}
-            />
-          </>
-        ) : canCancelTrip ? (
-          <Button variant="plain" label={t('cancelTrip')} onPress={cancelTrip} loading={busy === 'trip'} />
-        ) : undefined
-      }
-    >
-      <TripHero
-        label={
-          <Body muted small>
-            {t(state === 'underway' ? 'onTheWay' : state === 'finished' ? 'tripFinished' : atPickup ? 'pickupTitle' : 'requestsTitle')}
-          </Body>
-        }
-        departsAt={trip.departs_at}
-        origin={trip.origin}
-        destination={trip.destination}
+  const toRate: RideToRate[] = rode.map((r) => ({
+    bookingId: r.id,
+    passengerId: r.passenger_id,
+    name: shortName(r.profiles.full_name),
+    avatarPath: r.profiles.avatar_path,
+    seats: r.seats,
+    given: rated[r.id] ?? null,
+  }));
+  const backToDetails = () => {
+    setStep('details');
+    load();
+  };
+  const rate = useRateRiders({ riders: toRate, price, open: canRate, onDone: backToDetails });
+
+  const share = () => trip && shareTrip(trip.id, route, lang, t);
+  const emergency = () => trip && session && openEmergency(trip.id, session.user.id, lang, t);
+
+  if (!trip) return <View style={styles.page} />;
+
+  // ---------- Drive mode ----------
+  if (state === 'underway') {
+    return (
+      <GestureHandlerRootView style={styles.page}>
+        <DriveMode
+          origin={trip.origin}
+          destination={trip.destination}
+          pickup={pickup}
+          startedAt={trip.started_at!}
+          car={car}
+          riders={requests
+            .filter((r) => r.status === 'accepted' && r.boarded_at)
+            .map((r) => ({ id: r.id, name: shortName(r.profiles.full_name), avatarPath: r.profiles.avatar_path, seed: r.passenger_id }))}
+          dark={dark}
+          onToggleDark={() => setDark((d) => !d)}
+          onArrive={arrive}
+          arriving={busy === 'trip'}
+          onShare={share}
+          onEmergency={emergency}
+          onLeave={goBack}
+        />
+      </GestureHandlerRootView>
+    );
+  }
+
+  // ---------- The card ----------
+  const openRider = (passengerId: string) => {
+    setRiderId(passengerId);
+    setStep('rider');
+    setWant({ to: 'full', key: Date.now() });
+  };
+
+  // The small line above the big time says where things stand.
+  const tone = (text: string, color: string, icon?: 'check') => (
+    <View style={styles.labelRow}>
+      {icon ? <Icon name={icon} size={14} color={color} /> : null}
+      <Body small style={{ fontFamily: f.medium, color }}>
+        {text}
+      </Body>
+    </View>
+  );
+  const label = trip.cancelled_at
+    ? tone(t('tripCancelled'), colors.inkSecondary)
+    : state === 'finished'
+      ? tone(t('arrivedSafely'), colors.statusOpen, 'check')
+      : asking.length > 0
+        ? tone(t('newRequest'), colors.clay)
+        : atPickup && allIn
+          ? tone(t('allInCar'), colors.statusOpen, 'check')
+          : atPickup
+            ? tone(`${t('pickupAt')} · ${pickupLabel}`, colors.ink)
+            : riders.length > 0
+              ? tone(t('ridersConfirmed'), colors.statusOpen, 'check')
+              : tone(t('noRequests'), colors.inkSecondary);
+
+  const header = <TripHero label={label} departsAt={trip.departs_at} origin={trip.origin} destination={trip.destination} />;
+
+  const facts = (
+    <View>
+      <ListRow
+        icon="armchair"
+        title={t('seatsLine').replace('{booked}', ltr(booked)).replace('{total}', ltr(total))}
+        subtitle={t('priceEarn').replace('{price}', ltr(`${price}₪`)).replace('{total}', ltr(`${booked * price}₪`))}
       />
-      {total > 0 ? <SeatDots total={total} booked={booked} pending={Math.min(pending, total - booked)} /> : null}
-      {state === 'scheduled' && confirmed && atPickup && !canStart ? <Body muted small>{t('startOpensNote')}</Body> : null}
-      {booked > 0 && !trip.cancelled_at ? (
-        <Body muted small>
-          {t('youEarn')} {ltr(`${booked * Number(trip.price_ils)}₪`)}
-        </Body>
-      ) : null}
-      {trip.cancelled_at ? <Body error>{t('tripCancelled')}</Body> : null}
       {trip.trip_series ? (
-        <View>
+        <ListRow
+          icon="calendar"
+          title={trip.trip_series.stopped_at ? t('repeatStopped') : repeatsText(trip.trip_series.weekdays)}
+          trailing={
+            trip.trip_series.stopped_at || state !== 'scheduled' ? undefined : (
+              <TextLink label={t('stopRepeating')} onPress={stopRepeating} disabled={busy === 'series'} />
+            )
+          }
+        />
+      ) : null}
+      <ListRow last icon="mapPin" title={pickupLabel} subtitle={t('pickupRow')} />
+    </View>
+  );
+
+  const body = (
+    <>
+      {trip.cancelled_at ? <Note icon="info" text={t('tripCancelled')} /> : null}
+
+      {/* Requests: they need your answer, so they come first. */}
+      {asking.map((r) => (
+        <View key={r.id} style={styles.block}>
           <ListRow
             last
-            icon="calendar"
-            title={trip.trip_series.stopped_at ? t('repeatStopped') : repeatsText(trip.trip_series.weekdays)}
-            trailing={
-              trip.trip_series.stopped_at ? undefined : (
-                <TextLink label={t('stopRepeating')} onPress={stopRepeating} disabled={busy === 'series'} />
-              )
+            leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} />}
+            title={shortName(r.profiles.full_name)}
+            onPress={() => openRider(r.passenger_id)}
+            subtitle={
+              <View style={{ gap: 2 }}>
+                <Body muted small>
+                  {ltr(r.seats)} {t('seatOne')}
+                </Body>
+                <StatsLine stats={passengerStats[r.passenger_id]} />
+              </View>
             }
           />
+          {r.respond_by ? (
+            <Countdown
+              label={t('answerWithin')}
+              remaining={formatCountdown(new Date(r.respond_by).getTime() - now.getTime())}
+              progress={progressOf(r, now)}
+            />
+          ) : null}
+          <View style={styles.actions}>
+            <View style={styles.action}>
+              <Button variant="secondary" label={t('declineSorry')} onPress={() => decide(r, 'declined')} disabled={busy !== null} />
+            </View>
+            <View style={styles.action}>
+              <Button
+                label={t('acceptName').replace('{name}', shortName(r.profiles.full_name).split(' ')[0])}
+                onPress={() => decide(r, 'accepted')}
+                loading={busy === r.id}
+                disabled={busy !== null && busy !== r.id}
+              />
+            </View>
+          </View>
+        </View>
+      ))}
+      {asking.length > 0 ? (
+        <Body muted small>
+          {t('unanswered')}
+        </Body>
+      ) : null}
+
+      {/* Your riders: a plain list, each with a call button. At the pickup, one big button each. */}
+      {riders.length > 0 ? (
+        <View>
+          {riders.map((r, i) => (
+            <RiderRow
+              key={r.id}
+              r={r}
+              last={i === riders.length - 1}
+              onOpen={() => openRider(r.passenger_id)}
+              checkIn={
+                atPickup ? (
+                  <View style={styles.checkIn}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: !!r.boarded_at }}
+                      onPress={() => board(r)}
+                      disabled={busy !== null}
+                      style={({ pressed }) => [styles.inCar, r.boarded_at ? styles.inCarOn : null, pressed && { opacity: 0.7 }]}
+                    >
+                      {r.boarded_at ? <Icon name="check" size={18} color={colors.onInk} /> : null}
+                      <Text style={[styles.inCarText, { fontFamily: f.medium }, r.boarded_at ? { color: colors.onInk } : null]}>
+                        {t(r.boarded_at ? 'inTheCar' : 'inTheCarAsk')}
+                      </Text>
+                    </Pressable>
+                    {!r.boarded_at && noShowOk ? <TextLink label={t('markNoShow')} onPress={() => noShow(r)} /> : null}
+                  </View>
+                ) : null
+              }
+              note={
+                atPickup && !r.boarded_at ? (
+                  r.here_at ? (
+                    <Body small style={{ color: colors.clay, fontFamily: f.medium }}>
+                      {t('atPickup')}
+                    </Body>
+                  ) : !noShowOk ? (
+                    <Body muted small>
+                      {t('noShowFrom')} {ltr(formatTime(noShowFrom(departs), lang))}
+                    </Body>
+                  ) : null
+                ) : null
+              }
+            />
+          ))}
         </View>
       ) : null}
 
-      <View>
-        <ListRow last icon="mapPin" title={trip.pickup_label ?? t(CITY_SQUARE[trip.origin])} subtitle={t('pickupRow')} />
-      </View>
+      {/* After the trip: who rode, and the stars you gave. */}
+      {rode.length > 0 ? (
+        <View>
+          {rode.map((r, i) => (
+            <ListRow
+              key={r.id}
+              last={i === rode.length - 1}
+              leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} />}
+              title={shortName(r.profiles.full_name)}
+              subtitle={`${ltr(r.seats)} ${t('seatOne')} · ${ltr(`${r.seats * price}₪`)}`}
+              trailing={rated[r.id] ? <Stars value={rated[r.id]} /> : undefined}
+              onPress={rated[r.id] ? undefined : () => openRider(r.passenger_id)}
+            />
+          ))}
+        </View>
+      ) : null}
 
-      <SectionTitle>{t('passengers')}</SectionTitle>
-      {requests.length === 0 ? <Body muted>{t('noRequests')}</Body> : null}
-      {requests.map((r) => {
-        const name = shortName(r.profiles.full_name);
-        const seats = `${ltr(r.seats)} ${t('seatOne')}`;
-        const statusText = r.status === 'requested' ? seats : `${seats} · ${t(`status_${r.status}` as StringKey)}`;
-        return (
-          <View key={r.id} style={styles.request}>
-            {r.status === 'accepted' ? (
-              <BookingContact bookingId={r.id} avatarPath={r.profiles.avatar_path} seed={r.passenger_id} />
-            ) : (
-              <ListRow
-                last
-                leading={<Avatar path={r.profiles.avatar_path} name={name} seed={r.passenger_id} />}
-                title={name}
-                onPress={() => router.push({ pathname: '/people/[id]', params: { id: r.passenger_id } })}
-                subtitle={
-                  <View style={{ gap: 2 }}>
-                    <Body muted small>{statusText}</Body>
-                    {r.status === 'requested' ? <StatsLine stats={passengerStats[r.passenger_id]} /> : null}
-                  </View>
-                }
-              />
-            )}
-            {r.status === 'accepted' && atPickup ? (
-              <View style={styles.pickup}>
-                <Chip label={t('inTheCar')} icon={r.boarded_at ? 'check' : undefined} selected={!!r.boarded_at} onPress={() => board(r)} />
-                {!r.boarded_at && noShowOk ? <Chip label={t('markNoShow')} onPress={() => noShow(r)} /> : null}
-                {!r.boarded_at && r.here_at ? <Body signal small>{t('atPickup')}</Body> : null}
-                {!r.boarded_at && !noShowOk && !r.here_at ? (
-                  <Body muted small>
-                    {t('noShowFrom')} {ltr(formatTime(noShowFrom(departs), lang))}
-                  </Body>
-                ) : null}
-              </View>
-            ) : null}
-            {r.status === 'completed' ? (
-              rated[r.id] ? (
-                <Stars value={rated[r.id]} />
-              ) : (
-                <Button
-                  variant="secondary"
-                  icon="star"
-                  label={`${t('rateOne')} ${name}`}
-                  onPress={() => router.push({ pathname: '/trips/rate/[bookingId]', params: { bookingId: r.id } })}
-                />
-              )
-            ) : null}
-            {r.status === 'requested' ? (
-              <>
-                {r.respond_by ? (
-                  <Countdown
-                    label={t('answerWithin')}
-                    remaining={formatCountdown(new Date(r.respond_by).getTime() - now.getTime())}
-                    progress={progressOf(r, now)}
-                  />
-                ) : null}
-                <View style={styles.actions}>
-                  <View style={styles.action}>
-                    <Button
-                      variant="secondary"
-                      label={t('declineSorry')}
-                      onPress={() => decide(r.id, 'declined')}
-                      disabled={busy !== null}
-                    />
-                  </View>
-                  <View style={styles.action}>
-                    <Button
-                      label={t('acceptRequest')}
-                      onPress={() => decide(r.id, 'accepted')}
-                      loading={busy === r.id}
-                      disabled={busy !== null && busy !== r.id}
-                    />
-                  </View>
-                </View>
-                <Body muted small>
-                  {t('unanswered')}
-                </Body>
-              </>
-            ) : null}
-          </View>
-        );
-      })}
+      {facts}
+
+      {earlier.length > 0 ? (
+        <View>
+          <Body muted small style={{ paddingTop: space.sm }}>
+            {t('earlierRequests')}
+          </Body>
+          {earlier.map((r, i) => (
+            <ListRow
+              key={r.id}
+              last={i === earlier.length - 1}
+              leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} size={32} />}
+              title={shortName(r.profiles.full_name)}
+              subtitle={t(`status_${r.status}` as StringKey)}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {state === 'scheduled' && confirmed && atPickup && !canStart ? <Body muted small>{t('startOpensNote')}</Body> : null}
       {error ? <Body error>{error}</Body> : null}
-    </Screen>
+    </>
+  );
+
+  // The buttons, and the one the bar keeps.
+  let footer = null;
+  let mini: SheetMini = { sub: `${route} · ${t('seatsLine').replace('{booked}', ltr(booked)).replace('{total}', ltr(total))}` };
+  const firstAsk = asking[0];
+  if (firstAsk && !trip.cancelled_at) {
+    const name = shortName(firstAsk.profiles.full_name).split(' ')[0];
+    const left = firstAsk.respond_by ? ` · ${formatCountdown(new Date(firstAsk.respond_by).getTime() - now.getTime())}` : '';
+    mini = {
+      sub: `${t('requestFrom').replace('{name}', name)}${left}`,
+      tone: 'clay',
+      action: { label: t('acceptName').replace('{name}', name), onPress: () => decide(firstAsk, 'accepted'), loading: busy === firstAsk.id },
+    };
+  }
+  if (canStart) {
+    footer = (
+      <>
+        <Button label={t('startTrip')} icon="steeringWheel" onPress={start} loading={busy === 'trip'} disabled={!allIn} />
+        {allIn ? null : (
+          <Body muted small style={{ textAlign: 'center' }}>
+            {t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.full_name).split(' ')[0]).join('، '))}
+          </Body>
+        )}
+      </>
+    );
+    if (!firstAsk) {
+      mini = allIn
+        ? { sub: t('allInCar'), tone: 'ok', action: { label: t('startTrip'), onPress: start, loading: busy === 'trip' } }
+        : { sub: t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.full_name).split(' ')[0]).join('، ')) };
+    }
+  } else if (state === 'finished') {
+    if (canRate && unrated.length > 0) {
+      const rateNow = () => {
+        setStep('arrived');
+        setWant({ to: 'full', key: Date.now() });
+      };
+      footer = <Button label={t('rateRiders')} icon="star" onPress={rateNow} />;
+      mini = { sub: t('arrivedSafely'), tone: 'ok', action: { label: t('rateOne'), onPress: rateNow } };
+    } else {
+      mini = { sub: t('arrivedSafely'), tone: 'ok' };
+    }
+  } else if (canCancelTrip) {
+    footer = <Button variant="plain" label={t('cancelTrip')} onPress={cancelTrip} loading={busy === 'trip'} />;
+  }
+
+  // Steps replace the details in the same card.
+  const riderRow = requests.find((r) => r.passenger_id === riderId);
+  const riderName = riderRow ? shortName(riderRow.profiles.full_name) : null;
+  const minutes = trip.started_at && trip.finished_at ? Math.max(1, Math.round((+new Date(trip.finished_at) - +new Date(trip.started_at)) / 60_000)) : null;
+  const page =
+    step === 'rider' && riderId
+      ? {
+          header: <StepHeader title={riderName ?? t('passengers')} onBack={() => setStep('details')} />,
+          body: <PersonProfile id={riderId} />,
+          footer: null,
+          mini: { sub: route },
+        }
+      : step === 'arrived'
+        ? {
+            header: (
+              <StepHeader
+                title={t('arrivedSafely')}
+                kicker={minutes ? t('tripMinutes').replace('{n}', ltr(minutes)) : undefined}
+                onBack={backToDetails}
+              />
+            ),
+            body: rate.body,
+            footer: rate.footer,
+            mini: { sub: t('arrivedSafely'), tone: 'ok' as const },
+          }
+        : { header, body, footer, mini };
+
+  return (
+    <GestureHandlerRootView style={styles.page}>
+      <TripSheet
+        origin={trip.origin}
+        destination={trip.destination}
+        departsAt={trip.departs_at}
+        pickup={pickup}
+        from={null}
+        want={want}
+        closing={closing}
+        onRequestClose={() => setClosing(true)}
+        onClosed={goBack}
+        onShare={state === 'scheduled' && riders.length > 0 && step === 'details' ? share : null}
+        step={{ key: step, depth: step === 'details' ? 0 : 1 }}
+        {...page}
+      />
+    </GestureHandlerRootView>
+  );
+}
+
+/** One confirmed rider: photo, name, phone and a call button; at the pickup, the check-in button below. */
+function RiderRow({
+  r,
+  last,
+  onOpen,
+  checkIn,
+  note,
+}: {
+  r: Request;
+  last: boolean;
+  onOpen: () => void;
+  checkIn: ReactNode;
+  note: ReactNode;
+}) {
+  const { t } = useT();
+  const contact = useContact(r.id);
+  const phone = contact?.phone ?? null;
+  return (
+    <View style={[styles.rider, !last && styles.riderLine]}>
+      <ListRow
+        last
+        leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} />}
+        title={shortName(r.profiles.full_name)}
+        onPress={onOpen}
+        subtitle={
+          <View style={{ gap: 2 }}>
+            <Body muted small>
+              {ltr(r.seats)} {t('seatOne')}
+              {phone ? ` · ${ltr(formatPhone(phone))}` : ''}
+            </Body>
+            {note}
+          </View>
+        }
+        trailing={
+          phone ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t('call')} ${shortName(r.profiles.full_name)}`}
+              onPress={() => Linking.openURL(telLink(phone)).catch(() => {})}
+              style={({ pressed }) => [styles.call, pressed && { opacity: 0.7 }]}
+            >
+              <Icon name="phone" size={20} color={colors.onInk} />
+            </Pressable>
+          ) : undefined
+        }
+      />
+      {checkIn}
+    </View>
   );
 }
 
 /** How much of the answer window is left, from 1 (just asked) to 0 (expired). */
 function progressOf(r: Request, now: Date) {
   if (!r.respond_by) return 0;
-  const start = new Date(r.created_at).getTime();
+  const startMs = new Date(r.created_at).getTime();
   const end = new Date(r.respond_by).getTime();
-  return end > start ? (end - now.getTime()) / (end - start) : 0;
+  return end > startMs ? (end - now.getTime()) / (end - startMs) : 0;
 }
 
 const styles = StyleSheet.create({
-  request: {
-    paddingBottom: space.md,
-    gap: space.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
-  },
+  page: { flex: 1, backgroundColor: colors.surface },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  block: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairline },
   actions: { flexDirection: 'row', gap: space.sm },
-  pickup: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
   action: { flex: 1 },
+  rider: { paddingBottom: space.sm },
+  riderLine: { borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  checkIn: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingBottom: space.sm },
+  inCar: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  inCarOn: { backgroundColor: colors.statusOpen, borderColor: colors.statusOpen },
+  inCarText: { fontSize: 16, color: colors.ink },
+  call: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
 });
