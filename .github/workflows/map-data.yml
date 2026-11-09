@@ -25,6 +25,8 @@ jobs:
           osmium export filtered.osm.pbf --add-unique-id=type_id -f geojson -o checkpoints.geojson
           osmium fileinfo -e region.osm.pbf | grep -i "timestamp" | head -3 || true
       - run: python3 scripts/map-data/fetch_osm_checkpoints.py checkpoints.geojson osm-checkpoints.json
+      - name: Print the rows (one JSON per line) so they can be read from the log
+        run: python3 -c "import json;[print('ROW', json.dumps(r, ensure_ascii=False)) for r in json.load(open('osm-checkpoints.json'))]"
       - uses: actions/upload-artifact@v4
         with:
           name: osm-checkpoints
