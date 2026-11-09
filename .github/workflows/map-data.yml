@@ -29,7 +29,7 @@ jobs:
         run: python3 -c "import json;[print('ROW', json.dumps(r, ensure_ascii=False)) for r in json.load(open('osm-checkpoints.json'))]"
       - name: Places and the West Bank outline
         run: |
-          osmium tags-filter region.osm.pbf n/place=city,town,village,hamlet,suburb -o places.osm.pbf
+          osmium tags-filter region.osm.pbf nwr/place=city,town,village,hamlet,suburb -o places.osm.pbf
           osmium export places.osm.pbf --add-unique-id=type_id -f geojson -o places.geojson
           osmium tags-filter region.osm.pbf r/boundary=administrative -o admin.osm.pbf
           osmium tags-filter admin.osm.pbf r/ISO3166-1=PS r/name:en="West Bank" r/name:en="State of Palestine" -o ps.osm.pbf
