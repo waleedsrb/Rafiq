@@ -365,6 +365,7 @@ export const strings = {
   findSeatTitle: { ar_m: 'إلى أين؟', en: 'Where to?' },
   noResults: { ar_m: 'لا رحلات في هذا اليوم بعد', en: 'No trips on this day yet' },
   closeSearch: { ar_m: 'إغلاق البحث', en: 'Close search' },
+  allDay: { ar_m: 'كل اليوم', en: 'All day' },
   leavingSoon: { ar_m: 'يغادر قريبًا', en: 'Leaving soon' },
   tripsThatDay: { ar_m: 'رحلات في هذا اليوم', en: 'trips that day' },
   seatsLeft: { ar_m: 'مقاعد متبقية', en: 'seats left' },
