@@ -35,30 +35,29 @@ https://docs.expo.dev/versions/v58.0.0/sdk/glass-effect/
 This change researches presentation; it does not replace the notification route's
 slide animation. The proposed animation still needs a native prototype and phone check.
 
-## Inbox acceptance criteria
+## Inbox acceptance criteria (decided with Waleed, 2026-11-09)
 
-- Opening the inbox alone preserves unread rows.
-- Opening an individual notification marks that notification read.
-- Direction C: in English, swipe right to reveal Mark as read on the left; swipe
-  left to reveal Delete on the right. Mirror directions in Arabic. Each side shows
-  one action. Read is absent for already-read items.
-- A partial swipe settles at the revealed action; tapping performs it. Delete
-  reveals in `colors.statusClosedSoft` with red text and becomes
-  `colors.statusClosed` with white text while pressed. Read uses the corresponding
-  sunken/graphite surfaces. Keep shared typography, spacing, radii and targets.
-- A full swipe arms the action at 72% of the measured row width. Its
-  surface becomes dark at that threshold; release performs it. Retreating below
-  the threshold disarms it. A fast short flick must not execute Delete.
-- A successful read removes the unread treatment; a successful delete removes
-  the row. Both refresh the Home bell.
-- Failures retain the row/state and show a useful retryable error.
+- Opening the inbox alone keeps unread messages unread. "Mark all as read" (double
+  check, top bar, shown only while something is unread) clears them all.
+- Tapping a message opens its page or action straight away. Marking it read happens in
+  the background and never blocks the navigation.
+- Swipes follow Mail: in English, swipe right for Read and left for Delete; mirrored in
+  Arabic. Read is absent for already-read messages.
+- Style "C, circles": a 44pt round button with its word underneath. Soft tint at rest
+  (sunken / statusClosedSoft); solid (ink / statusClosed) with a white glyph and a
+  slight grow when armed.
+- A partial swipe settles with the button showing; tapping it performs it; tapping the
+  row closes it.
+- A full swipe arms at 60% of the row width with a haptic tick; letting go performs it.
+  Retreating below 60% disarms it.
+- Delete slides the row out, the list closes the gap, and "Notification deleted · Undo"
+  shows for 4 seconds before the server delete. Leaving the page sends it at once.
+- Every change shows at once and is put back with an error if the server refuses.
 - Each mutation is scoped to the signed-in owner; another account cannot mutate it.
-- Arabic layout and assistive actions provide the same operations.
-- New push payloads should identify their exact inbox row so a push tap can mark
-  that row read without guessing from a URL shared by several notifications.
+- Screen readers get Open, Mark as read and Delete as actions on the row.
+- Pushes carry their inbox row id, so tapping a push marks exactly that row read.
 
-Read notifications remain in history until deleted. Read status and deletion
-serve different purposes.
+Read notifications remain in history until deleted.
 
 ## Validation of two-stage swipes
 

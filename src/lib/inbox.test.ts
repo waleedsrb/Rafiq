@@ -86,3 +86,15 @@ test('push reads only an explicit valid id, preserving bigint precision', () => 
     assert.equal(notificationIdFromPush(invalid), null);
   }
 });
+
+test('a failed change can be put back exactly, and mark all keeps earlier read times', () => {
+  const at = new Date('2026-11-09T08:00:00Z');
+  const rows = [row(3, at), row(2, new Date('2026-11-08T08:00:00Z'), 'accepted', true), row(1, new Date('2026-11-07T08:00:00Z'))];
+  const gone = applyInboxChange(rows, { type: 'delete', id: 2 });
+  assert.deepEqual(applyInboxChange(gone, { type: 'restore', row: rows[1] }).map((n) => n.id), [3, 2, 1]);
+  assert.equal(applyInboxChange(rows, { type: 'restore', row: rows[1] }).length, 3);
+  const read = applyInboxChange(rows, { type: 'read', id: 3, readAt: 'now' });
+  assert.equal(applyInboxChange(read, { type: 'unread', id: 3 })[0].read_at, null);
+  const all = applyInboxChange(rows, { type: 'readAll', readAt: 'now' });
+  assert.deepEqual(all.map((n) => n.read_at), ['now', rows[1].read_at, 'now']);
+});
