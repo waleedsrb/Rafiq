@@ -19,9 +19,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, Vi
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
+  Easing,
   FadeIn,
-  FadeInLeft,
-  FadeInRight,
   useAnimatedRef,
   runOnJS,
   useAnimatedScrollHandler,
@@ -57,9 +56,14 @@ const DETENTS: Detent[] = ['mini', 'mid', 'full'];
 
 const OPEN = { damping: 24, stiffness: 200, mass: 1 };
 const SNAP = { damping: 26, stiffness: 260, mass: 1, overshootClamping: true };
-// A step asking for a new height (Request opening up): a softer spring that may overshoot a
-// hair, so the card breathes into place instead of snapping.
-const SHIFT = { damping: 22, stiffness: 190, mass: 1 };
+// A step asking for a new height (Request opening up): a softer spring than a drag's snap,
+// but one that never overshoots, so the card settles instead of bouncing.
+const SHIFT = { damping: 30, stiffness: 200, mass: 1, overshootClamping: true };
+// Swapping steps inside the card: a short slide and fade that decelerates and stops (no
+// spring), like iOS pushing content inside a sheet. Calm, and quick enough to stay out of the way.
+const STEP_EASE = Easing.bezier(0.2, 0, 0, 1);
+const STEP_SLIDE = 16;
+const STEP_MS = 280;
 const CLOSE = { damping: 30, stiffness: 280, mass: 1, overshootClamping: true };
 // A flick faster than this (points per second) moves one height in that direction.
 const FLICK = 600;
@@ -308,10 +312,20 @@ export function TripSheet({
     prev.current = { key: stepKey, depth, changed: true, deeper: depth >= prev.current.depth };
   }
   const fromEnd = prev.current.deeper !== rtl; // in Arabic "the end" is the left
+  const dx = fromEnd ? STEP_SLIDE : -STEP_SLIDE;
   const enter =
     reduced || !prev.current.changed
       ? undefined
-      : (fromEnd ? FadeInRight : FadeInLeft).springify().damping(20).stiffness(170);
+      : () => {
+          'worklet';
+          return {
+            initialValues: { opacity: 0, transform: [{ translateX: dx }] },
+            animations: {
+              opacity: withTiming(1, { duration: STEP_MS * 0.8, easing: STEP_EASE }),
+              transform: [{ translateX: withTiming(0, { duration: STEP_MS, easing: STEP_EASE }) }],
+            },
+          };
+        };
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
