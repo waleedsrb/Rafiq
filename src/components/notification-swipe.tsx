@@ -1,9 +1,9 @@
-// One inbox row you can swipe. A short drag reveals a round button (Read on the
+// One inbox row you can swipe. A short drag reveals a soft capsule button (Read on the
 // leading side, Delete on the trailing side, mirrored in Arabic). Dragging past 60%
-// of the row arms it: the circle fills in and grows, the phone ticks, and letting
+// of the row arms it: the capsule turns solid, the phone ticks, and letting
 // go performs it. Delete slides the row out before the list closes the gap.
 import { type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -19,9 +19,7 @@ import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
 import { clampNotificationSwipe, notificationSwipeArmed, notificationSwipeResult, type NotificationSwipeAction } from '@/lib/notification-swipe';
-import { colors, motion, space } from '@/theme/tokens';
-
-const CIRCLE = 44;
+import { colors, motion, radii, space } from '@/theme/tokens';
 
 export function NotificationSwipe({ children, canRead, readLabel, deleteLabel, onRead, onDelete }: {
   /** The row itself. It receives a press handler that first closes an open swipe. */
@@ -113,7 +111,7 @@ export function NotificationSwipe({ children, canRead, readLabel, deleteLabel, o
   );
 }
 
-/** A round button with its word underneath: soft at rest, solid and a little bigger when armed. */
+/** A soft capsule with an icon and its word: tinted at rest, solid when armed. */
 function Action({ kind, label, armed, font, reduced, onPress }: {
   kind: NotificationSwipeAction; label: string; armed: SharedValue<NotificationSwipeAction | null>;
   font: string; reduced: boolean; onPress: () => void;
@@ -121,24 +119,24 @@ function Action({ kind, label, armed, font, reduced, onPress }: {
   const soft = kind === 'read' ? colors.sunken : colors.statusClosedSoft;
   const solid = kind === 'read' ? colors.ink : colors.statusClosed;
   const tint = kind === 'read' ? colors.ink : colors.statusClosed;
-  const circle = useAnimatedStyle(() => {
-    const on = armed.value === kind;
-    return {
-      backgroundColor: on ? solid : soft,
-      transform: [{ scale: withTiming(on ? 1.15 : 1, { duration: reduced ? 0 : 140 }) }],
-    };
-  });
-  const glyphOn = useAnimatedStyle(() => ({ opacity: armed.value === kind ? 1 : 0 }));
+  const icon = kind === 'read' ? 'envelopeOpen' : 'trash';
+  const capsule = useAnimatedStyle(() => ({
+    backgroundColor: withTiming(armed.value === kind ? solid : soft, { duration: reduced ? 0 : 120 }),
+  }));
+  // The white icon and word fade in on top when armed, so the change stays on the UI thread.
+  const whiteOn = useAnimatedStyle(() => ({ opacity: withTiming(armed.value === kind ? 1 : 0, { duration: reduced ? 0 : 120 }) }));
+  const content = (color: string) => (
+    <>
+      <Icon name={icon} size={22} color={color} />
+      <Text numberOfLines={1} style={[styles.label, { fontFamily: font, color }]}>{label}</Text>
+    </>
+  );
   return (
-    <Pressable onPress={onPress} style={styles.action} hitSlop={space.xs}>
-      <Animated.View style={[styles.circle, circle]}>
-        <Icon name={kind === 'read' ? 'envelopeOpen' : 'trash'} size={22} color={tint} />
-        {/* The white glyph fades in on top when armed, so the colour change stays on the UI thread. */}
-        <Animated.View style={[StyleSheet.absoluteFill, styles.center, glyphOn]}>
-          <Icon name={kind === 'read' ? 'envelopeOpen' : 'trash'} size={22} color={colors.onInk} />
-        </Animated.View>
+    <Pressable onPress={onPress} style={styles.action}>
+      <Animated.View style={[styles.capsule, capsule]}>
+        {content(tint)}
+        <Animated.View style={[StyleSheet.absoluteFill, styles.center, whiteOn]}>{content(colors.onInk)}</Animated.View>
       </Animated.View>
-      <Animated.Text numberOfLines={1} style={[styles.label, { fontFamily: font, color: tint }]}>{label}</Animated.Text>
     </Pressable>
   );
 }
@@ -146,9 +144,9 @@ function Action({ kind, label, armed, font, reduced, onPress }: {
 const styles = StyleSheet.create({
   clip: { overflow: 'hidden' },
   row: { backgroundColor: colors.surface },
-  panel: { position: 'absolute', top: 0, bottom: 0, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  action: { width: 80, alignItems: 'center', justifyContent: 'center', gap: space.xs },
-  circle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, alignItems: 'center', justifyContent: 'center' },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 12, lineHeight: 16 },
+  panel: { position: 'absolute', top: 0, bottom: 0, overflow: 'hidden', flexDirection: 'row' },
+  action: { flex: 1, paddingVertical: 6, paddingHorizontal: space.xs },
+  capsule: { flex: 1, borderRadius: radii.container, alignItems: 'center', justifyContent: 'center', gap: 2, overflow: 'hidden' },
+  center: { alignItems: 'center', justifyContent: 'center', gap: 2 },
+  label: { fontSize: 12, lineHeight: 16, maxWidth: 72, textAlign: 'center' },
 });
