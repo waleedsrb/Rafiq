@@ -1,4 +1,4 @@
-# Downloads checkpoint and road-closure data from OpenStreetMap for review.
+# Pulls checkpoint and road-closure data out of OpenStreetMap for review.
 # Run it from the Actions tab ("Run workflow"), or it runs when the script changes.
 name: Map data
 on:
@@ -12,10 +12,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python scripts/map-data/fetch_osm_checkpoints.py osm-checkpoints.json
+      - run: sudo apt-get update -q && sudo apt-get install -yq osmium-tool
+      - name: Download the Israel and Palestine extract (Geofabrik)
+        run: curl -sSfL -o region.osm.pbf https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
+      - name: Keep checkpoints, gates and closures
+        run: |
+          osmium tags-filter region.osm.pbf \
+            nwr/military=checkpoint nwr/barrier=checkpoint nwr/barrier=border_control \
+            nwr/police=checkpoint nwr/amenity=checkpoint \
+            n/barrier=gate,lift_gate,swing_gate,block,jersey_barrier,debris \
+            -o filtered.osm.pbf
+          osmium export filtered.osm.pbf --add-unique-id=type_id -f geojson -o checkpoints.geojson
+          osmium fileinfo -e region.osm.pbf | grep -i "timestamp" | head -3 || true
+      - run: python3 scripts/map-data/fetch_osm_checkpoints.py checkpoints.geojson osm-checkpoints.json
       - uses: actions/upload-artifact@v4
         with:
           name: osm-checkpoints

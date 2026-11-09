@@ -1,59 +1,52 @@
-"""Download West Bank checkpoints, gates and road closures from OpenStreetMap.
+"""Pick West Bank checkpoints, gates and road closures out of OpenStreetMap.
 
-Runs in GitHub Actions (the build machine can reach the Overpass API). Writes the raw
-OSM elements, with all their tags, to osm-checkpoints.json so we can review them before
-anything goes into the database.
+Runs in GitHub Actions. The workflow downloads Geofabrik's Israel and Palestine extract
+and filters it with osmium into checkpoints.geojson; this script keeps the points inside
+a box around the West Bank and writes them, with all their tags, to osm-checkpoints.json
+so we can review them before anything goes into the database.
 
 Data (c) OpenStreetMap contributors, ODbL: credit OSM wherever we show it.
 """
 import json
 import sys
-import urllib.parse
-import urllib.request
 
-# A box around the West Bank (south, west, north, east). It also covers parts of Israel
-# and Jordan; the review step keeps only points inside the West Bank.
-BBOX = "31.34,34.88,32.56,35.58"
-
-QUERY = f"""
-[out:json][timeout:120];
-(
-  nwr["military"="checkpoint"]({BBOX});
-  nwr["barrier"="checkpoint"]({BBOX});
-  nwr["barrier"="border_control"]({BBOX});
-  nwr["police"="checkpoint"]({BBOX});
-  nwr["amenity"="checkpoint"]({BBOX});
-  node["barrier"~"^(gate|lift_gate|swing_gate|block|jersey_barrier|debris)$"]({BBOX});
-);
-out center tags;
-"""
-
-SERVERS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-]
+# A box around the West Bank. It also covers bits of Israel and Jordan; the review step
+# keeps only points inside the West Bank.
+SOUTH, WEST, NORTH, EAST = 31.34, 34.88, 32.56, 35.58
 
 
-def main(out_path: str) -> None:
-    body = urllib.parse.urlencode({"data": QUERY}).encode()
-    last_error = None
-    for url in SERVERS:
-        try:
-            req = urllib.request.Request(url, data=body, headers={"User-Agent": "rafiq-map-data/1.0"})
-            with urllib.request.urlopen(req, timeout=180) as res:
-                data = json.load(res)
-            break
-        except Exception as e:  # try the next server
-            last_error = e
-            print(f"{url} failed: {e}", file=sys.stderr)
-    else:
-        raise SystemExit(f"All Overpass servers failed: {last_error}")
+def centre(geom: dict) -> tuple[float, float]:
+    """A point for any geometry: the point itself, or the average of a line's or area's corners."""
+    coords = geom["coordinates"]
+    if geom["type"] == "Point":
+        return coords[0], coords[1]
+    flat = []
 
-    elements = data.get("elements", [])
+    def walk(c):
+        if isinstance(c[0], (int, float)):
+            flat.append(c)
+        else:
+            for x in c:
+                walk(x)
+
+    walk(coords)
+    return sum(p[0] for p in flat) / len(flat), sum(p[1] for p in flat) / len(flat)
+
+
+def main(src: str, out_path: str) -> None:
+    with open(src, encoding="utf-8") as f:
+        features = json.load(f)["features"]
+    rows = []
+    for feat in features:
+        lng, lat = centre(feat["geometry"])
+        if not (SOUTH <= lat <= NORTH and WEST <= lng <= EAST):
+            continue
+        props = feat.get("properties") or {}
+        rows.append({"id": feat.get("id") or props.get("@id"), "lat": round(lat, 6), "lng": round(lng, 6), "tags": props})
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump({"osm_base": data.get("osm3s", {}).get("timestamp_osm_base"), "elements": elements}, f, ensure_ascii=False, indent=1)
-    print(f"{len(elements)} elements written to {out_path}")
+        json.dump(rows, f, ensure_ascii=False, indent=1)
+    print(f"{len(rows)} of {len(features)} features kept in {out_path}")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "osm-checkpoints.json")
+    main(sys.argv[1], sys.argv[2])
