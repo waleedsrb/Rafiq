@@ -10,7 +10,6 @@
 // Drawn by the trip layer (trip-layer-host.tsx), inside the search, and on the
 // /trips/[id] screen for links from notifications.
 
-import { router } from 'expo-router';
 import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
@@ -35,6 +34,7 @@ import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
+import { pushAfterDialog } from '@/lib/nav';
 import { telLink } from '@/lib/phone';
 import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
@@ -215,7 +215,7 @@ export function TripDetails({
     // The ID check is the one page of its own (camera and photos), so say so before going.
     if (!profile?.id_verified_at) {
       const go = await confirm({ title: t('idFirstTitle'), body: t('idFirstBody'), yes: t('startVerify'), no: t('notNow') });
-      if (go) router.push({ pathname: '/verify', params: { kind: 'passenger' } });
+      if (go) await pushAfterDialog({ pathname: '/verify', params: { kind: 'passenger' } });
       return;
     }
     if (!(await photoGate(!!profile.avatar_path, photoGateText(t)))) return;

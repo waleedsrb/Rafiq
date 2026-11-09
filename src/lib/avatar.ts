@@ -5,11 +5,11 @@
 // database (can_see_avatar()): by default only you, admins, and the two people on an accepted
 // booking. So the phone simply asks for a link; if the answer is no, it shows the initial.
 
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { base64ToBytes } from '@/lib/base64';
 import { confirm } from '@/lib/dialog';
+import { pushAfterDialog } from '@/lib/nav';
 import type { Picked } from '@/lib/photo-pick';
 import { supabase } from '@/lib/supabase';
 
@@ -89,7 +89,7 @@ export async function photoRequired(): Promise<boolean> {
 export async function photoGate(hasPhoto: boolean, text: { title: string; body: string; yes: string; no: string }) {
   if (hasPhoto || !(await photoRequired())) return true;
   const add = await confirm({ ...text, tone: 'neutral' });
-  if (add) router.push('/account');
+  if (add) await pushAfterDialog('/account');
   return false;
 }
 
