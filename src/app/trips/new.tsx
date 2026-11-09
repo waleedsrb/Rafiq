@@ -16,7 +16,7 @@ import { ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PickupMap } from '@/components/pickup-map';
-import { PlacePicker } from '@/components/place-picker';
+import { PlaceFields, PlaceResults, usePlaceSearch } from '@/components/place-search';
 import { RouteCard } from '@/components/route-card';
 import { TimeWheel } from '@/components/time-wheel';
 import { TripHero } from '@/components/trip-hero';
@@ -66,7 +66,18 @@ export default function NewTrip() {
     return { origin: o, destination: d && d !== o ? d : o === NABLUS ? RAMALLAH : NABLUS };
   });
   const { origin, destination } = ends;
-  const [picking, setPicking] = useState<'origin' | 'destination' | null>(null);
+  // Tapping From or To turns the route card into the two place fields, in the card itself.
+  const places = usePlaceSearch();
+  const picking = places.end;
+  const [want, setWant] = useState<{ to: 'full' | 'mid'; key: number } | null>(null);
+  const openPlaces = (end: 'origin' | 'destination') => {
+    places.open(end);
+    setWant((w) => ({ to: 'full', key: (w?.key ?? 0) + 1 })); // room for the town list
+  };
+  const closePlaces = () => {
+    places.close();
+    setWant((w) => ({ to: 'mid', key: (w?.key ?? 0) + 1 }));
+  };
 
   const [step, setStep] = useState<Step>('where');
   const [closing, setClosing] = useState(false);
@@ -229,6 +240,7 @@ export default function NewTrip() {
   };
   const back = () => {
     setError(null);
+    if (picking) return closePlaces();
     if (index <= 0) close();
     else setStep(STEPS[index - 1]);
   };
@@ -327,13 +339,27 @@ export default function NewTrip() {
     if (form === 'where') {
       body = (
         <>
-          <RouteCard
-            origin={origin}
-            destination={destination}
-            onSwap={() => pickRoute({ origin: destination, destination: origin })}
-            onPick={setPicking}
-          />
-          {past.length ? (
+          {picking ? (
+            <>
+              <PlaceFields search={places} origin={origin} destination={destination} />
+              <PlaceResults
+                search={places}
+                exclude={picking === 'destination' ? origin : destination}
+                onPick={(id) => {
+                  pickRoute(picking === 'origin' ? { origin: id, destination } : { origin, destination: id });
+                  closePlaces();
+                }}
+              />
+            </>
+          ) : (
+            <RouteCard
+              origin={origin}
+              destination={destination}
+              onSwap={() => pickRoute({ origin: destination, destination: origin })}
+              onPick={openPlaces}
+            />
+          )}
+          {!picking && past.length ? (
             <View>
               {past.map((r, i) => (
                 <ListRow
@@ -347,7 +373,7 @@ export default function NewTrip() {
               ))}
             </View>
           ) : null}
-          {demand ? (
+          {!picking && demand ? (
             <View style={styles.demand}>
               <ListRow
                 last
@@ -442,7 +468,7 @@ export default function NewTrip() {
 
     // The last button says exactly what goes out: "Publish trip · Tomorrow 7:30".
     const nextLabel = form === 'seats' ? `${t('publishTrip')} · ${whenText} ${ltr(shortTime(departs))}` : t('nextStep');
-    footer = (
+    footer = picking ? undefined : (
       <>
         {error ? (
           <Body error small style={{ textAlign: 'center' }}>
@@ -474,19 +500,8 @@ export default function NewTrip() {
         onClosed={goBack}
         step={{ key: step, depth: index }}
         pickup={pickup}
+        want={want}
         map={step === 'pickup' && !pausedUntil ? <PickupMap center={mapAt} onMove={onMapMove} visibleBottom={sheetMidTop(H)} /> : undefined}
-      />
-      <PlacePicker
-        visible={picking !== null}
-        title={t(picking === 'destination' ? 'whereTo' : 'whereFrom')}
-        exclude={picking === 'destination' ? origin : picking === 'origin' ? destination : undefined}
-        onPick={(id) => {
-          // Picking the town at the other end flips the route.
-          if (picking === 'origin') pickRoute(id === destination ? { origin: id, destination: origin } : { origin: id, destination });
-          else pickRoute(id === origin ? { origin: destination, destination: id } : { origin, destination: id });
-          setPicking(null);
-        }}
-        onClose={() => setPicking(null)}
       />
     </GestureHandlerRootView>
   );
