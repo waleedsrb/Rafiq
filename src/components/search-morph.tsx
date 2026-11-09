@@ -27,7 +27,9 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
+  Easing,
   Extrapolation,
+  FadeIn,
   interpolate,
   runOnJS,
   useAnimatedScrollHandler,
@@ -42,7 +44,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 
 import { DialogLayer } from '@/components/dialog-host';
 import { Icon } from '@/components/icon';
-import { PlacePicker } from '@/components/place-picker';
+import { PlaceFields, PlaceResults, PLACE_FIELDS_H, usePlaceSearch } from '@/components/place-search';
 import { TripDetails } from '@/components/trip-details';
 import { DayChips, SearchResults, type SearchState } from '@/components/trip-search';
 import { useFont } from '@/components/ui';
@@ -57,6 +59,9 @@ export type Rect = { x: number; y: number; width: number; height: number };
 const PAD = 8;
 const ROW = 44;
 const HEAD_H = PAD + ROW + PAD;
+// Grown for place search: the two From/To fields under the row.
+const GAP = 6;
+const GROW = GAP + PLACE_FIELDS_H;
 const SIDE = 12; // the glass floats this far from the screen edges
 
 const OPEN = { damping: 19, stiffness: 190, mass: 1 };
@@ -88,8 +93,9 @@ export function SearchMorph({
   onClosed: () => void;
 }) {
   const { t, lang } = useT();
-  // Which end of the route the place search is open for.
-  const [picking, setPicking] = useState<'origin' | 'destination' | null>(null);
+  // Place search, in the header itself: tapping From or To grows the bar into two fields.
+  const places = usePlaceSearch();
+  const picking = places.end;
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
   const { width, height: screenH } = useWindowDimensions();
@@ -109,6 +115,19 @@ export function SearchMorph({
   };
 
   const p = useSharedValue(0);
+  // 0 = the one-line bar, 1 = grown into the From/To fields.
+  const grow = useSharedValue(0);
+  // True from the moment the fields open until the bar has shrunk back: the native glass
+  // stays off meanwhile, because Liquid Glass turns grey while its size animates.
+  const [resizing, setResizing] = useState(false);
+  useEffect(() => {
+    const done = (finished?: boolean) => {
+      'worklet';
+      if (finished && !picking) runOnJS(setResizing)(false);
+    };
+    if (picking) setResizing(true);
+    grow.value = reduced ? withTiming(picking ? 1 : 0, { duration: 120 }, done) : withTiming(picking ? 1 : 0, { duration: motion.inMs + 80, easing: Easing.out(Easing.cubic) }, done);
+  }, [picking]); // eslint-disable-line react-hooks/exhaustive-deps
   // Swipe down to close. `drag` = the header pulled by a finger (the page follows);
   // `pull` = the list pulled past its top (iOS rubber band; the header follows halfway).
   const drag = useSharedValue(0);
@@ -143,7 +162,7 @@ export function SearchMorph({
   }, [closing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const top = insets.top + 6;
-  const nativeGlass = LIQUID_GLASS && settled && !closing;
+  const nativeGlass = LIQUID_GLASS && settled && !closing && !resizing;
   const to = { x: SIDE, y: top, width: width - SIDE * 2 };
 
   // Pulling the list down past its top and letting go closes the search.
@@ -164,7 +183,7 @@ export function SearchMorph({
 
   // Dragging the header down works everywhere (Android lists don't rubber-band).
   const pan = usePanGesture({
-    enabled: !closing,
+    enabled: !closing && !picking,
     activeOffsetY: [-12, 12],
     failOffsetX: [-24, 24],
     onUpdate: (e) => {
@@ -189,7 +208,7 @@ export function SearchMorph({
       top: interpolate(p.value, [0, 1], [from.y, to.y], Extrapolation.EXTEND),
       left: interpolate(p.value, [0, 1], [from.x, to.x], Extrapolation.EXTEND),
       width: interpolate(p.value, [0, 1], [from.width, to.width], Extrapolation.EXTEND),
-      height: interpolate(p.value, [0, 1], [from.height, HEAD_H], Extrapolation.EXTEND),
+      height: interpolate(p.value, [0, 1], [from.height, HEAD_H], Extrapolation.EXTEND) + grow.value * GROW,
       borderRadius: interpolate(p.value, [0, 1], [from.height / 2, 26], Extrapolation.CLAMP),
       transform: [{ scaleX: 1 - stretch * 0.5 }, { scaleY: 1 + stretch }],
     };
@@ -243,7 +262,7 @@ export function SearchMorph({
   }));
 
   return (
-    <Modal visible={!hidden} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => (trip ? tripBack.current?.() : requestClose())}>
+    <Modal visible={!hidden} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => (trip ? tripBack.current?.() : picking ? places.close() : requestClose())}>
       {/* A Modal is its own native window, so gestures need their own root inside it. */}
       {/* Its own safe-area root too: inside a tab, the inherited insets count the tab bar
           as "unsafe", which pushed the card's buttons and bar about 50pt too high. */}
@@ -258,17 +277,32 @@ export function SearchMorph({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingTop: top + HEAD_H + space.md,
+              paddingTop: top + HEAD_H + (picking ? GROW : 0) + space.md,
               paddingBottom: insets.bottom + space.xl,
               paddingHorizontal: space.screen,
               direction,
             }}
           >
             <Animated.View style={list}>
-              <View style={{ gap: space.md }}>
-                <DayChips s={s} />
-                <SearchResults s={s} onOpenTrip={openTrip} />
-              </View>
+              {picking ? (
+                // The towns take the trips' place while you pick; the trips come back after.
+                <Animated.View key="places" entering={reduced ? undefined : FadeIn.duration(180)}>
+                  <PlaceResults
+                    search={places}
+                    exclude={picking === 'destination' ? s.origin : s.destination}
+                    onPick={(id) => {
+                      if (picking === 'origin') s.setOrigin(id);
+                      else s.setDestination(id);
+                      places.close();
+                    }}
+                  />
+                </Animated.View>
+              ) : (
+                <Animated.View key="trips" entering={reduced || !resizing ? undefined : FadeIn.duration(220)} style={{ gap: space.md }}>
+                  <DayChips s={s} />
+                  <SearchResults s={s} onOpenTrip={openTrip} />
+                </Animated.View>
+              )}
             </Animated.View>
           </Animated.ScrollView>
         </Animated.View>
@@ -308,37 +342,55 @@ export function SearchMorph({
           </Animated.View>
 
           <Animated.View style={[styles.head, { width: to.width, direction }, head]}>
-            <View style={styles.headRow}>
-              <Pressable accessibilityRole="button" accessibilityLabel={t('closeSearch')} onPress={requestClose} hitSlop={6} style={styles.round}>
-                <Icon name="x" size={18} />
-              </Pressable>
-              {/* From over To, each opens the place search. A ring marks the start, a square the end. */}
-              <View style={styles.ends}>
-                <View style={styles.dots}>
-                  <View style={styles.dotStart} />
-                  <View style={styles.dotLine} />
-                  <View style={styles.dotEnd} />
+            {picking ? (
+              // Grown: back, which end you're choosing, swap; then the two fields.
+              <Animated.View key="fields" entering={reduced ? undefined : FadeIn.duration(160)} style={{ gap: GAP }}>
+                <View style={styles.headRow}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={places.close} hitSlop={6} style={styles.round}>
+                    <Icon name={rtl ? 'caretRight' : 'caretLeft'} size={18} />
+                  </Pressable>
+                  <Text style={[styles.route, { flex: 1, fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]}>
+                    {t(picking === 'origin' ? 'whereFrom' : 'whereTo')}
+                  </Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={t('swapDirection')} onPress={() => { tapFeel(); s.swap(); }} hitSlop={6} style={styles.round}>
+                    <Icon name="arrowsDownUp" size={18} />
+                  </Pressable>
                 </View>
-                <View style={{ flex: 1 }}>
-                  {(['origin', 'destination'] as const).map((end) => (
-                    <Pressable
-                      key={end}
-                      accessibilityRole="button"
-                      accessibilityLabel={t(end === 'origin' ? 'fromPlace' : 'toPlace').replace('{place}', placeName(s[end], lang))}
-                      onPress={() => { tapFeel(); setPicking(end); }}
-                      hitSlop={{ top: 2, bottom: 2 }}
-                    >
-                      <Text style={[styles.route, { fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]} numberOfLines={1}>
-                        {placeName(s[end], lang)}
-                      </Text>
-                    </Pressable>
-                  ))}
+                <PlaceFields search={places} origin={s.origin} destination={s.destination} />
+              </Animated.View>
+            ) : (
+              <Animated.View key="line" entering={reduced || !resizing ? undefined : FadeIn.duration(160)} style={styles.headRow}>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('closeSearch')} onPress={requestClose} hitSlop={6} style={styles.round}>
+                  <Icon name="x" size={18} />
+                </Pressable>
+                {/* From over To: tap either to grow the bar into the place search. A ring marks the start, a square the end. */}
+                <View style={styles.ends}>
+                  <View style={styles.dots}>
+                    <View style={styles.dotStart} />
+                    <View style={styles.dotLine} />
+                    <View style={styles.dotEnd} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    {(['origin', 'destination'] as const).map((end) => (
+                      <Pressable
+                        key={end}
+                        accessibilityRole="button"
+                        accessibilityLabel={t(end === 'origin' ? 'fromPlace' : 'toPlace').replace('{place}', placeName(s[end], lang))}
+                        onPress={() => { tapFeel(); places.open(end); }}
+                        hitSlop={{ top: 2, bottom: 2 }}
+                      >
+                        <Text style={[styles.route, { fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]} numberOfLines={1}>
+                          {placeName(s[end], lang)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
-              </View>
-              <Pressable accessibilityRole="button" accessibilityLabel={t('swapDirection')} onPress={() => { tapFeel(); s.swap(); }} hitSlop={6} style={styles.round}>
-                <Icon name="arrowsDownUp" size={18} />
-              </Pressable>
-            </View>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('swapDirection')} onPress={() => { tapFeel(); s.swap(); }} hitSlop={6} style={styles.round}>
+                  <Icon name="arrowsDownUp" size={18} />
+                </Pressable>
+              </Animated.View>
+            )}
           </Animated.View>
         </Animated.View>
         </GestureDetector>
@@ -357,17 +409,6 @@ export function SearchMorph({
             backRef={tripBack}
           />
         ) : null}
-        <PlacePicker
-          visible={picking !== null}
-          title={t(picking === 'destination' ? 'whereTo' : 'whereFrom')}
-          exclude={picking === 'destination' ? s.origin : picking === 'origin' ? s.destination : undefined}
-          onPick={(id) => {
-            if (picking === 'origin') s.setOrigin(id);
-            else s.setDestination(id);
-            setPicking(null);
-          }}
-          onClose={() => setPicking(null)}
-        />
         {/* Pop-ups asked for over the search (the trip's Withdraw, Emergency) draw in this layer. */}
         <DialogLayer />
       </GestureHandlerRootView>
