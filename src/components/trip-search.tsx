@@ -4,9 +4,8 @@
 // Used by the search that grows out of Home's "Where to?" bar (search-morph.tsx)
 // and by the stand-alone results screen that other screens link to.
 
-import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type HostInstance } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
@@ -19,6 +18,7 @@ import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { countByDay, dayIndex, filterTrips, leavingSoon, PARTS, SEARCH_DAYS, searchDayStart } from '@/lib/trip-search';
+import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
 import { colors, fonts, radii, sizes, space } from '@/theme/tokens';
 
 export type Result = {
@@ -125,7 +125,8 @@ export function DayChips({ s }: { s: SearchState }) {
 }
 
 /** Part-of-day switch, the count line, and the trips for the chosen day. */
-export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: (tripId: string) => void }) {
+export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: (tripId: string, from?: Rect | null) => void }) {
+  const openInLayer = useOpenTrip();
   const { t } = useT();
   const { session, profile } = useSession();
   const reduced = useReducedMotion();
@@ -158,7 +159,8 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
     else setAlert(error.message.includes('10 alerts') ? 'tooMany' : 'error');
   }
 
-  const open = onOpenTrip ?? ((id: string) => router.push({ pathname: '/trips/[id]', params: { id } }));
+  // A trip grows out of its row, over the results (see trip-sheet.tsx).
+  const open = onOpenTrip ?? openInLayer;
   // A new key per question replays the rows' entrance, so you see the list change.
   const answerKey = `${s.origin}-${s.day}-${s.part}-${womenOnly}`;
 
@@ -219,7 +221,7 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
             entering={reduced ? undefined : FadeInDown.duration(260).delay(Math.min(i, 6) * 35)}
             layout={reduced ? undefined : LinearTransition.duration(220)}
           >
-            <TimeFirstRow r={r} last={i === shown.length - 1} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} onPress={() => open(r.id)} />
+            <TimeFirstRow r={r} last={i === shown.length - 1} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} onPress={(from) => open(r.id, from)} />
           </Animated.View>
         ))}
       </View>
@@ -239,8 +241,10 @@ function TimeFirstRow({
   last: boolean;
   soon: boolean;
   stats: Parameters<typeof StatsLine>[0]['stats'];
-  onPress: () => void;
+  /** Gets where the row is on screen, so the trip can grow out of it. */
+  onPress: (from: Rect | null) => void;
 }) {
+  const ref = useRef<HostInstance>(null);
   const { t } = useT();
   const { f, rtl } = useFont();
   const full = r.seats_left <= 0;
@@ -252,7 +256,8 @@ function TimeFirstRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${shortTime(new Date(r.departs_at))}, ${name}, ${seatsText}, ${r.price_ils}₪`}
-      onPress={onPress}
+      ref={ref}
+      onPress={() => openTripFrom(ref.current, '', (_id, from) => onPress(from ?? null))}
       style={({ pressed }) => [styles.row, !last && styles.rowLine, pressed && { opacity: 0.6 }]}
     >
       <Text style={[styles.time, full && { color: colors.inkSecondary }]}>{shortTime(new Date(r.departs_at))}</Text>

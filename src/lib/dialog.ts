@@ -76,6 +76,40 @@ export function subscribeDialogs(listener: () => void) {
   };
 }
 
+// Where pop-ups are drawn. On iPhone a Modal can only open from the top-most window, so
+// a pop-up asked for while a layer of our own is up (the trip card over the map) must be
+// drawn inside that layer. Each such layer registers itself; the newest one draws.
+// Layer 0 is the root host in the app layout.
+let layers: number[] = [0];
+let nextLayer = 1;
+const layerListeners = new Set<() => void>();
+
+/** For a full-screen layer with its own DialogHost: claim pop-ups while it is up. */
+export function pushDialogLayer(): number {
+  const id = nextLayer++;
+  layers = [...layers, id];
+  for (const l of layerListeners) l();
+  return id;
+}
+
+/** For the same layer, when it goes away. */
+export function popDialogLayer(id: number) {
+  layers = layers.filter((x) => x !== id);
+  for (const l of layerListeners) l();
+}
+
+/** The layer that draws pop-ups now. */
+export function topDialogLayer(): number {
+  return layers[layers.length - 1];
+}
+
+export function subscribeDialogLayers(listener: () => void) {
+  layerListeners.add(listener);
+  return () => {
+    layerListeners.delete(listener);
+  };
+}
+
 /** For the host: the pop-up to show now, or null. */
 export function currentDialog(): DialogEntry | null {
   return queue[0] ?? null;

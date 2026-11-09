@@ -16,7 +16,7 @@
 // because that is the one thing floating over content that scrolls under it.
 
 import { BlurView } from 'expo-blur';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -32,7 +32,9 @@ import Animated, {
 import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DialogLayer } from '@/components/dialog-host';
 import { Icon } from '@/components/icon';
+import { TripDetails } from '@/components/trip-details';
 import { DayChips, SearchResults, type SearchState } from '@/components/trip-search';
 import { useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
@@ -61,7 +63,6 @@ export function SearchMorph({
   closing,
   onRequestClose,
   onClosed,
-  onOpenTrip,
 }: {
   /** Where the bar is on screen, so the glass starts exactly on it. */
   from: Rect;
@@ -73,13 +74,25 @@ export function SearchMorph({
   /** × or the back button: the owner sets `closing`. */
   onRequestClose: () => void;
   onClosed: () => void;
-  onOpenTrip: (tripId: string) => void;
 }) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const reduced = useReducedMotion();
+
+  // A trip opened from the results grows out of its row, right here over the search
+  // (TripDetails is the same card the rest of the app opens). `seen`: it was shown before
+  // the search stepped aside for a page (the ID check), so it comes back without the morph.
+  const [trip, setTrip] = useState<{ id: string; from: Rect | null; key: number; closing: boolean; seen: boolean } | null>(null);
+  const tripBack = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (hidden) setTrip((v) => (v ? { ...v, seen: true } : v));
+  }, [hidden]);
+  const openTrip = (id: string, at?: Rect | null) => {
+    tapFeel();
+    setTrip((v) => ({ id, from: at ?? null, key: (v?.key ?? 0) + 1, closing: false, seen: false }));
+  };
 
   const p = useSharedValue(0);
   const tight = useSharedValue(0); // 0 = full header, 1 = gathered
@@ -173,7 +186,7 @@ export function SearchMorph({
   }));
 
   return (
-    <Modal visible={!hidden} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => requestClose()}>
+    <Modal visible={!hidden} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => (trip ? tripBack.current?.() : requestClose())}>
       {/* A Modal is its own native window, so gestures need their own root inside it. */}
       <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents={closing ? 'none' : 'auto'}>
         <Animated.View style={[StyleSheet.absoluteFill, styles.page, page]}>
@@ -190,7 +203,7 @@ export function SearchMorph({
             }}
           >
             <Animated.View style={list}>
-              <SearchResults s={s} onOpenTrip={onOpenTrip} />
+              <SearchResults s={s} onOpenTrip={openTrip} />
             </Animated.View>
           </Animated.ScrollView>
         </Animated.View>
@@ -237,6 +250,23 @@ export function SearchMorph({
           </Animated.View>
         </Animated.View>
         </GestureDetector>
+
+        {trip ? (
+          <TripDetails
+            key={trip.key}
+            id={trip.id}
+            from={trip.from}
+            settled={trip.seen}
+            closing={trip.closing}
+            onRequestClose={() => setTrip((v) => (v ? { ...v, closing: true } : v))}
+            onClosed={() => setTrip(null)}
+            // Other trips that day: they're right here, under the card.
+            onFindOthers={() => setTrip((v) => (v ? { ...v, closing: true } : v))}
+            backRef={tripBack}
+          />
+        ) : null}
+        {/* Pop-ups asked for over the search (the trip's Withdraw, Emergency) draw in this layer. */}
+        <DialogLayer />
       </GestureHandlerRootView>
     </Modal>
   );

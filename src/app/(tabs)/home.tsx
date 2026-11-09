@@ -132,10 +132,12 @@ export default function Home() {
   useEffect(() => {
     if (usualOrigin && !search) setOrigin(usualOrigin);
   }, [usualOrigin]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Back from a trip page opened in the search: show the search again, as you left it.
+  // A page opened from inside the search (the ID check from a trip card): the search steps
+  // aside while it's up, and is back as you left it when you return.
   useFocusEffect(
     useCallback(() => {
       setSearch((v) => (v?.parked ? { ...v, parked: false } : v));
+      return () => setSearch((v) => (v && !v.parked ? { ...v, parked: true } : v));
     }, []),
   );
 
@@ -405,11 +407,6 @@ export default function Home() {
           closing={search.closing}
           onRequestClose={() => setSearch((v) => (v ? { ...v, closing: true } : v))}
           onClosed={() => setSearch(null)}
-          onOpenTrip={(id) => {
-            // Step aside for the trip page; the search is still here when you come back.
-            setSearch((v) => (v ? { ...v, parked: true } : v));
-            router.push({ pathname: '/trips/[id]', params: { id } });
-          }}
         />
       ) : null}
     </TabScreen>

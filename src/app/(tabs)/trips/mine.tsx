@@ -9,6 +9,7 @@ import { Body, Choice, TabScreen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useBookingChanges } from '@/lib/live';
 import { useSession, useT } from '@/lib/session';
+import { openTrip } from '@/lib/trip-layer';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 
@@ -130,7 +131,7 @@ export default function MyTrips() {
               priceIls={b.trips.price_ils}
               signal={b.status === 'requested' ? t('status_requested') : undefined}
               detail={b.status === 'requested' ? undefined : t(`status_${b.status}` as StringKey)}
-              onPress={() => router.push({ pathname: '/trips/[id]', params: { id: b.trips.id } })}
+              onPress={(from) => openTrip(b.trips.id, from)}
             />
           ))}
         </>
@@ -169,12 +170,13 @@ export default function MyTrips() {
               priceIls={p.trip.price_ils}
               detail={p.detail}
               signal={p.rateBooking ? t('rateTrip') : undefined}
-              onPress={() =>
-                p.rateBooking
-                  ? router.push({ pathname: '/trips/rate/[bookingId]', params: { bookingId: p.rateBooking } })
-                  : p.asDriver
-                    ? router.push({ pathname: '/trips/requests/[id]', params: { id: p.trip.id } })
-                    : router.push({ pathname: '/trips/[id]', params: { id: p.trip.id } })
+              onPress={(from) =>
+                p.asDriver
+                  ? p.rateBooking
+                    ? router.push({ pathname: '/trips/rate/[bookingId]', params: { bookingId: p.rateBooking } })
+                    : router.push({ pathname: '/trips/requests/[id]', params: { id: p.trip.id } })
+                  : // A passenger rates inside the trip card (Rate is its main button).
+                    openTrip(p.trip.id, from)
               }
             />
           ))}
