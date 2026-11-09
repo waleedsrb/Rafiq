@@ -106,7 +106,7 @@ export default function Account() {
               onPress={editPhoto}
               style={{ opacity: photoBusy ? 0.5 : 1 }}
             >
-              <Avatar path={avatarPath} name={name} size={72} />
+              <Avatar path={avatarPath} name={name} seed={session?.user.id} size={72} />
               <View style={styles.cameraBadge}>
                 <Icon name="camera" size={14} color={colors.onInk} />
               </View>

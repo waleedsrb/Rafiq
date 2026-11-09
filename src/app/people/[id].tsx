@@ -92,7 +92,7 @@ export default function Person() {
   return (
     <Screen back scroll>
       <View style={styles.header}>
-        <Avatar path={person.deleted ? null : avatarPath} name={name} size={72} />
+        <Avatar path={person.deleted ? null : avatarPath} name={name} seed={person.deleted ? null : id} size={72} />
         <View style={{ flex: 1, gap: 2 }}>
           <View style={styles.nameLine}>
             <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>
