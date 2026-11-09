@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   error: { gap: space.xs, paddingVertical: space.sm, minHeight: sizes.touch, justifyContent: 'center' },
   toast: { position: 'absolute', left: space.screen, right: space.screen },
   toastInner: {
-    minHeight: sizes.control,
+    minHeight: sizes.button,
     borderRadius: radii.capsule,
     backgroundColor: colors.ink,
     paddingHorizontal: space.md + space.xs,
