@@ -12,7 +12,7 @@ import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 
-type Row = Overview & { road_order: number };
+type Row = Overview & { road_order: number | null };
 
 /**
  * `reportedOnly` keeps just the checkpoints someone reported on recently (Home uses it,
@@ -26,9 +26,10 @@ export function RouteCheckpoints({ origin, reportedOnly, limit }: { origin: City
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc('checkpoint_overview');
-    const list = ((data as Row[] | null) ?? []).slice();
+    // Only the Ramallah - Nablus road for now (the rest of the West Bank has no road_order).
+    const list = ((data as Row[] | null) ?? []).filter((r) => r.road_order != null);
     // road_order counts from Ramallah, so reverse it when leaving from Nablus.
-    list.sort((a, b) => (origin === 'ramallah' ? a.road_order - b.road_order : b.road_order - a.road_order));
+    list.sort((a, b) => (origin === 'ramallah' ? (a.road_order ?? 0) - (b.road_order ?? 0) : (b.road_order ?? 0) - (a.road_order ?? 0)));
     const shown = reportedOnly ? list.filter((r) => r.status) : list;
     setRows(limit ? shown.slice(0, limit) : shown);
     setNow(new Date());

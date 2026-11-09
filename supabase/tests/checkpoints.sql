@@ -59,7 +59,9 @@ begin
   -- 3. Atara's only report is 3 hours old: no status.
   select * into a from public.checkpoint_overview() where id = 'atara';
   if a.status is not null or a.last_report_at is not null then raise exception 'FAIL: atara was %', row_to_json(a); end if;
-  if (select count(*) from public.checkpoint_overview()) <> 4 then raise exception 'FAIL: expected 4 checkpoints'; end if;
+  -- Every checkpoint in the West Bank is listed; four of them are on the Ramallah - Nablus road.
+  if (select count(*) from public.checkpoint_overview()) <> (select count(*) from public.checkpoints) then raise exception 'FAIL: overview should list every checkpoint'; end if;
+  if (select count(*) from public.checkpoint_overview() where road_order is not null) <> 4 then raise exception 'FAIL: expected 4 checkpoints on the road'; end if;
 end $$;
 
 -- 4. The detail list says who kind of person reported, never who; the driver on a trip shows as a driver.

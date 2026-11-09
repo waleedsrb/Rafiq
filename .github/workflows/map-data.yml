@@ -1,0 +1,42 @@
+# Pulls checkpoint and road-closure data out of OpenStreetMap for review.
+# Run it from the Actions tab ("Run workflow"), or it runs when the script changes.
+name: Map data
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/map-data/fetch_osm_checkpoints.py
+      - scripts/map-data/places.py
+      - .github/workflows/map-data.yml
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -yq osmium-tool
+      - name: Download the Israel and Palestine extract (Geofabrik)
+        run: curl -sSfL -o region.osm.pbf https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
+      - name: Keep checkpoints, gates and closures
+        run: |
+          osmium tags-filter region.osm.pbf \
+            nwr/military=checkpoint nwr/barrier=checkpoint nwr/barrier=border_control \
+            nwr/police=checkpoint nwr/amenity=checkpoint \
+            n/barrier=gate,lift_gate,swing_gate,block,jersey_barrier,debris \
+            -o filtered.osm.pbf
+          osmium export filtered.osm.pbf --add-unique-id=type_id -f geojson -o checkpoints.geojson
+          osmium fileinfo -e region.osm.pbf | grep -i "timestamp" | head -3 || true
+      - run: python3 scripts/map-data/fetch_osm_checkpoints.py checkpoints.geojson osm-checkpoints.json
+      - name: Print the rows (one JSON per line) so they can be read from the log
+        run: python3 -c "import json;[print('ROW', json.dumps(r, ensure_ascii=False)) for r in json.load(open('osm-checkpoints.json'))]"
+      - name: Places and the West Bank outline
+        run: |
+          osmium tags-filter region.osm.pbf nwr/place=city,town,village,hamlet,suburb -o places.osm.pbf
+          osmium export places.osm.pbf --add-unique-id=type_id -f geojson -o places.geojson
+          osmium tags-filter region.osm.pbf r/boundary=administrative -o admin.osm.pbf
+          osmium tags-filter admin.osm.pbf r/ISO3166-1=PS r/name:en="West Bank" r/name:en="State of Palestine" -o ps.osm.pbf
+          osmium export ps.osm.pbf --add-unique-id=type_id -f geojson -o boundary.geojson
+          python3 scripts/map-data/places.py places.geojson boundary.geojson
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osm-checkpoints
+          path: osm-checkpoints.json

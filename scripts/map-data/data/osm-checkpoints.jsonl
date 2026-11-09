@@ -1,0 +1,126 @@
+{"id": "n290358852", "lat": 31.77721, "lng": 35.233356, "tags": {"barrier": "checkpoint"}}
+{"id": "n300008555", "lat": 31.783358, "lng": 35.263815, "tags": {"barrier": "border_control", "name": "מחסום א-זעיים / حاجز الزعيم", "name:ar": "حاجز الزعيم", "name:en": "Az-Za'ayyem Checkpoint"}}
+{"id": "n309173780", "lat": 31.941003, "lng": 35.033163, "tags": {"military": "checkpoint", "name": "מעבר חשמונאים", "name:en": "Hashmonaim Crossing"}}
+{"id": "n334721537", "lat": 31.801722, "lng": 35.554429, "tags": {"access": "no", "barrier": "border_control"}}
+{"id": "n431789872", "lat": 31.523471, "lng": 35.108801, "tags": {"barrier": "border_control", "name": "Islamic Court Junction Checkpoint", "name:en": "Islamic Court Junction Check point"}}
+{"id": "n431862415", "lat": 31.521918, "lng": 35.112278, "tags": {"barrier": "border_control", "name": "Tarek Check point", "name:en": "Tarek Check point"}}
+{"id": "n431881070", "lat": 31.532517, "lng": 35.110325, "tags": {"barrier": "border_control", "name": "Giv'at Havot Check point", "name:en": "Giv'at Havot Check point"}}
+{"id": "n432109161", "lat": 32.199553, "lng": 35.317889, "tags": {"barrier": "border_control", "name": "Israeli Check Point", "name:ar": "نقطة تفتيش اسرائيلية", "name:en": "Israeli Check Point"}}
+{"id": "n432123706", "lat": 32.178014, "lng": 35.273452, "tags": {"military": "checkpoint", "name": "Hawwarah Israili Check Point", "name:ar": "نقطة تفتيش حوارة العسكرية الاسرائيلية", "name:en": "Hawwarah Israili Check Point"}}
+{"id": "n432192438", "lat": 31.523719, "lng": 35.110048, "tags": {"barrier": "border_control", "name": "Abed Checkpoint", "name:en": "Abed Check point"}}
+{"id": "n432231078", "lat": 31.526108, "lng": 35.104133, "tags": {"barrier": "border_control", "name": "نقطة تفتيش بيت هداسا", "name:ar": "نقطة تفتيش بيت هداسا", "name:en": "Beit Hadassa Check point"}}
+{"id": "n432279387", "lat": 31.736824, "lng": 35.256761, "tags": {"barrier": "border_control", "name": "Al Shaikh Sa'd Israeli Check Point", "name:ar": "نقطة تفتيش الشيخ سعد الاسرائيلية"}}
+{"id": "n432288852", "lat": 31.853925, "lng": 35.256399, "tags": {"military": "checkpoint", "name": "Jaba' Israeli Check Point", "name:ar": "نقطة تفتيش الجبع الاسرائيلية", "name:en": "Jaba' Israeli Check Point"}}
+{"id": "n432340496", "lat": 32.10231, "lng": 35.533759, "tags": {"access": "no", "barrier": "border_control", "name": "Damia Bridge border crossing", "name:en": "Damia Bridge border crossing"}}
+{"id": "n432341759", "lat": 31.873872, "lng": 35.540911, "tags": {"barrier": "border_control"}}
+{"id": "n518451196", "lat": 32.184848, "lng": 34.998855, "tags": {"military": "checkpoint", "name": "מעבר אליהו", "name:ar": "معبر إِلِياهو", "name:en": "Eliyahu Checkpoint"}}
+{"id": "n518603380", "lat": 31.714965, "lng": 35.246906, "tags": {"barrier": "border_control", "name": "מחסום מזמוריה", "name:en": "An Nu'man Checkpoint"}}
+{"id": "n1210128290", "lat": 32.495205, "lng": 35.578195, "tags": {"barrier": "border_control"}}
+{"id": "n1210128340", "lat": 32.494423, "lng": 35.57996, "tags": {"barrier": "border_control"}}
+{"id": "n1354861931", "lat": 32.497687, "lng": 35.577014, "tags": {"barrier": "border_control"}}
+{"id": "n1354861953", "lat": 32.497562, "lng": 35.577077, "tags": {"barrier": "border_control"}}
+{"id": "n1728958157", "lat": 31.581166, "lng": 35.407294, "tags": {"access": "yes", "military": "checkpoint", "name": "Mizpe Shalem Checkpoint", "name:en": "Mizpe Shalem Checkpoint"}}
+{"id": "n1835025969", "lat": 32.009825, "lng": 35.131349, "tags": {"military": "checkpoint"}}
+{"id": "n1960960265", "lat": 31.886277, "lng": 35.104143, "tags": {"barrier": "checkpoint"}}
+{"id": "n2271555694", "lat": 31.808329, "lng": 35.242271, "tags": {"barrier": "lift_gate", "military": "checkpoint", "name": "Anata - Shwafat Checkpoint"}}
+{"id": "n2271555699", "lat": 31.808313, "lng": 35.24223, "tags": {"barrier": "lift_gate", "military": "checkpoint", "name": "Anata - Shwafat Checkpoint"}}
+{"id": "n2271555799", "lat": 31.808376, "lng": 35.242324, "tags": {"barrier": "lift_gate", "military": "checkpoint", "name": "Anata - Shwafat Checkpoint"}}
+{"id": "n2271555807", "lat": 31.808403, "lng": 35.242377, "tags": {"barrier": "lift_gate", "military": "checkpoint", "name": "Anata - Shwafat Checkpoint"}}
+{"id": "n2482150283", "lat": 31.525617, "lng": 35.105757, "tags": {"barrier": "border_control", "name": "israel occupation border_control", "name:en": "israel occupation border_control"}}
+{"id": "n2505718372", "lat": 31.856842, "lng": 35.17613, "tags": {"barrier": "border_control", "military": "checkpoint", "name": "Al Jeb Check point", "name:en": "Al Jeb Check point"}}
+{"id": "n2549160500", "lat": 32.280282, "lng": 35.066781, "tags": {"barrier": "border_control", "name": "حاجز شوفة/ מחסום שופה‎", "name:ar": "حاجز شوفة", "name:en": "Shufa Checkpoint"}}
+{"id": "n2603716727", "lat": 31.775736, "lng": 35.23392, "tags": {"barrier": "checkpoint"}}
+{"id": "n2619694808", "lat": 31.775775, "lng": 35.234034, "tags": {"barrier": "checkpoint", "name": "Access to the bridge", "name:en": "Access to the bridge", "opening_hours": "Mo-Th,Su 07:00-10:30; Mo-Th,Su 12:30-14:00"}}
+{"id": "n2820132150", "lat": 31.776663, "lng": 35.233226, "tags": {"barrier": "checkpoint"}}
+{"id": "n2915691087", "lat": 31.775767, "lng": 35.233979, "tags": {"barrier": "checkpoint", "name": "Access to the Western Wall Area", "name:en": "Access to the Western Wall Area"}}
+{"id": "n2915691135", "lat": 31.775847, "lng": 35.233493, "tags": {"barrier": "checkpoint"}}
+{"id": "n3114332085", "lat": 31.723793, "lng": 35.205032, "tags": {"barrier": "gate", "military": "checkpoint", "name": "Car-only Checkpoint", "name:en": "Car-only Checkpoint"}}
+{"id": "n3340186991", "lat": 31.979295, "lng": 35.29433, "tags": {"military": "checkpoint"}}
+{"id": "n3590303893", "lat": 31.591705, "lng": 34.962889, "tags": {"barrier": "border_control"}}
+{"id": "n3590303926", "lat": 31.591644, "lng": 34.962814, "tags": {"barrier": "border_control", "name": "Tarqumia Check Point", "name:en": "Tarqumia Check Point"}}
+{"id": "n3590304207", "lat": 31.591584, "lng": 34.962739, "tags": {"barrier": "border_control"}}
+{"id": "n3658366387", "lat": 31.737338, "lng": 35.151103, "tags": {"access": "yes", "military": "checkpoint", "name": "מעבר עין יעל", "name:ar": "حاجز الولجة - عين ياعيل", "name:en": "Al-Walaja - Ein Yael Checkpoint"}}
+{"id": "n4105506624", "lat": 32.290402, "lng": 35.135645, "tags": {"barrier": "border_control", "name": "حاجز عنبتا - عيناف/ מחסום ענבתא -עינב‎", "name:ar": "حاجز عنبتا - عيناف", "name:en": "Antaba - Einav Checkpoint"}}
+{"id": "n4105506625", "lat": 32.290433, "lng": 35.13579, "tags": {"barrier": "border_control", "name": "حاجز عنبتا - عيناف/ מחסום ענבתא -עינב‎", "name:ar": "حاجز عنبتا - عيناف", "name:en": "Antaba - Einav Checkpoint"}}
+{"id": "n4195846689", "lat": 31.716042, "lng": 35.177515, "tags": {"barrier": "border_control", "name": "Check Point Beit Jala", "name:en": "Check Point Beit Jala"}}
+{"id": "n4220229618", "lat": 31.524565, "lng": 35.110025, "tags": {"barrier": "border_control", "name": "Machpela Check Point", "name:en": "Machpela Check Point"}}
+{"id": "n4244175655", "lat": 31.524613, "lng": 35.097998, "tags": {"barrier": "border_control", "name": "Qafesha Building Checkpoint", "name:en": "Qafesha Building Checkpoint"}}
+{"id": "n4341803910", "lat": 31.522946, "lng": 35.106576, "tags": {"barrier": "border_control", "name": "Qarantina Checkpoint", "name:en": "Qarantina Checkpoint"}}
+{"id": "n4455754228", "lat": 31.718989, "lng": 35.175136, "tags": {"military": "checkpoint"}}
+{"id": "n4968982122", "lat": 31.982839, "lng": 35.200564, "tags": {"military": "checkpoint", "name": "حاجز عطارة", "name:ar": "حاجز عطارة", "name:en": "Israeli army checkpoint"}}
+{"id": "n4973547182", "lat": 31.52451, "lng": 35.109986, "tags": {"access": "yes", "barrier": "border_control", "name": "Ibrahimi Checkpoint", "name:en": "Ibrahimi Checkpoint"}}
+{"id": "n4973647874", "lat": 31.524843, "lng": 35.110364, "tags": {"barrier": "gate", "military": "checkpoint", "name": "Machpela Checkpoint", "name:en": "Machpela Checkpoint"}}
+{"id": "n4973647884", "lat": 31.526573, "lng": 35.10198, "tags": {"military": "checkpoint", "name": "نقطة التفتيش ٥٦", "name:ar": "نقطة التفتيش ٥٦", "name:en": "Checkpoint 56"}}
+{"id": "n4977276379", "lat": 31.775852, "lng": 35.233527, "tags": {"barrier": "checkpoint"}}
+{"id": "n4977276381", "lat": 31.775729, "lng": 35.233991, "tags": {"barrier": "checkpoint"}}
+{"id": "n5063565222", "lat": 32.328919, "lng": 35.435346, "tags": {"military": "checkpoint", "name": "حاجز تياسير العسكري", "name:ar": "حاجز تياسير العسكري", "name:en": "Tayaser checkpoint"}}
+{"id": "n5114691324", "lat": 31.525622, "lng": 35.110473, "tags": {"military": "checkpoint", "name:en": "Checkpoint"}}
+{"id": "n5329510664", "lat": 32.102718, "lng": 35.163758, "tags": {"military": "checkpoint", "name": "מחסום אריאל", "name:ar": "حاجز اريئيل", "name:en": "Ariel Checkpoint"}}
+{"id": "n5341187723", "lat": 32.215075, "lng": 35.179773, "tags": {"military": "checkpoint", "name:en": "Check Point"}}
+{"id": "n5345895914", "lat": 32.281212, "lng": 35.075658, "tags": {"barrier": "border_control", "name": "حاجز أفني حيفتس/ מחסום שופה‎", "name:ar": "حاجز أفني حيفتس", "name:en": "Avnei Hefetz Checkpoint"}}
+{"id": "n6269537521", "lat": 31.705408, "lng": 35.168754, "tags": {"military": "checkpoint"}}
+{"id": "n6269537522", "lat": 31.705326, "lng": 35.168794, "tags": {"military": "checkpoint"}}
+{"id": "n6269537523", "lat": 31.705238, "lng": 35.168835, "tags": {"military": "checkpoint"}}
+{"id": "n6269537524", "lat": 31.705481, "lng": 35.168723, "tags": {"military": "checkpoint"}}
+{"id": "n6270211525", "lat": 32.146487, "lng": 35.116244, "tags": {"military": "checkpoint", "name": "שער יקיר"}}
+{"id": "n6270216433", "lat": 32.206879, "lng": 35.162837, "tags": {"military": "checkpoint"}}
+{"id": "n6592046357", "lat": 31.862063, "lng": 35.227944, "tags": {"barrier": "border_control"}}
+{"id": "n6593162667", "lat": 31.861739, "lng": 35.228082, "tags": {"barrier": "border_control"}}
+{"id": "n6648416368", "lat": 31.742219, "lng": 35.289283, "tags": {"military": "checkpoint", "name": "Container Checkpoint", "name:ar": "حاجز وادي النار /الكونتينار", "name:en": "Container Checkpoint"}}
+{"id": "n6789046372", "lat": 31.705681, "lng": 35.169236, "tags": {"barrier": "border_control"}}
+{"id": "n6789046382", "lat": 31.705518, "lng": 35.169332, "tags": {"barrier": "border_control"}}
+{"id": "n6789051396", "lat": 31.705442, "lng": 35.169373, "tags": {"barrier": "border_control"}}
+{"id": "n6789051405", "lat": 31.705601, "lng": 35.169281, "tags": {"barrier": "border_control"}}
+{"id": "n6853572955", "lat": 31.581181, "lng": 35.40741, "tags": {"access": "yes", "military": "checkpoint", "name": "Mizpe Shalem Checkpoint", "name:en": "Mizpe Shalem Checkpoint"}}
+{"id": "n7018109844", "lat": 31.862433, "lng": 35.227385, "tags": {"barrier": "border_control"}}
+{"id": "n7018109866", "lat": 31.86228, "lng": 35.227485, "tags": {"barrier": "border_control"}}
+{"id": "n7018109868", "lat": 31.86225, "lng": 35.227558, "tags": {"barrier": "border_control"}}
+{"id": "n7018109949", "lat": 31.862305, "lng": 35.22742, "tags": {"barrier": "border_control"}}
+{"id": "n8241778007", "lat": 31.830767, "lng": 35.445874, "tags": {"barrier": "border_control", "name": "حاجز جنوب أريحا / מחסום דרום יריחו", "name:ar": "حاجز جنوب أريحا", "name:en": "Jericho - South Checkpoint"}}
+{"id": "n8241778008", "lat": 31.830749, "lng": 35.44599, "tags": {"barrier": "border_control", "name": "Jericho DCO Checkpoint", "name:en": "Jericho DCO Checkpoint"}}
+{"id": "n8241792741", "lat": 31.864251, "lng": 35.497959, "tags": {"barrier": "border_control", "name": "حاجز شرق أريحا / מחסום מזרוח יריחו", "name:ar": "حاجز شرق أريحا", "name:en": "Jericho - East Checkpoint"}}
+{"id": "n8241792756", "lat": 31.868624, "lng": 35.508687, "tags": {"barrier": "border_control", "name": "حاجز جسر الملك حسين / מחסום מזרוח יריחו", "name:ar": "حاجز جسر الملك حسين", "name:en": "Allenby Bridge Checkpoint"}}
+{"id": "n8244739104", "lat": 32.280424, "lng": 35.039118, "tags": {"barrier": "border_control", "name": "מעבר תאנים", "name:ar": "معبر تئينيم", "name:en": "Te'enim Checkpoint"}}
+{"id": "n8263401277", "lat": 31.783313, "lng": 35.263809, "tags": {"barrier": "border_control", "name": "מחסום א-זעיים / حاجز الزعيم", "name:ar": "حاجز الزعيم", "name:en": "Az-Za'ayyem Checkpoint"}}
+{"id": "n8263401283", "lat": 31.783255, "lng": 35.263813, "tags": {"barrier": "border_control", "name": "מחסום א-זעיים / حاجز الزعيم", "name:ar": "حاجز الزعيم", "name:en": "Az-Za'ayyem Checkpoint"}}
+{"id": "n8422166858", "lat": 32.040136, "lng": 35.006684, "tags": {"military": "checkpoint", "name": "מחסום רנתיס"}}
+{"id": "n9250301576", "lat": 31.723875, "lng": 35.20374, "tags": {"barrier": "gate", "military": "checkpoint"}}
+{"id": "n9950297619", "lat": 31.925374, "lng": 35.229097, "tags": {"military": "checkpoint"}}
+{"id": "n11146989608", "lat": 31.999952, "lng": 35.122629, "tags": {"military": "checkpoint"}}
+{"id": "n12164051937", "lat": 31.861414, "lng": 35.353272, "tags": {"military": "checkpoint"}}
+{"id": "n12946885136", "lat": 32.264224, "lng": 35.187924, "tags": {"military": "checkpoint", "name": "מחסום שבי שומרון حاجز شافي شمرون"}}
+{"id": "n12946885214", "lat": 32.255069, "lng": 35.185246, "tags": {"military": "checkpoint", "name": "מחסום דיר שרף حاجز ديار شرف"}}
+{"id": "n13411421247", "lat": 32.146451, "lng": 35.116187, "tags": {"military": "checkpoint", "name": "שער יקיר"}}
+{"id": "n13448057421", "lat": 32.193164, "lng": 34.999432, "tags": {"military": "checkpoint", "name": "מעבר צופים", "name:en": "Tzufim Checkpoint"}}
+{"id": "n13927003768", "lat": 31.776911, "lng": 35.233406, "tags": {"barrier": "checkpoint"}}
+{"id": "n14181065136", "lat": 31.92529, "lng": 35.22907, "tags": {"military": "checkpoint"}}
+{"id": "n14242040437", "lat": 31.976505, "lng": 35.291048, "tags": {"military": "checkpoint"}}
+{"id": "n14310998216", "lat": 31.856842, "lng": 35.17613, "tags": {"barrier": "border_control", "military": "checkpoint", "name": "Al Jeb Check point", "name:en": "Al Jeb Check point"}}
+{"id": "n14353164287", "lat": 31.500589, "lng": 35.118048, "tags": {"military": "checkpoint", "name": "Al Fahs Chckpoint", "name:ar": "بوابة\\ سدة الفحص"}}
+{"id": "w305664196", "lat": 31.670672, "lng": 35.054336, "tags": {"military": "checkpoint"}}
+{"id": "w459524835", "lat": 31.897474, "lng": 35.042705, "tags": {"military": "checkpoint", "name": "מחסום מכבים", "name:en": "Maccabim Checkpoint"}}
+{"id": "w494997557", "lat": 31.897674, "lng": 35.042603, "tags": {"military": "checkpoint", "name": "מעבר מכבים"}}
+{"id": "w494998363", "lat": 31.872126, "lng": 35.171339, "tags": {"military": "checkpoint"}}
+{"id": "w886354702", "lat": 31.864804, "lng": 35.498839, "tags": {"military": "checkpoint", "name": "حاجز شرق أريحا / מחסום מזרוח יריחו", "name:ar": "حاجز شرق أريحا", "name:en": "Jericho - East Checkpoint"}}
+{"id": "w1109766775", "lat": 31.886255, "lng": 35.104247, "tags": {"military": "checkpoint", "name": "מחסום בל"}}
+{"id": "w1152262566", "lat": 31.830616, "lng": 35.557504, "tags": {"military": "checkpoint"}}
+{"id": "w1415228264", "lat": 31.742198, "lng": 35.289267, "tags": {"military": "checkpoint", "name": "מחסום הקונטיינר"}}
+{"id": "w1486935539", "lat": 32.10823, "lng": 35.007088, "tags": {"military": "checkpoint"}}
+{"id": "a368286226", "lat": 31.72436, "lng": 35.204269, "tags": {"barrier": "border_control", "name": "Bethlehem Checkpoint 300", "name:ar": "محسوم بيت لحم 300", "name:en": "Bethlehem Checkpoint 300"}}
+{"id": "a611328392", "lat": 31.670607, "lng": 35.05432, "tags": {"military": "checkpoint"}}
+{"id": "a919049670", "lat": 31.897464, "lng": 35.042694, "tags": {"military": "checkpoint", "name": "מחסום מכבים", "name:en": "Maccabim Checkpoint"}}
+{"id": "a27994087", "lat": 31.940348, "lng": 35.032839, "tags": {"military": "checkpoint", "name": "מעבר חשמונאים", "name:en": "Hashmonaim Crossing"}}
+{"id": "a989995114", "lat": 31.897681, "lng": 35.042576, "tags": {"military": "checkpoint", "name": "מעבר מכבים"}}
+{"id": "a989996726", "lat": 31.872096, "lng": 35.171326, "tags": {"military": "checkpoint"}}
+{"id": "a1770362892", "lat": 31.705618, "lng": 35.16853, "tags": {"barrier": "border_control", "name": "מחסום המנהרות / حاجز الانفاق", "name:en": "Tunnels Checkpoint"}}
+{"id": "a1771618958", "lat": 31.857054, "lng": 35.175769, "tags": {"barrier": "border_control"}}
+{"id": "a1771618960", "lat": 31.856915, "lng": 35.176133, "tags": {"barrier": "border_control"}}
+{"id": "a1772709404", "lat": 31.864757, "lng": 35.498482, "tags": {"military": "checkpoint", "name": "حاجز شرق أريحا / מחסום מזרוח יריחו", "name:ar": "حاجز شرق أريحا", "name:en": "Jericho - East Checkpoint"}}
+{"id": "a1776183202", "lat": 31.921348, "lng": 35.225526, "tags": {"barrier": "border_control"}}
+{"id": "a1776183204", "lat": 31.924023, "lng": 35.225841, "tags": {"barrier": "border_control"}}
+{"id": "a2219533550", "lat": 31.886282, "lng": 35.104171, "tags": {"military": "checkpoint", "name": "מחסום בל"}}
+{"id": "a2304525132", "lat": 31.830616, "lng": 35.557504, "tags": {"military": "checkpoint"}}
+{"id": "a31682641", "lat": 31.72254, "lng": 35.165019, "tags": {"barrier": "border_control", "name": "מחסום אלוואלג'ה - הר גילה / حاجز الولجة - هار جيلو", "name:ar": "حاجز الولجة - هار جيلو", "name:en": "Al-Walaja - Har Gilo Checkpoint"}}
+{"id": "a2820061092", "lat": 31.716704, "lng": 35.119735, "tags": {"barrier": "border_control"}}
+{"id": "a2830456528", "lat": 31.742229, "lng": 35.289228, "tags": {"military": "checkpoint", "name": "מחסום הקונטיינר"}}
+{"id": "a2973871078", "lat": 32.1082, "lng": 35.007051, "tags": {"military": "checkpoint"}}

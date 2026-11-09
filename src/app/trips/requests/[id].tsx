@@ -200,8 +200,8 @@ export default function DriverTrip() {
     let reason: 'checkpoint_closed' | null = null;
     if (isLateTripCancel(new Date(), new Date(trip.departs_at), bookedSeats)) {
       const { data: overview } = await supabase.rpc('checkpoint_overview');
-      const closed = ((overview as { name_ar: string; name_en: string; status: string | null }[] | null) ?? []).filter(
-        (c) => c.status === 'closed',
+      const closed = ((overview as { name_ar: string; name_en: string; status: string | null; road_order: number | null }[] | null) ?? []).filter(
+        (c) => c.status === 'closed' && c.road_order != null,
       );
       if (closed.length > 0) {
         const names = closed.map((c) => (lang === 'ar' ? c.name_ar : c.name_en)).join('، ');
