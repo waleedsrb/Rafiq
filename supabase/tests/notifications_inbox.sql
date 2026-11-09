@@ -16,7 +16,7 @@ select set_config('request.jwt.claim.sub', '', true);
 update public.driver_details set verified_at = now();
 update public.profiles set id_verified_at = now();
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-0000000001c1', '00000000-0000-0000-0000-00000000010d', 'ramallah', 'nablus', now() + interval '2 days', 3, 25);
+values ('00000000-0000-0000-0000-0000000001c1', '00000000-0000-0000-0000-00000000010d', 'osm-n246843686', 'osm-n293546203', now() + interval '2 days', 3, 25);
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000010d', true);
 select public.register_push_token('ExponentPushToken[dana]');

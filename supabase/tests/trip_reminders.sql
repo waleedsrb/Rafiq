@@ -18,8 +18,8 @@ update public.profiles set id_verified_at = now();
 -- Trip 1 leaves in 40 minutes: Amir accepted, Aya still waiting for an answer.
 -- Trip 2 leaves in 3 hours: Omar accepted (too early to remind).
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils) values
-  ('00000000-0000-0000-0000-0000000003c1', '00000000-0000-0000-0000-00000000030d', 'ramallah', 'nablus', now() + interval '40 minutes', 3, 25),
-  ('00000000-0000-0000-0000-0000000003c2', '00000000-0000-0000-0000-00000000030d', 'nablus', 'ramallah', now() + interval '3 hours', 3, 25);
+  ('00000000-0000-0000-0000-0000000003c1', '00000000-0000-0000-0000-00000000030d', 'osm-n246843686', 'osm-n293546203', now() + interval '40 minutes', 3, 25),
+  ('00000000-0000-0000-0000-0000000003c2', '00000000-0000-0000-0000-00000000030d', 'osm-n293546203', 'osm-n246843686', now() + interval '3 hours', 3, 25);
 insert into public.bookings (trip_id, passenger_id) values
   ('00000000-0000-0000-0000-0000000003c1', '00000000-0000-0000-0000-0000000003a1'),
   ('00000000-0000-0000-0000-0000000003c1', '00000000-0000-0000-0000-0000000003a2'),

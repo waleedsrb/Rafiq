@@ -7,13 +7,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RouteMap } from '@/components/route-map';
 import { BackButton, TopBar } from '@/components/ui';
+import { NABLUS, RAMALLAH } from '@/lib/places';
 import type { City } from '@/lib/trip-form';
 import { colors } from '@/theme/tokens';
 
 export default function FullMap() {
-  const params = useLocalSearchParams<{ origin?: City }>();
-  const origin: City = params.origin === 'nablus' ? 'nablus' : 'ramallah';
-  const destination: City = origin === 'ramallah' ? 'nablus' : 'ramallah';
+  const params = useLocalSearchParams<{ origin?: City; destination?: City }>();
+  // The whole road (until the West Bank map in a later step) or a trip's own two towns.
+  const origin: City = params.origin ?? RAMALLAH;
+  const destination: City = params.destination ?? (origin === NABLUS ? RAMALLAH : NABLUS);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   return (

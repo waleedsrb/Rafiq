@@ -15,7 +15,7 @@ insert into public.profiles (id, full_name) values
 -- 1. Posting a trip without a car fails.
 do $$ begin
   insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-  values ('00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '1 day', 3, 25);
+  values ('00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 3, 25);
   raise exception 'FAIL: trip posted without a car';
 exception when others then
   if sqlerrm like 'FAIL:%' then raise; end if;
@@ -30,7 +30,7 @@ select set_config('request.jwt.claim.sub', '', true);
 update public.driver_details set verified_at = now();
 update public.profiles set id_verified_at = now();
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '1 day', 3, 25);
+values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 3, 25);
 insert into public.bookings (id, trip_id, passenger_id) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a1');
 

@@ -35,8 +35,8 @@ update public.driver_details set verified_at = now();
 update public.profiles set id_verified_at = now();
 -- c1 leaves in 2 days (cancel in time is possible); c2 leaves in 3 hours (any cancel is late).
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils) values
-  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '2 days', 4, 25),
-  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-00000000000d', 'nablus', 'ramallah', now() + interval '3 hours', 4, 30);
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '2 days', 4, 25),
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-00000000000d', 'osm-n293546203', 'osm-n246843686', now() + interval '3 hours', 4, 30);
 -- The pretend gateway sees the PostgREST role; reading payments as that role needs these grants.
 do $$ begin execute format('grant usage on schema %I to authenticated', pg_my_temp_schema()::regnamespace); end $$;
 set local role authenticated;

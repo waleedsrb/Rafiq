@@ -6,6 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Body, useFont } from '@/components/ui';
 import { clock, formatLongDay } from '@/lib/format';
+import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { colors, fonts, space } from '@/theme/tokens';
@@ -37,7 +38,7 @@ export function TripHero({
         </Text>
       </View>
       <Text style={[styles.route, { fontFamily: f.bold }]}>
-        {t(origin)} {rtl ? '←' : '→'} {t(destination)}
+        {placeName(origin, lang)} {rtl ? '←' : '→'} {placeName(destination, lang)}
       </Text>
       {driver ? <Body muted>{driver}</Body> : null}
     </View>

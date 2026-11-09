@@ -42,10 +42,12 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 
 import { DialogLayer } from '@/components/dialog-host';
 import { Icon } from '@/components/icon';
+import { PlacePicker } from '@/components/place-picker';
 import { TripDetails } from '@/components/trip-details';
 import { DayChips, SearchResults, type SearchState } from '@/components/trip-search';
 import { useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
+import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { colors, motion, radii, space } from '@/theme/tokens';
 
@@ -53,7 +55,7 @@ export type Rect = { x: number; y: number; width: number; height: number };
 
 // The header is one calm line: close, the route, swap. Everything you choose sits below it.
 const PAD = 8;
-const ROW = 40;
+const ROW = 44;
 const HEAD_H = PAD + ROW + PAD;
 const SIDE = 12; // the glass floats this far from the screen edges
 
@@ -85,7 +87,9 @@ export function SearchMorph({
   onRequestClose: () => void;
   onClosed: () => void;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  // Which end of the route the place search is open for.
+  const [picking, setPicking] = useState<'origin' | 'destination' | null>(null);
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
   const { width, height: screenH } = useWindowDimensions();
@@ -308,10 +312,28 @@ export function SearchMorph({
               <Pressable accessibilityRole="button" accessibilityLabel={t('closeSearch')} onPress={requestClose} hitSlop={6} style={styles.round}>
                 <Icon name="x" size={18} />
               </Pressable>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.route, { fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]} numberOfLines={1}>
-                  {t(s.origin)} {rtl ? '←' : '→'} {t(s.destination)}
-                </Text>
+              {/* From over To, each opens the place search. A ring marks the start, a square the end. */}
+              <View style={styles.ends}>
+                <View style={styles.dots}>
+                  <View style={styles.dotStart} />
+                  <View style={styles.dotLine} />
+                  <View style={styles.dotEnd} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  {(['origin', 'destination'] as const).map((end) => (
+                    <Pressable
+                      key={end}
+                      accessibilityRole="button"
+                      accessibilityLabel={t(end === 'origin' ? 'fromPlace' : 'toPlace').replace('{place}', placeName(s[end], lang))}
+                      onPress={() => { tapFeel(); setPicking(end); }}
+                      hitSlop={{ top: 2, bottom: 2 }}
+                    >
+                      <Text style={[styles.route, { fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]} numberOfLines={1}>
+                        {placeName(s[end], lang)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
               <Pressable accessibilityRole="button" accessibilityLabel={t('swapDirection')} onPress={() => { tapFeel(); s.swap(); }} hitSlop={6} style={styles.round}>
                 <Icon name="arrowsDownUp" size={18} />
@@ -335,6 +357,17 @@ export function SearchMorph({
             backRef={tripBack}
           />
         ) : null}
+        <PlacePicker
+          visible={picking !== null}
+          title={t(picking === 'destination' ? 'whereTo' : 'whereFrom')}
+          exclude={picking === 'destination' ? s.origin : picking === 'origin' ? s.destination : undefined}
+          onPick={(id) => {
+            if (picking === 'origin') s.setOrigin(id);
+            else s.setDestination(id);
+            setPicking(null);
+          }}
+          onClose={() => setPicking(null)}
+        />
         {/* Pop-ups asked for over the search (the trip's Withdraw, Emergency) draw in this layer. */}
         <DialogLayer />
       </GestureHandlerRootView>
@@ -373,5 +406,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  route: { fontSize: 16, lineHeight: 22, color: colors.ink },
+  route: { fontSize: 15, lineHeight: 21, color: colors.ink },
+  ends: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dots: { alignItems: 'center', gap: 2 },
+  dotStart: { width: 9, height: 9, borderRadius: 5, borderWidth: 2.5, borderColor: colors.ink, backgroundColor: colors.card },
+  dotLine: { width: 1.5, height: 8, backgroundColor: colors.lineStrong },
+  dotEnd: { width: 9, height: 9, borderRadius: 2, backgroundColor: colors.ink },
 });

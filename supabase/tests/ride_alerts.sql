@@ -31,7 +31,7 @@ select pg_temp.as_user(null);
 update public.driver_details set verified_at = now();
 -- Dana drove Ramallah -> Nablus last week.
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-00000000020d', 'ramallah', 'nablus', now() + interval '1 hour', 3, 25);
+values ('00000000-0000-0000-0000-00000000020d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 hour', 3, 25);
 update public.trips set departs_at = now() - interval '7 days';
 
 do $$ begin execute format('grant usage on schema %I to authenticated', pg_my_temp_schema()::regnamespace); end $$;
@@ -40,7 +40,7 @@ set local role authenticated;
 -- 1. Amir saves an alert for a window two days from now.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000002a1');
 insert into public.ride_alerts (origin, destination, window_from, window_to)
-values ('ramallah', 'nablus', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 5 hours');
+values ('osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 5 hours');
 -- Nobody else sees it.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000002a2');
 do $$ begin
@@ -48,14 +48,14 @@ do $$ begin
 end $$;
 -- A past window and someone else's alert are refused.
 select pg_temp.expect_error($$insert into public.ride_alerts (origin, destination, window_from, window_to)
-  values ('ramallah', 'nablus', now() - interval '3 hours', now() - interval '1 hour')$$, 'already passed');
+  values ('osm-n246843686', 'osm-n293546203', now() - interval '3 hours', now() - interval '1 hour')$$, 'already passed');
 select pg_temp.expect_error($$insert into public.ride_alerts (passenger_id, origin, destination, window_from, window_to)
-  values ('00000000-0000-0000-0000-0000000002a1', 'ramallah', 'nablus', now() + interval '1 day', now() + interval '1 day 1 hour')$$,
+  values ('00000000-0000-0000-0000-0000000002a1', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', now() + interval '1 day 1 hour')$$,
   'row-level security');
 
 -- 2. Two more people for the same day: at 3, Dana gets one nudge (in Arabic, feminine).
 insert into public.ride_alerts (origin, destination, window_from, window_to)
-values ('ramallah', 'nablus', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 2 hours');
+values ('osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 2 hours');
 reset role;
 do $$ begin
   if exists (select 1 from public.notifications where kind = 'alert_driver_nudge') then
@@ -65,14 +65,14 @@ end $$;
 set local role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000002a3');
 insert into public.ride_alerts (origin, destination, window_from, window_to)
-values ('ramallah', 'nablus', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 2 hours');
+values ('osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 2 hours');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000002a4');
 insert into public.ride_alerts (origin, destination, window_from, window_to)
-values ('ramallah', 'nablus', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 2 hours');
+values ('osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '2 days', date_trunc('hour', now()) + interval '2 days 2 hours');
 -- The demand count the Post a trip screen shows.
 do $$ begin
-  if (select waiting from public.alert_demand('ramallah', 'nablus') limit 1) <> 4 then
-    raise exception 'FAIL: demand was %', (select json_agg(d) from public.alert_demand('ramallah', 'nablus') d);
+  if (select waiting from public.alert_demand('osm-n246843686', 'osm-n293546203') limit 1) <> 4 then
+    raise exception 'FAIL: demand was %', (select json_agg(d) from public.alert_demand('osm-n246843686', 'osm-n293546203') d);
   end if;
 end $$;
 reset role;
@@ -90,7 +90,7 @@ end $$;
 set local role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000020d');
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-00000000020d', 'ramallah', 'nablus', date_trunc('hour', now()) + interval '2 days 1 hour', 3, 25);
+values ('00000000-0000-0000-0000-00000000020d', 'osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '2 days 1 hour', 3, 25);
 reset role;
 do $$ declare n record; begin
   if (select count(*) from public.notifications where kind = 'alert_match') <> 4 then
@@ -107,7 +107,7 @@ end $$;
 
 -- 4. A second trip in the same window doesn't ping again (an alert fires once).
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-00000000020d', 'ramallah', 'nablus', date_trunc('hour', now()) + interval '2 days 30 minutes', 3, 25);
+values ('00000000-0000-0000-0000-00000000020d', 'osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '2 days 30 minutes', 3, 25);
 do $$ begin
   if (select count(*) from public.notifications where kind = 'alert_match') <> 4 then raise exception 'FAIL: alert fired twice'; end if;
 end $$;
@@ -116,13 +116,13 @@ end $$;
 set local role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000002a2');
 insert into public.ride_alerts (origin, destination, window_from, window_to)
-values ('nablus', 'ramallah', date_trunc('hour', now()) + interval '3 days', date_trunc('hour', now()) + interval '3 days 3 hours');
+values ('osm-n293546203', 'osm-n246843686', date_trunc('hour', now()) + interval '3 days', date_trunc('hour', now()) + interval '3 days 3 hours');
 reset role;
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils) values
-  ('00000000-0000-0000-0000-00000000020d', 'ramallah', 'nablus', date_trunc('hour', now()) + interval '3 days 1 hour', 3, 25),
-  ('00000000-0000-0000-0000-00000000020d', 'nablus', 'ramallah', date_trunc('hour', now()) + interval '3 days 4 hours', 3, 25);
+  ('00000000-0000-0000-0000-00000000020d', 'osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '3 days 1 hour', 3, 25),
+  ('00000000-0000-0000-0000-00000000020d', 'osm-n293546203', 'osm-n246843686', date_trunc('hour', now()) + interval '3 days 4 hours', 3, 25);
 do $$ begin
-  if exists (select 1 from public.ride_alerts where origin = 'nablus' and matched_at is not null) then
+  if exists (select 1 from public.ride_alerts where origin = 'osm-n293546203' and matched_at is not null) then
     raise exception 'FAIL: matched the wrong trip';
   end if;
 end $$;
@@ -131,12 +131,12 @@ end $$;
 set local role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000002a3');
 insert into public.ride_alerts (origin, destination, window_from, window_to)
-values ('ramallah', 'nablus', date_trunc('hour', now()) + interval '4 days', date_trunc('hour', now()) + interval '4 days 3 hours');
+values ('osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '4 days', date_trunc('hour', now()) + interval '4 days 3 hours');
 reset role;
 select pg_temp.as_user(null);
 update public.profiles set gender_verified_at = now(), id_verified_at = now() where id = '00000000-0000-0000-0000-00000000020d';
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils, women_only)
-values ('00000000-0000-0000-0000-00000000020d', 'ramallah', 'nablus', date_trunc('hour', now()) + interval '4 days 1 hour', 3, 25, true);
+values ('00000000-0000-0000-0000-00000000020d', 'osm-n246843686', 'osm-n293546203', date_trunc('hour', now()) + interval '4 days 1 hour', 3, 25, true);
 do $$ begin
   if exists (select 1 from public.ride_alerts where passenger_id = '00000000-0000-0000-0000-0000000002a3'
               and window_from > now() + interval '3 days' and matched_at is not null) then

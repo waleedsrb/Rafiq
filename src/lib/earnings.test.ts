@@ -6,8 +6,8 @@ import { byWeek, monthRange, noticeGiven, totals, type EarningRow } from './earn
 
 const row = (id: string, at: Date, earned: number | string): EarningRow => ({
   trip_id: id,
-  origin: 'ramallah',
-  destination: 'nablus',
+  origin: 'osm-n246843686',
+  destination: 'osm-n293546203',
   departs_at: at.toISOString(),
   riders: 1,
   no_shows: 0,

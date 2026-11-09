@@ -14,6 +14,7 @@ import { alertWindow } from '@/lib/alerts';
 import { clock, formatCountdown, formatLongDay, shortTime } from '@/lib/format';
 import { usualDay } from '@/lib/home-state';
 import { shortName } from '@/lib/names';
+import { NABLUS, RAMALLAH, routeName } from '@/lib/places';
 import { useSession, useT } from '@/lib/session';
 import { openTrip } from '@/lib/trip-layer';
 import { reliabilityText, type Stats } from '@/lib/stats';
@@ -51,11 +52,10 @@ function Heading({ caption, title, signal }: { caption: string; title: string; s
 }
 
 function RouteLine({ origin, destination, extra }: { origin: City; destination: City; extra?: string }) {
-  const { t } = useT();
-  const { rtl } = useFont();
+  const { lang } = useT();
   return (
     <Body>
-      {t(origin)} {rtl ? '←' : '→'} {t(destination)}
+      {routeName(origin, destination, lang)}
       {extra ? ` · ${extra}` : ''}
     </Body>
   );
@@ -174,8 +174,7 @@ type Found = { id: string; departs_at: string; seats_left: number; price_ils: nu
  * (today, else tomorrow), P3 when nothing is posted yet (offer a ride alert).
  */
 export function IdlePassenger({ route, verified }: { route: Route | null; verified: boolean }) {
-  const { t } = useT();
-  const { rtl } = useFont();
+  const { t, lang } = useT();
   const { session } = useSession();
   const [found, setFound] = useState<{ trip: Found | null; day: 0 | 1; count: number } | null>(null);
   const [alert, setAlert] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -215,14 +214,17 @@ export function IdlePassenger({ route, verified }: { route: Route | null; verifi
         <Heading caption={t('homeNewCaption')} title={t('homeNewTitle')} />
         <Body muted>{t('homeNewBody')}</Body>
         <View style={styles.chips}>
-          {(['ramallah', 'nablus'] as const).map((origin) => (
-            <Button
-              key={origin}
-              variant="secondary"
-              label={`${t(origin)} ${rtl ? '←' : '→'} ${t(origin === 'ramallah' ? 'nablus' : 'ramallah')}`}
-              onPress={() => router.push({ pathname: '/trips/results', params: { origin, destination: origin === 'ramallah' ? 'nablus' : 'ramallah', day: '0' } })}
-            />
-          ))}
+          {[RAMALLAH, NABLUS].map((origin) => {
+            const destination = origin === RAMALLAH ? NABLUS : RAMALLAH;
+            return (
+              <Button
+                key={origin}
+                variant="secondary"
+                label={routeName(origin, destination, lang)}
+                onPress={() => router.push({ pathname: '/trips/results', params: { origin, destination, day: '0' } })}
+              />
+            );
+          })}
         </View>
         {!verified ? (
           <Button variant="plain" icon="shieldCheck" label={t('homeVerifyFirst')} onPress={() => router.push('/verify')} />

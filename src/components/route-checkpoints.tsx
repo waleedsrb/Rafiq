@@ -8,6 +8,7 @@ import { View } from 'react-native';
 
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { ListRow, SectionTitle } from '@/components/ui';
+import { onRamallahNablusRoad } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -18,7 +19,7 @@ type Row = Overview & { road_order: number | null };
  * `reportedOnly` keeps just the checkpoints someone reported on recently (Home uses it,
  * so the list is short and every line is news); `limit` caps how many show.
  */
-export function RouteCheckpoints({ origin, reportedOnly, limit }: { origin: City; reportedOnly?: boolean; limit?: number }) {
+export function RouteCheckpoints({ origin, destination, reportedOnly, limit }: { origin: City; destination: City; reportedOnly?: boolean; limit?: number }) {
   const { t, lang } = useT();
   const ago = useAgo();
   const [rows, setRows] = useState<Row[]>([]);
@@ -26,14 +27,16 @@ export function RouteCheckpoints({ origin, reportedOnly, limit }: { origin: City
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc('checkpoint_overview');
-    // Only the Ramallah - Nablus road for now (the rest of the West Bank has no road_order).
-    const list = ((data as Row[] | null) ?? []).filter((r) => r.road_order != null);
-    // road_order counts from Ramallah, so reverse it when leaving from Nablus.
-    list.sort((a, b) => (origin === 'ramallah' ? (a.road_order ?? 0) - (b.road_order ?? 0) : (b.road_order ?? 0) - (a.road_order ?? 0)));
+    // Only the Ramallah - Nablus road for now (the rest of the West Bank has no road_order),
+    // and only for a trip along it. Drivers will pick their own checkpoints in the next step.
+    const way = onRamallahNablusRoad(origin, destination);
+    const list = way ? ((data as Row[] | null) ?? []).filter((r) => r.road_order != null) : [];
+    // road_order counts from Ramallah, so reverse it when leaving from the Nablus side.
+    list.sort((a, b) => (way === 'forward' ? (a.road_order ?? 0) - (b.road_order ?? 0) : (b.road_order ?? 0) - (a.road_order ?? 0)));
     const shown = reportedOnly ? list.filter((r) => r.status) : list;
     setRows(limit ? shown.slice(0, limit) : shown);
     setNow(new Date());
-  }, [origin, reportedOnly, limit]);
+  }, [origin, destination, reportedOnly, limit]);
 
   useEffect(() => {
     load();

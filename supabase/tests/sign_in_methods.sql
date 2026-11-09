@@ -43,7 +43,7 @@ reset role;
 
 select set_config('request.jwt.claim.sub', '', true);
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-0000000013c1', '00000000-0000-0000-0000-00000000013d', 'ramallah', 'nablus', now() + interval '1 day', 3, 25);
+values ('00000000-0000-0000-0000-0000000013c1', '00000000-0000-0000-0000-00000000013d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 3, 25);
 insert into public.bookings (id, trip_id, passenger_id) values
   ('00000000-0000-0000-0000-0000000013b1', '00000000-0000-0000-0000-0000000013c1', '00000000-0000-0000-0000-0000000013a1');
 

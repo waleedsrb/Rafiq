@@ -2,13 +2,22 @@
 
 import { toWesternDigits } from './digits.ts';
 
-export const CITIES = ['ramallah', 'nablus'] as const;
-export type City = (typeof CITIES)[number];
+/** A place id from the places table, e.g. 'osm-n246843686' (Ramallah). See src/lib/places.ts. */
+export type City = string;
 
 export const SEATS_MIN = 1;
 export const SEATS_MAX = 6;
 export const PRICE_MAX = 200; // ILS; anything above is almost certainly a typo
-export const SUGGESTED_PRICE = 25; // ILS, Ramallah <-> Nablus (shown as a hint and the starting value)
+export const SUGGESTED_PRICE = 25; // ILS, Ramallah <-> Nablus: the starting value when distance is unknown
+
+/**
+ * A fair seat price for a straight-line distance: about 0.7 ILS a km, which gives the 25 ILS
+ * people already pay between Ramallah and Nablus (36 km). Never under 5 ILS.
+ */
+export function suggestedPrice(km: number | null): number {
+  if (km === null || !Number.isFinite(km)) return SUGGESTED_PRICE;
+  return Math.min(PRICE_MAX, Math.max(5, Math.round(km * 0.7)));
+}
 
 /** Parse "7:30" or "07:30" (24-hour) into hours and minutes, or null. */
 export function parseTime(input: string): { h: number; m: number } | null {

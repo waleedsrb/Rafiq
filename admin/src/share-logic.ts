@@ -17,6 +17,11 @@ export type SharedTrip = {
   lat: number | string | null;
   lng: number | string | null;
   position_at: string | null;
+  /** Place names from shared_trip() (any West Bank town now, so the page can't keep its own list). */
+  origin_ar?: string | null;
+  origin_en?: string | null;
+  destination_ar?: string | null;
+  destination_en?: string | null;
 };
 
 export type ShareStatus = 'scheduled' | 'live' | 'finished' | 'cancelled';
@@ -28,13 +33,18 @@ export function tripStatus(t: Pick<SharedTrip, 'started_at' | 'finished_at' | 'c
   return 'scheduled';
 }
 
-const CITIES: Record<string, { ar: string; en: string }> = {
+// Before trips could go between any two towns, the server sent just 'ramallah' or 'nablus'.
+const OLD: Record<string, { ar: string; en: string }> = {
   ramallah: { ar: 'رام الله', en: 'Ramallah' },
   nablus: { ar: 'نابلس', en: 'Nablus' },
 };
 
-export function cityName(city: string, lang: Lang): string {
-  return CITIES[city]?.[lang] ?? city;
+/** One end of the trip by name: what the server named it, else the old two-city list. */
+export function placeName(trip: SharedTrip, end: 'origin' | 'destination', lang: Lang): string {
+  const named = trip[`${end}_${lang}`];
+  if (named) return named;
+  const id = trip[end];
+  return OLD[id]?.[lang] ?? id;
 }
 
 /** Whole minutes between a time and now, never negative. */

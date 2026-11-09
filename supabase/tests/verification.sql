@@ -46,7 +46,7 @@ select pg_temp.expect_error($$update public.driver_details set verified_at = now
 
 -- 2. Unverified driver can't post; unverified passenger can't book.
 select pg_temp.expect_error($$insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-  values (auth.uid(), 'ramallah', 'nablus', now() + interval '1 day', 3, 25)$$, 'not approved');
+  values (auth.uid(), 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 3, 25)$$, 'not approved');
 
 -- 3. Requests: right photo count, own folder only, one pending at a time.
 select pg_temp.expect_error($$insert into public.verifications (user_id, kind, photos)
@@ -113,14 +113,14 @@ select pg_temp.expect_error($$select public.review_verification((select id from 
 -- 5. The approved driver can post; the rejected passenger still can't book.
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-0000000000c1', auth.uid(), 'ramallah', 'nablus', now() + interval '1 day', 3, 25);
+values ('00000000-0000-0000-0000-0000000000c1', auth.uid(), 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 3, 25);
 
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 do $$ begin
   if (select reject_reason from public.verifications where user_id = auth.uid()) <> 'Photo is blurry' then
     raise exception 'FAIL: passenger should see the reason';
   end if;
-  if not (select driver_verified from public.search_trips('ramallah', 'nablus', now(), now() + interval '2 days') limit 1) then
+  if not (select driver_verified from public.search_trips('osm-n246843686', 'osm-n293546203', now(), now() + interval '2 days') limit 1) then
     raise exception 'FAIL: search should show the driver as verified';
   end if;
   if not public.is_verified_driver('00000000-0000-0000-0000-00000000000d') then

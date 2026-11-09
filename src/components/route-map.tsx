@@ -11,7 +11,7 @@ import MapView, { Marker, Polyline, type MapStyleElement } from 'react-native-ma
 import { STATUS_LOOK } from '@/components/checkpoint-badge';
 import { GlassButton, useFont } from '@/components/ui';
 import type { CheckpointStatus } from '@/lib/checkpoints';
-import { CITY_POINT, type LatLng } from '@/lib/places';
+import { centrePoint, onRamallahNablusRoad, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -113,10 +113,12 @@ export function RouteMap({
   const ref = useRef<MapView>(null);
   const loaded = useMapCheckpoints();
   const checkpoints = given ?? loaded;
-  const from = start ?? CITY_POINT[origin];
-  const to = CITY_POINT[destination];
-  // Checkpoints are stored Ramallah-first; flip them when driving the other way.
-  const onRoad = origin === 'ramallah' ? checkpoints : [...checkpoints].reverse();
+  const from = start ?? centrePoint(origin);
+  const to = centrePoint(destination);
+  // The four hand-placed checkpoints are stored Ramallah-first; flip them when driving the
+  // other way, and leave them off trips that don't use that road.
+  const way = onRamallahNablusRoad(origin, destination);
+  const onRoad = way === 'forward' ? checkpoints : way === 'back' ? [...checkpoints].reverse() : [];
   const line = [from, ...onRoad, to];
 
   const fit = () =>
@@ -130,7 +132,7 @@ export function RouteMap({
     fit();
     // Re-fit once the checkpoints arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkpoints.length, origin, from.latitude, from.longitude]);
+  }, [checkpoints.length, origin, destination, from.latitude, from.longitude]);
 
   return (
     <View style={{ height }}>

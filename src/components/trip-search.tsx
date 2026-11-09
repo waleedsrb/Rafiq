@@ -15,6 +15,7 @@ import { Body, Button, Chip, PillChips, ltr, useFont } from '@/components/ui';
 import { alertWindow } from '@/lib/alerts';
 import { formatChipDay, shortTime, type DayPart } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
+import { NABLUS, place, placeName, RAMALLAH } from '@/lib/places';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -34,6 +35,11 @@ export type Result = {
   driver_verified: boolean;
   /** Only verified women get these from search_trips(). */
   women_only: boolean;
+  /** Where this trip really starts and ends, and how far that is from what you searched (0 = the same town). */
+  origin: City;
+  destination: City;
+  origin_km: number;
+  destination_km: number;
 };
 
 const partLabel = { morning: 'partMorning', afternoon: 'partAfternoon', evening: 'partEvening' } as const;
@@ -44,6 +50,7 @@ export type SearchState = {
   day: number;
   part: DayPart | null;
   setOrigin: (c: City) => void;
+  setDestination: (c: City) => void;
   swap: () => void;
   setDay: (d: number) => void;
   setPart: (p: DayPart | null) => void;
@@ -55,12 +62,16 @@ export type SearchState = {
 };
 
 /** Everything a search page needs: the question, and the week of answers for it. */
-export function useTripSearch(start?: { origin?: City; day?: number; part?: DayPart | null }): SearchState {
+export function useTripSearch(start?: { origin?: City; destination?: City; day?: number; part?: DayPart | null }): SearchState {
   const { t, lang } = useT();
-  const [origin, setOrigin] = useState<City>(start?.origin ?? 'ramallah');
+  const [route, setRoute] = useState<{ origin: City; destination: City }>(() => {
+    const origin = place(start?.origin)?.id ?? RAMALLAH;
+    const destination = place(start?.destination)?.id ?? (origin === NABLUS ? RAMALLAH : NABLUS);
+    return { origin, destination: destination === origin ? (origin === NABLUS ? RAMALLAH : NABLUS) : destination };
+  });
+  const { origin, destination } = route;
   const [day, setDay] = useState(start?.day ?? 0);
   const [part, setPart] = useState<DayPart | null>(start?.part ?? null);
-  const destination: City = origin === 'ramallah' ? 'nablus' : 'ramallah';
   const [week, setWeek] = useState<Result[] | null>(null);
   const [loading, setLoading] = useState(true);
   const asked = useRef(0);
@@ -90,8 +101,11 @@ export function useTripSearch(start?: { origin?: City; day?: number; part?: DayP
     );
   }, [t, lang]);
 
-  const swap = useCallback(() => setOrigin(destination), [destination]);
-  return { origin, destination, day, part, setOrigin, swap, setDay, setPart, week, loading, counts, dayLabels };
+  // Picking the town already at the other end flips the route instead of making it A -> A.
+  const setOrigin = useCallback((c: City) => setRoute((r) => (c === r.destination ? { origin: c, destination: r.origin } : { ...r, origin: c })), []);
+  const setDestination = useCallback((c: City) => setRoute((r) => (c === r.origin ? { origin: r.destination, destination: c } : { ...r, destination: c })), []);
+  const swap = useCallback(() => setRoute((r) => ({ origin: r.destination, destination: r.origin })), []);
+  return { origin, destination, day, part, setOrigin, setDestination, swap, setDay, setPart, week, loading, counts, dayLabels };
 }
 
 /** The day chips: one tap picks the day, the graphite pill glides there, and the list below changes in place. */
@@ -121,7 +135,7 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
   const dayStart = searchDayStart(s.day, now);
   const win = alertWindow(dayStart, s.part, now);
   const canAlert = !!s.week && !s.loading && !!win && !shown.some((r) => r.seats_left > 0);
-  useEffect(() => setAlert('idle'), [s.part, s.day, s.origin]);
+  useEffect(() => setAlert('idle'), [s.part, s.day, s.origin, s.destination]);
 
   async function saveAlert() {
     if (!session || !win) return;
@@ -141,7 +155,7 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
   // A trip grows out of its row, over the results (see trip-sheet.tsx).
   const open = onOpenTrip ?? openInLayer;
   // A new key per question replays the rows' entrance, so you see the list change.
-  const answerKey = `${s.origin}-${s.day}-${s.part}-${womenOnly}`;
+  const answerKey = `${s.origin}-${s.destination}-${s.day}-${s.part}-${womenOnly}`;
 
   return (
     <View style={{ gap: space.md }}>
@@ -186,6 +200,8 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
             entering={reduced ? undefined : FadeInDown.duration(260).delay(Math.min(i, 6) * 35)}
             layout={reduced ? undefined : LinearTransition.duration(220)}
           >
+            {/* Exact towns come first (search_trips orders them so); a quiet label starts the nearby ones. */}
+            {isNearby(r) && (i === 0 || !isNearby(shown[i - 1])) ? <Body muted small>{t('nearbyTrips')}</Body> : null}
             <TimeFirstRow r={r} last={i === shown.length - 1} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} onPress={(from) => open(r.id, from)} />
           </Animated.View>
         ))}
@@ -193,6 +209,9 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
     </View>
   );
 }
+
+/** A trip from or to a town near the one you searched, not the town itself. */
+const isNearby = (r: Result) => Number(r.origin_km) > 0 || Number(r.destination_km) > 0;
 
 /** Time of day as quiet tabs (All day, Morning, Afternoon, Evening): an underline, not a box. */
 function PartTabs({ s }: { s: SearchState }) {
@@ -261,11 +280,16 @@ function TimeFirstRow({
   onPress: (from: Rect | null) => void;
 }) {
   const ref = useRef<HostInstance>(null);
-  const { t } = useT();
+  const { t, lang } = useT();
   const { f, rtl } = useFont();
   const full = r.seats_left <= 0;
   const name = r.driver_last_initial ? `${r.driver_first_name} ${r.driver_last_initial}.` : r.driver_first_name;
-  const sub = [r.women_only ? t('womenOnly') : null, r.car_model].filter(Boolean).join(' · ');
+  // A nearby trip says where it really goes: "From Bitunia · 3 km".
+  const where = [
+    Number(r.origin_km) > 0 ? `${t('fromPlace').replace('{place}', placeName(r.origin, lang))} · ${r.origin_km} ${t('kmUnit')}` : null,
+    Number(r.destination_km) > 0 ? `${t('toPlace').replace('{place}', placeName(r.destination, lang))} · ${r.destination_km} ${t('kmUnit')}` : null,
+  ];
+  const sub = [...where, r.women_only ? t('womenOnly') : null, r.car_model].filter(Boolean).join(' · ');
   const align = rtl ? ('right' as const) : ('left' as const);
   const seatsText = full ? t('full') : `${r.seats_left} ${t('seatsFree')}`;
   return (

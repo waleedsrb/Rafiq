@@ -27,20 +27,20 @@ select pg_temp.as_user('00000000-0000-0000-0000-00000000f1d1');
 
 -- 1. A one-off trip with a pickup, and one without (older clients) both post.
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils, pickup_label, pickup_lat, pickup_lng)
-values ('00000000-0000-0000-0000-00000000f1d1', 'ramallah', 'nablus', now() + interval '2 days', 3, 25,
+values ('00000000-0000-0000-0000-00000000f1d1', 'osm-n246843686', 'osm-n293546203', now() + interval '2 days', 3, 25,
         'Al-Manara Square', 31.9038, 35.2034);
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-00000000f1d1', 'ramallah', 'nablus', now() + interval '3 days', 3, 25);
+values ('00000000-0000-0000-0000-00000000f1d1', 'osm-n246843686', 'osm-n293546203', now() + interval '3 days', 3, 25);
 
 -- 2. Half a pickup, or a one-letter label, is refused.
 select pg_temp.expect_error($$insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils, pickup_label)
-  values ('00000000-0000-0000-0000-00000000f1d1', 'ramallah', 'nablus', now() + interval '4 days', 3, 25, 'Here')$$, 'trips_pickup_complete');
+  values ('00000000-0000-0000-0000-00000000f1d1', 'osm-n246843686', 'osm-n293546203', now() + interval '4 days', 3, 25, 'Here')$$, 'trips_pickup_complete');
 select pg_temp.expect_error($$insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils, pickup_label, pickup_lat, pickup_lng)
-  values ('00000000-0000-0000-0000-00000000f1d1', 'ramallah', 'nablus', now() + interval '4 days', 3, 25, 'x', 31.9, 35.2)$$, 'check constraint');
+  values ('00000000-0000-0000-0000-00000000f1d1', 'osm-n246843686', 'osm-n293546203', now() + interval '4 days', 3, 25, 'x', 31.9, 35.2)$$, 'check constraint');
 
 -- 3. A weekly pattern copies its pickup onto every trip it posts.
 insert into public.trip_series (origin, destination, weekdays, depart_time, seats_total, price_ils, pickup_label, pickup_lat, pickup_lng)
-values ('nablus', 'ramallah', '{0,1,2,3,4,5,6}', '23:59', 3, 25, 'Martyrs Square', 32.2211, 35.2544);
+values ('osm-n293546203', 'osm-n246843686', '{0,1,2,3,4,5,6}', '23:59', 3, 25, 'Martyrs Square', 32.2211, 35.2544);
 do $$ declare n int; bad int; begin
   select count(*), count(*) filter (where pickup_label is distinct from 'Martyrs Square' or pickup_lat is null)
     into n, bad from public.trips where series_id is not null;
@@ -50,9 +50,9 @@ end $$;
 
 -- 4. Popular spots: the city's used spots, most used first; another city's never.
 do $$ declare r record; begin
-  select * into r from public.popular_pickups('nablus') limit 1;
+  select * into r from public.popular_pickups('osm-n293546203') limit 1;
   if r.label <> 'Martyrs Square' or r.uses < 6 then raise exception 'FAIL: popular nablus spot %', r; end if;
-  select * into r from public.popular_pickups('ramallah') limit 1;
+  select * into r from public.popular_pickups('osm-n246843686') limit 1;
   if r.label <> 'Al-Manara Square' or r.uses <> 1 then raise exception 'FAIL: popular ramallah spot %', r; end if;
 end $$;
 
