@@ -305,11 +305,11 @@ export default function TripRequests() {
         return (
           <View key={r.id} style={styles.request}>
             {r.status === 'accepted' ? (
-              <BookingContact bookingId={r.id} avatarPath={r.profiles.avatar_path} />
+              <BookingContact bookingId={r.id} avatarPath={r.profiles.avatar_path} seed={r.passenger_id} />
             ) : (
               <ListRow
                 last
-                leading={<Avatar path={r.profiles.avatar_path} name={name} />}
+                leading={<Avatar path={r.profiles.avatar_path} name={name} seed={r.passenger_id} />}
                 title={name}
                 onPress={() => router.push({ pathname: '/people/[id]', params: { id: r.passenger_id } })}
                 subtitle={

@@ -32,12 +32,12 @@ export function useContact(bookingId: string | null) {
   return c;
 }
 
-export function ContactCard({ contact: c, avatarPath }: { contact: Contact; avatarPath?: string | null }) {
+export function ContactCard({ contact: c, avatarPath, seed }: { contact: Contact; avatarPath?: string | null; seed?: string | null }) {
   const { t } = useT();
   return (
     <View>
       <ListRow
-        leading={<Avatar path={avatarPath} name={c.first_name} />}
+        leading={<Avatar path={avatarPath} name={c.first_name} seed={seed} />}
         title={c.first_name}
         subtitle={c.phone ? ltr(formatPhone(c.phone)) : t('driverLabel')}
         trailing={
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
 });
 
 /** Loads the contact for one accepted booking, then shows it. */
-export function BookingContact({ bookingId, avatarPath }: { bookingId: string; avatarPath?: string | null }) {
+export function BookingContact({ bookingId, avatarPath, seed }: { bookingId: string; avatarPath?: string | null; seed?: string | null }) {
   const c = useContact(bookingId);
-  return c ? <ContactCard contact={c} avatarPath={avatarPath} /> : null;
+  return c ? <ContactCard contact={c} avatarPath={avatarPath} seed={seed} /> : null;
 }

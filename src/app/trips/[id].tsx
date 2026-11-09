@@ -354,7 +354,7 @@ export default function TripDetails() {
 
       {(status === 'accepted' || arrived) && contact ? (
         <>
-          <ContactCard contact={contact} avatarPath={trip.profiles.avatar_path} />
+          <ContactCard contact={contact} avatarPath={trip.profiles.avatar_path} seed={trip.driver_id} />
           {status === 'accepted' && !trip.started_at && departs.getTime() - Date.now() > 60 * 60 * 1000 ? (
             <Body muted small>{t('remindHourBefore')}</Body>
           ) : null}
@@ -362,7 +362,7 @@ export default function TripDetails() {
       ) : (
         <View>
           <ListRow
-            leading={<Avatar path={trip.profiles.avatar_path} name={driverName} />}
+            leading={<Avatar path={trip.profiles.avatar_path} name={driverName} seed={trip.driver_id} />}
             title={driverName}
             onPress={() => router.push({ pathname: '/people/[id]', params: { id: trip.driver_id } })}
             subtitle={

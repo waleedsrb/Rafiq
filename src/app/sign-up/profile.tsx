@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Body, Button, Choice, Field, IconCircle, Label, ListRow, Screen, Title } from '@/components/ui';
+import { Avatar } from '@/components/avatar';
+import { Body, Button, Choice, Field, Label, ListRow, Screen, Title } from '@/components/ui';
 import { deviceLanguage, type Gender } from '@/i18n';
 import { shortName } from '@/lib/names';
 import { normalizePhone } from '@/lib/phone';
@@ -87,7 +88,7 @@ export default function ProfileStep() {
       {first.trim() ? (
         <ListRow
           last
-          leading={<IconCircle letter={first.trim().charAt(0)} />}
+          leading={<Avatar name={first} seed={session?.user.id} />}
           title={shortName(`${first} ${last}`)}
           subtitle={t('namePreviewHint')}
         />
