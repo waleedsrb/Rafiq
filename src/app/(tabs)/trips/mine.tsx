@@ -5,7 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
 import { TripRow } from '@/components/trip-row';
-import { Body, Choice, Screen, TabHeader, ltr } from '@/components/ui';
+import { Body, Choice, TabScreen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useBookingChanges } from '@/lib/live';
 import { useSession, useT } from '@/lib/session';
@@ -107,8 +107,7 @@ export default function MyTrips() {
   useBookingChanges(load);
 
   return (
-    <Screen scroll tab>
-      <TabHeader title={t('tabTrips')} />
+    <TabScreen title={t('tabTrips')}>
       <Choice<Tab>
         value={tab}
         onChange={setTab}
@@ -181,6 +180,6 @@ export default function MyTrips() {
           ))}
         </>
       ) : null}
-    </Screen>
+    </TabScreen>
   );
 }
