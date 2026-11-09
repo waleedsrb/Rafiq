@@ -8,6 +8,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { Icon, type IconName } from '@/components/icon';
 import { Stars } from '@/components/stars';
 import { StatsRow } from '@/components/stats-row';
@@ -46,6 +47,7 @@ export default function Person() {
   const [person, setPerson] = useState<PublicProfile | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +59,13 @@ export default function Person() {
       const row = Array.isArray(data) ? data[0] : data;
       setStats((row as Stats | undefined) ?? null);
     });
+    // The photo itself only opens if you may see it (see can_see_avatar()).
+    supabase
+      .from('profiles')
+      .select('avatar_path')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }) => setAvatarPath((data as { avatar_path: string | null } | null)?.avatar_path ?? null));
     supabase.rpc('person_reviews', { p_person: id, p_limit: 20 }).then(({ data }) => setReviews((data as Review[] | null) ?? []));
   }, [id]);
 
@@ -83,7 +92,7 @@ export default function Person() {
   return (
     <Screen back scroll>
       <View style={styles.header}>
-        <IconCircle letter={name.charAt(0)} size={72} />
+        <Avatar path={person.deleted ? null : avatarPath} name={name} size={72} />
         <View style={{ flex: 1, gap: 2 }}>
           <View style={styles.nameLine}>
             <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>

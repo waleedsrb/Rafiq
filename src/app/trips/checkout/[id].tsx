@@ -58,7 +58,10 @@ export default function Checkout() {
     setError(null);
     const { error: err } = await supabase.rpc('request_seat_cash', { p_trip_id: trip.id });
     setPaying(false);
-    if (err) return setError(err.message.includes('women only') ? t('womenOnlyTrip') : t('somethingWrong'));
+    if (err) {
+      if (err.message.includes('profile photo')) return setError(t('photoNeeded'));
+      return setError(err.message.includes('women only') ? t('womenOnlyTrip') : t('somethingWrong'));
+    }
     await askForPush();
     router.back();
   }
@@ -81,6 +84,7 @@ export default function Checkout() {
     setPaying(false);
     if (err) {
       if (err.message.includes('women only')) return setError(t('womenOnlyTrip'));
+      if (err.message.includes('profile photo')) return setError(t('photoNeeded'));
       return setError(err.message.includes('declined') ? t('cardDeclined') : t('somethingWrong'));
     }
     // Now is when notifications make sense: "tell me when the driver answers".

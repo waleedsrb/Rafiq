@@ -8,13 +8,14 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { BookingContact } from '@/components/contact-card';
 import { useRepeatsText } from '@/components/repeats';
 import { SeatDots } from '@/components/seat-dots';
 import { TripHero } from '@/components/trip-hero';
 import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Stars } from '@/components/stars';
-import { Body, Button, Chip, Countdown, IconCircle, ListRow, Screen, SectionTitle, TextLink, ltr } from '@/components/ui';
+import { Body, Button, Chip, Countdown, ListRow, Screen, SectionTitle, TextLink, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatTime } from '@/lib/format';
@@ -49,7 +50,7 @@ type Request = {
   here_at: string | null;
   boarded_at: string | null;
   passenger_id: string;
-  profiles: { full_name: string }; // the passenger
+  profiles: { full_name: string; avatar_path: string | null }; // the passenger
 };
 
 export default function TripRequests() {
@@ -71,7 +72,7 @@ export default function TripRequests() {
       supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, trip_series(id, weekdays, stopped_at)').eq('id', id).single(),
       supabase
         .from('bookings')
-        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name)')
+        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name, avatar_path)')
         .eq('trip_id', id)
         .order('created_at'),
       supabase.rpc('seats_left', { p_trip_id: id }),
@@ -304,11 +305,11 @@ export default function TripRequests() {
         return (
           <View key={r.id} style={styles.request}>
             {r.status === 'accepted' ? (
-              <BookingContact bookingId={r.id} />
+              <BookingContact bookingId={r.id} avatarPath={r.profiles.avatar_path} />
             ) : (
               <ListRow
                 last
-                leading={<IconCircle letter={name.charAt(0)} />}
+                leading={<Avatar path={r.profiles.avatar_path} name={name} />}
                 title={name}
                 onPress={() => router.push({ pathname: '/people/[id]', params: { id: r.passenger_id } })}
                 subtitle={

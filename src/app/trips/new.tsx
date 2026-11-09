@@ -8,6 +8,7 @@ import { RouteCard } from '@/components/route-card';
 import { Body, Button, Chip, ChipRow, Choice, Field, Label, ListRow, Screen, Stepper, Title, ltr } from '@/components/ui';
 import { formatChipDay, formatDay, formatLongDay, shortTime } from '@/lib/format';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
+import { photoGate, photoGateText } from '@/lib/avatar';
 import { goBack } from '@/lib/nav';
 import { askForPush } from '@/lib/push';
 import { WEEK, WORK_WEEK, toDbTime, toggleDay, weekdayName } from '@/lib/recurring';
@@ -120,6 +121,7 @@ export default function NewTrip() {
         });
     }
 
+    if (!(await photoGate(!!profile?.avatar_path, photoGateText(t)))) return;
     setSaving(true);
     setError(null);
     const { error: err } = await insert();
@@ -130,6 +132,7 @@ export default function NewTrip() {
         const until = (data as { paused_until: string | null }[] | null)?.[0]?.paused_until;
         return setPausedUntil(until ? new Date(until) : null);
       }
+      if (err.message.includes('profile photo')) return setError(t('photoNeeded'));
       return setError(err.message.includes('not approved') ? t('driverCheckNeeded') : t('somethingWrong'));
     }
     // Now is when notifications make sense: "tell me when someone asks for a seat".

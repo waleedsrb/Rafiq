@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
 import { ContactCard, useContact } from '@/components/contact-card';
 import { DriverCancelled } from '@/components/driver-cancelled';
 import { Plate } from '@/components/plate';
@@ -17,8 +18,9 @@ import { Icon } from '@/components/icon';
 import { useRepeatsText } from '@/components/repeats';
 import { RouteMap } from '@/components/route-map';
 import { TripHero } from '@/components/trip-hero';
-import { Body, Button, Countdown, IconCircle, ListRow, Screen, ltr } from '@/components/ui';
+import { Body, Button, Countdown, ListRow, Screen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
+import { photoGate, photoGateText } from '@/lib/avatar';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
@@ -46,7 +48,7 @@ type Trip = {
   cancel_reason: string | null;
   started_at: string | null;
   finished_at: string | null;
-  profiles: { full_name: string }; // the driver, joined through trips.driver_id
+  profiles: { full_name: string; avatar_path: string | null }; // the driver, joined through trips.driver_id
   trip_series: { weekdays: number[]; stopped_at: string | null } | null; // set when the trip repeats weekly
 };
 
@@ -76,7 +78,7 @@ export default function TripDetails() {
     const [tripRes, seatsRes, bookingRes] = await Promise.all([
       supabase
         .from('trips')
-        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, profiles!trips_driver_id_fkey(full_name), trip_series(weekdays, stopped_at)')
+        .select('id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, profiles!trips_driver_id_fkey(full_name, avatar_path), trip_series(weekdays, stopped_at)')
         .eq('id', id)
         .single(),
       supabase.rpc('seats_left', { p_trip_id: id }),
@@ -147,6 +149,8 @@ export default function TripDetails() {
       router.push({ pathname: '/verify', params: { kind: 'passenger' } });
       return;
     }
+    // A profile photo, if Rafiq requires one (off for now: settings.profile_photo_required).
+    if (!(await photoGate(!!profile.avatar_path, photoGateText(t)))) return;
     // Paying (a hold on the card) and requesting happen together on the checkout screen.
     router.push({ pathname: '/trips/checkout/[id]', params: { id: trip.id } });
   }
@@ -350,7 +354,7 @@ export default function TripDetails() {
 
       {(status === 'accepted' || arrived) && contact ? (
         <>
-          <ContactCard contact={contact} />
+          <ContactCard contact={contact} avatarPath={trip.profiles.avatar_path} />
           {status === 'accepted' && !trip.started_at && departs.getTime() - Date.now() > 60 * 60 * 1000 ? (
             <Body muted small>{t('remindHourBefore')}</Body>
           ) : null}
@@ -358,7 +362,7 @@ export default function TripDetails() {
       ) : (
         <View>
           <ListRow
-            leading={<IconCircle letter={driverName.charAt(0)} />}
+            leading={<Avatar path={trip.profiles.avatar_path} name={driverName} />}
             title={driverName}
             onPress={() => router.push({ pathname: '/people/[id]', params: { id: trip.driver_id } })}
             subtitle={

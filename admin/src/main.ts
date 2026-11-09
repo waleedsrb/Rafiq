@@ -18,7 +18,7 @@ type Request = {
   kind: Kind;
   photos: string[];
   submitted_at: string;
-  profiles: { full_name: string; gender: string | null } | null;
+  profiles: { full_name: string; gender: string | null; avatar_path: string | null } | null;
 };
 
 const app = document.getElementById('app')!;
@@ -117,7 +117,7 @@ async function queueView() {
 
   const { data, error } = await supabase
     .from('verifications')
-    .select('id, kind, photos, submitted_at, profiles!verifications_user_id_fkey(full_name, gender)')
+    .select('id, kind, photos, submitted_at, profiles!verifications_user_id_fkey(full_name, gender, avatar_path)')
     .eq('status', 'pending')
     .order('submitted_at'); // oldest first: first come, first served
   if (error) return show(el('p', { class: 'error', textContent: error.message }));
@@ -126,6 +126,10 @@ async function queueView() {
   const paths = rows.flatMap((r) => r.photos);
   const signed = paths.length ? ((await supabase.storage.from('verification').createSignedUrls(paths, 600)).data ?? []) : [];
   const urlFor = new Map(signed.map((s) => [s.path ?? '', s.signedUrl ?? '']));
+  // Profile photos, if they added one: shown beside the ID so you can check it is the same person.
+  const avatarPaths = rows.flatMap((r) => (r.profiles?.avatar_path ? [r.profiles.avatar_path] : []));
+  const avatars = avatarPaths.length ? ((await supabase.storage.from('avatars').createSignedUrls(avatarPaths, 600)).data ?? []) : [];
+  for (const a of avatars) urlFor.set(a.path ?? '', a.signedUrl ?? '');
 
   const refresh = el('button', { class: 'link', textContent: 'Refresh' });
   refresh.onclick = () => queueView();
@@ -147,6 +151,16 @@ function requestCard(r: Request, urlFor: Map<string, string>) {
   const photos = el(
     'div',
     { class: 'photos' },
+    ...(r.profiles?.avatar_path
+      ? [
+          el(
+            'a',
+            { class: 'photo', href: urlFor.get(r.profiles.avatar_path) ?? '', target: '_blank', rel: 'noopener' },
+            el('img', { src: urlFor.get(r.profiles.avatar_path) ?? '', alt: 'Profile photo' }),
+            'Profile photo (same person as the ID?)',
+          ),
+        ]
+      : []),
     ...r.photos.map((path, i) => {
       const src = urlFor.get(path) ?? '';
       // Opens full size in a new tab so you can zoom in on small print.
