@@ -347,6 +347,7 @@ export default function Home() {
   return (
     <TabScreen
       title={t('tabHome')}
+      pinned
       kicker={
         <Body muted small>
           {formatLongDay(now, lang)}
