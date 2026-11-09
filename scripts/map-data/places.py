@@ -37,6 +37,8 @@ def main(places_path, boundary_path):
     for f in json.load(open(boundary_path, encoding="utf-8"))["features"]:
         t = f.get("properties") or {}
         g = f["geometry"]
+        if g["type"] not in ("Polygon", "MultiPolygon"):
+            continue
         polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
         for i, poly in enumerate(polys):
             ring = poly[0]
