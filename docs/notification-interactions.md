@@ -43,9 +43,9 @@ slide animation. The proposed animation still needs a native prototype and phone
   the background and never blocks the navigation.
 - Swipes follow Mail: in English, swipe right for Read and left for Delete; mirrored in
   Arabic. Read is absent for already-read messages.
-- Style "C, circles": a 44pt round button with its word underneath. Soft tint at rest
-  (sunken / statusClosedSoft); solid (ink / statusClosed) with a white glyph and a
-  slight grow when armed.
+- Style "B, inset capsule" (switched from C on 2026-11-09): a 16pt-radius capsule
+  with icon and word, inset from the row. Soft tint at rest (sunken /
+  statusClosedSoft); solid (ink / statusClosed) with white icon and word when armed.
 - A partial swipe settles with the button showing; tapping it performs it; tapping the
   row closes it.
 - A full swipe arms at 60% of the row width with a haptic tick; letting go performs it.
