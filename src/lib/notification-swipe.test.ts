@@ -1,18 +1,19 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { clampNotificationSwipe, notificationSwipeMetrics, notificationSwipeResult } from './notification-swipe.ts';
+import { clampNotificationSwipe, notificationSwipeArmed, notificationSwipeMetrics, notificationSwipeResult } from './notification-swipe.ts';
 
 test('short swipe closes, partial swipe reveals, full release performs one action', () => {
   assert.deepEqual(notificationSwipeResult(20, 400, false, true), { action: null, offset: 0 });
-  assert.deepEqual(notificationSwipeResult(100, 400, false, true), { action: null, offset: 112 });
-  assert.deepEqual(notificationSwipeResult(288, 400, false, true), { action: 'read', offset: 0 });
-  assert.deepEqual(notificationSwipeResult(-288, 400, false, true), { action: 'delete', offset: 0 });
+  assert.deepEqual(notificationSwipeResult(100, 400, false, true), { action: null, offset: 80 });
+  assert.deepEqual(notificationSwipeResult(240, 400, false, true), { action: 'read', offset: 0 });
+  assert.deepEqual(notificationSwipeResult(239, 400, false, true), { action: null, offset: 80 });
+  assert.deepEqual(notificationSwipeResult(-240, 400, false, true), { action: 'delete', offset: 0 });
 });
 
 test('crossing the threshold then retreating only reveals; a canceled full swipe never acts', () => {
   assert.equal(notificationSwipeResult(-350, 400, false, true).action, 'delete');
-  assert.deepEqual(notificationSwipeResult(-170, 400, false, true), { action: null, offset: -112 });
+  assert.deepEqual(notificationSwipeResult(-170, 400, false, true), { action: null, offset: -80 });
   assert.deepEqual(notificationSwipeResult(-350, 400, false, true, true), { action: null, offset: 0 });
 });
 
@@ -40,4 +41,12 @@ test('threshold follows the measured row width; partial snap never arms a full s
     assert.equal(clampNotificationSwipe(width * 2, width, false, true), width);
   }
   assert.deepEqual(notificationSwipeResult(300, 0, false, true), { action: null, offset: 0 });
+});
+
+test('arming at 60% matches what release performs, mirrored in Arabic', () => {
+  assert.equal(notificationSwipeArmed(240, 400, false, true), 'read');
+  assert.equal(notificationSwipeArmed(-240, 400, true, true), 'read');
+  assert.equal(notificationSwipeArmed(239, 400, false, true), null);
+  assert.equal(notificationSwipeArmed(300, 400, false, false), null);
+  assert.equal(notificationSwipeArmed(300, 0, false, true), null);
 });

@@ -47,14 +47,32 @@ export function needsYou(n: Pick<Notification, 'kind' | 'read_at'>): boolean {
   return n.read_at === null && ['requested', 'trip_cancelled', 'verification_rejected'].includes(n.kind);
 }
 
-export type InboxChange = { type: 'read'; id: number; readAt: string } | { type: 'delete'; id: number };
+export type InboxChange =
+  | { type: 'read'; id: number; readAt: string }
+  | { type: 'unread'; id: number }
+  | { type: 'readAll'; readAt: string }
+  | { type: 'delete'; id: number }
+  | { type: 'restore'; row: Notification };
 
-/** Apply a confirmed server action without resetting another message's state. */
+/**
+ * Apply one change to the list on screen. The inbox shows a change straight away
+ * and undoes it ('unread', 'restore') if the server says no, so these never touch
+ * another message's state.
+ */
 export function applyInboxChange(rows: Notification[], change: InboxChange): Notification[] {
-  if (change.type === 'delete') return rows.filter((n) => n.id !== change.id);
-  return rows.map((n) => n.id === change.id && !n.read_at ? { ...n, read_at: change.readAt } : n);
+  switch (change.type) {
+    case 'delete':
+      return rows.filter((n) => n.id !== change.id);
+    case 'restore':
+      return rows.some((n) => n.id === change.row.id) ? rows : [...rows, change.row].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    case 'unread':
+      return rows.map((n) => (n.id === change.id ? { ...n, read_at: null } : n));
+    case 'readAll':
+      return rows.map((n) => (n.read_at ? n : { ...n, read_at: change.readAt }));
+    case 'read':
+      return rows.map((n) => (n.id === change.id && !n.read_at ? { ...n, read_at: change.readAt } : n));
+  }
 }
-
 
 /** Push payloads use strings so Postgres bigint IDs never lose precision. */
 export function notificationIdFromPush(value: unknown): string | null {
