@@ -19,6 +19,7 @@ export const colors = {
   glassFill: 'rgba(255,255,255,0.72)',
   glassTint: 'rgba(247,246,243,0.55)', // Liquid Glass tint for bars over a map
   glassVeil: 'rgba(247,246,243,0.38)', // porcelain wash on top, so text reads on a dark map
+  glassCardVeil: 'rgba(247,246,243,0.5)', // the same wash on the expanded card, which holds more text
   glassEdge: 'rgba(255,255,255,0.90)',
   glassLens: 'rgba(23,25,28,0.07)', // the selected tab's pill
   plateInk: '#1F6B3A',

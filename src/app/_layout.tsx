@@ -86,7 +86,7 @@ function Routes() {
             <Stack.Screen name="emergency" />
             <Stack.Screen name="earnings" />
             <Stack.Screen name="people/[id]" />
-            <Stack.Screen name="trips/new" />
+            <Stack.Screen name="trips/new" options={{ animation: 'fade' }} />
             <Stack.Screen name="trips/search" />
             <Stack.Screen name="trips/results" />
             <Stack.Screen name="trips/[id]" />

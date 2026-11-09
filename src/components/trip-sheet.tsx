@@ -9,8 +9,8 @@
 //
 // Motion: two values on the UI thread. `p` is the morph (0 = the row you tapped, 1 = in
 // place); `pos` is the height (0 = bar, 1 = middle, 2 = full). The card's frame is worked
-// out from both every frame. Apple's Liquid Glass only goes on the bar once it has
-// settled: native glass turns into a grey slab while its size animates (see search-morph).
+// out from both every frame. Apple's Liquid Glass (tinted) goes on the card and the bar once
+// they've settled: native glass turns into a grey slab while its size animates (see search-morph).
 
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -38,6 +38,7 @@ import { GlassButton, useFont } from '@/components/ui';
 import { shortTime } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
+import type { LatLng } from '@/lib/places';
 import type { Rect } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
 import { colors, fonts, shadows, sizes, space } from '@/theme/tokens';
@@ -68,6 +69,9 @@ const CLOSE = { damping: 30, stiffness: 280, mass: 1, overshootClamping: true };
 // A flick faster than this (points per second) moves one height in that direction.
 const FLICK = 600;
 
+/** Where the card's top edge rests at the middle height (so a map behind it can centre on what's visible). */
+export const sheetMidTop = (screenHeight: number) => Math.round(screenHeight * 0.44);
+
 const clamp01 = (v: number) => {
   'worklet';
   return Math.min(1, Math.max(0, v));
@@ -90,6 +94,8 @@ export function TripSheet({
   onClosed,
   onShare,
   step,
+  map,
+  pickup,
 }: {
   origin: City;
   destination: City;
@@ -112,6 +118,10 @@ export function TripSheet({
   /** Which step is showing (details, request...) and how deep it is, so a new step slides in
    *  from the side it comes from instead of swapping in place. */
   step?: { key: string; depth: number };
+  /** A different map behind the card (posting a trip: the pickup picker). Default: the route. */
+  map?: ReactNode;
+  /** Where the driver meets riders: the route line starts there instead of the city square. */
+  pickup?: LatLng | null;
 }) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
@@ -121,7 +131,7 @@ export function TripSheet({
 
   // The three heights, as the card's top edge.
   const fullTop = insets.top + 6 + sizes.touch + 10;
-  const midTop = Math.round(H * 0.44);
+  const midTop = sheetMidTop(H);
   // Like iOS's floating tab bar: the bar dips into the home indicator's area a little
   // instead of stacking on top of it.
   const barBottom = Math.max(insets.bottom - 12, 12);
@@ -300,7 +310,10 @@ export function TripSheet({
   // The card already ends where the bar does, so the main button keeps a small, even gap
   // above that shared edge and stays where your thumb already is in every state.
   const footerBottom = 12;
-  const glassBar = LIQUID_GLASS && at === 'mini' && !moving && !closing;
+  // Apple's Liquid Glass on the card and the bar whenever they rest. While the card moves or
+  // changes size (a drag, a step asking for room, the open and close morph) it's a frosted
+  // stand-in instead: native glass turns into a grey slab while its size animates.
+  const glass = LIQUID_GLASS && mapOn && !moving && !closing;
 
   // Steps: the new one slides in a little from the side it comes from (deeper: from the end,
   // back: from the start) while fading up, and the list starts at the top again.
@@ -335,9 +348,14 @@ export function TripSheet({
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={closing ? 'none' : 'box-none'}>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, mapStyle]}>
-        {mapOn ? (
-          <Animated.View style={StyleSheet.absoluteFill} entering={reduced || settled ? undefined : FadeIn.duration(320)}>
+        {mapOn && map ? (
+          <Animated.View key="custom" style={StyleSheet.absoluteFill} entering={reduced ? undefined : FadeIn.duration(240)}>
+            {map}
+          </Animated.View>
+        ) : mapOn ? (
+          <Animated.View key="route" style={StyleSheet.absoluteFill} entering={reduced || settled ? undefined : FadeIn.duration(320)}>
             <RouteMap
+              start={pickup ?? undefined}
               origin={origin}
               destination={destination}
               height={H}
@@ -356,11 +374,20 @@ export function TripSheet({
 
       <Animated.View style={[styles.card, cardStyle]}>
         <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
-          {glassBar ? (
+          {glass ? (
             <>
-              {/* Tinted, so the bar still reads over a dark or busy map. */}
-              <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" tintColor={colors.glassTint} isInteractive />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassVeil }]} pointerEvents="none" />
+              {/* Tinted, so the card and the bar still read over a dark or busy map. The card
+                  carries more text than the bar, so its porcelain wash is a little stronger. */}
+              <GlassView
+                style={StyleSheet.absoluteFill}
+                glassEffectStyle="regular"
+                tintColor={colors.glassTint}
+                isInteractive={at === 'mini'}
+              />
+              <View
+                style={[StyleSheet.absoluteFill, { backgroundColor: at === 'mini' ? colors.glassVeil : colors.glassCardVeil }]}
+                pointerEvents="none"
+              />
             </>
           ) : (
             <>
@@ -497,7 +524,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.8)',
   },
   full: { position: 'absolute', top: 0, left: 0 },
-  cardFill: { backgroundColor: 'rgba(247,246,243,0.62)' },
+  cardFill: { backgroundColor: 'rgba(247,246,243,0.35)' }, // the frosted stand-in, close to the glass's look
   head: { paddingHorizontal: 18, paddingBottom: space.sm },
   grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
   grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },
