@@ -492,10 +492,10 @@ export function TripDetails({
   } else if (canRequest) {
     footer = (
       <>
-        <Button label={`${t('requestSeat')} · ${price}`} onPress={request} />
         <Body muted small style={{ textAlign: 'center' }}>
           {t('detailsAfterAccept')}
         </Body>
+        <Button label={`${t('requestSeat')} · ${price}`} onPress={request} />
       </>
     );
     mini = { sub: `${route} · ${price}`, action: { label: t('requestSeat'), onPress: request } };
@@ -509,12 +509,12 @@ export function TripDetails({
   } else if (status === 'accepted') {
     footer = canCancel ? (
       <>
-        <Button variant="secondary" label={t('cancelSeat')} onPress={cancel} loading={sending} />
         {cancelNote ? (
           <Body muted small style={{ textAlign: 'center' }}>
             {cancelNote}
           </Body>
         ) : null}
+        <Button variant="secondary" label={t('cancelSeat')} onPress={cancel} loading={sending} />
       </>
     ) : null;
     mini = {
