@@ -59,8 +59,12 @@ const PAD = 8;
 const ROW = 44;
 const HEAD_H = PAD + ROW + PAD;
 // Grown for place search: the two From/To fields under the row.
-const GAP = 6;
-const GROW = GAP + PLACE_FIELDS_H;
+// A little more air than the one-line bar: 10 between the row and the fields, 12 under them.
+const GAP = 10;
+const GROW = GAP + PLACE_FIELDS_H + 4;
+// Grow and shrink on the iOS sheet curve: quick to start, long soft landing, no bounce.
+const GROW_MS = 380;
+const GROW_EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const SIDE = 12; // the glass floats this far from the screen edges
 
 const OPEN = { damping: 19, stiffness: 190, mass: 1 };
@@ -115,17 +119,22 @@ export function SearchMorph({
   const p = useSharedValue(0);
   // 0 = the one-line bar, 1 = grown into the From/To fields.
   const grow = useSharedValue(0);
-  // True from the moment the fields open until the bar has shrunk back: the native glass
-  // stays off meanwhile, because Liquid Glass turns grey while its size animates.
-  const [resizing, setResizing] = useState(false);
+  // The size the bar last came to rest at (true = grown). While it is on its way to the other
+  // size, `resizing` is true and the native glass steps aside for the frosted stand-in, because
+  // Liquid Glass turns grey while its size animates. Once it lands, grown or not, it is real
+  // Liquid Glass again.
+  const [restGrown, setRestGrown] = useState(false);
+  const resizing = !!picking !== restGrown;
   useEffect(() => {
+    const target = !!picking;
     const done = (finished?: boolean) => {
       'worklet';
-      if (finished && !picking) runOnJS(setResizing)(false);
+      if (finished) runOnJS(setRestGrown)(target);
     };
-    if (picking) setResizing(true);
-    grow.value = reduced ? withTiming(picking ? 1 : 0, { duration: 120 }, done) : withTiming(picking ? 1 : 0, { duration: motion.inMs + 80, easing: Easing.out(Easing.cubic) }, done);
+    grow.value = withTiming(target ? 1 : 0, reduced ? { duration: 120 } : { duration: GROW_MS, easing: GROW_EASE }, done);
   }, [picking]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The list below moves down with the bar instead of jumping.
+  const growSpace = useAnimatedStyle(() => ({ height: grow.value * GROW }));
   // Swipe down to close. `drag` = the header pulled by a finger (the page follows);
   // `pull` = the list pulled past its top (iOS rubber band; the header follows halfway).
   const drag = useSharedValue(0);
@@ -275,12 +284,13 @@ export function SearchMorph({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingTop: top + HEAD_H + (picking ? GROW : 0) + space.md,
+              paddingTop: top + HEAD_H + space.md,
               paddingBottom: insets.bottom + space.xl,
               paddingHorizontal: space.screen,
               direction,
             }}
           >
+            <Animated.View style={growSpace} />
             <Animated.View style={list}>
               {picking ? (
                 // The towns take the trips' place while you pick; the trips come back after.
@@ -315,7 +325,7 @@ export function SearchMorph({
           // parent, at the settled header's exact spot. The moving bar above it goes clear.
           <View
             pointerEvents="none"
-            style={{ position: 'absolute', top: to.y, left: to.x, width: to.width, height: HEAD_H }}
+            style={{ position: 'absolute', top: to.y, left: to.x, width: to.width, height: HEAD_H + (restGrown ? GROW : 0) }}
           >
             <Glass radius={26} />
           </View>
