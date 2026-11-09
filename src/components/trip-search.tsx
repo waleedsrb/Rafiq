@@ -93,7 +93,7 @@ export function useTripSearch(start?: { origin?: City; day?: number; part?: DayP
   return { origin, destination, day, part, setOrigin, swap, setDay, setPart, week, loading, counts, dayLabels };
 }
 
-/** The day chips, each with how many trips that day has; a day with none is greyed. */
+/** The day chips, each with how many trips that day has (none shown when there are none). */
 export function DayChips({ s }: { s: SearchState }) {
   const { f } = useFont();
   const { t } = useT();
@@ -102,7 +102,6 @@ export function DayChips({ s }: { s: SearchState }) {
       {s.dayLabels.map((label, i) => {
         const on = i === s.day;
         const n = s.counts[i];
-        const none = !!s.week && n === 0;
         return (
           <Pressable
             key={i}
@@ -115,10 +114,9 @@ export function DayChips({ s }: { s: SearchState }) {
             }}
             style={[styles.dayChip, on && styles.dayChipOn]}
           >
-            <Text style={[styles.dayText, { fontFamily: f.medium }, on && { color: colors.onInk }, none && !on && { color: colors.inkSecondary }]}>
-              {label}
-            </Text>
-            {s.week ? <Text style={[styles.dayCount, on && { color: colors.onInk, opacity: 0.75 }]}>{n}</Text> : null}
+            {/* The day itself always reads clearly; only a day with trips shows its count. */}
+            <Text style={[styles.dayText, { fontFamily: f.medium }, on && { color: colors.onInk }]}>{label}</Text>
+            {n > 0 ? <Text style={[styles.dayCount, on && { color: colors.onInk, opacity: 0.75 }]}>{n}</Text> : null}
           </Pressable>
         );
       })}
