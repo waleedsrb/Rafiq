@@ -50,3 +50,9 @@ export function confidence(row: { status: CheckpointStatus | null; confirmed?: b
   if (!row.status) return null;
   return row.confirmed ? 'confirmed' : 'unconfirmed';
 }
+
+/** The word after a report count: "1 report", "3 reports"; Arabic 1 بلاغ, 3–10 بلاغات, 11+ بلاغًا. */
+export function reportsKey(n: number): 'reportsWordOne' | 'reportsWord' | 'reportsWordMany' {
+  if (n === 1) return 'reportsWordOne';
+  return n > 10 ? 'reportsWordMany' : 'reportsWord';
+}

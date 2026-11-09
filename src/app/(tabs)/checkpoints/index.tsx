@@ -7,9 +7,9 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { StatusCircle, StatusWord } from '@/components/checkpoint-badge';
-import { Body, GlassButton, ListRow, Screen, Title, TopBar, ltr } from '@/components/ui';
+import { Body, GlassButton, ListRow, Screen, TabHeader, ltr } from '@/components/ui';
 import { useAgo, type Overview } from '@/components/checkpoint-badge';
-import { confidence } from '@/lib/checkpoints';
+import { confidence, reportsKey } from '@/lib/checkpoints';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -37,12 +37,11 @@ export default function Checkpoints() {
   const newest = rows?.map((r) => r.last_report_at).filter(Boolean).sort().pop() ?? null;
 
   return (
-    <Screen
-      scroll
-      top={<TopBar end={<GlassButton icon="mapTrifold" label={t('checkpointsMap')} onPress={() => router.push('/checkpoints/map')} />} />}
-      tab
-    >
-      <Title>{t('tabCheckpoints')}</Title>
+    <Screen scroll tab>
+      <TabHeader
+        title={t('tabCheckpoints')}
+        action={<GlassButton icon="mapTrifold" label={t('checkpointsMap')} onPress={() => router.push('/checkpoints/map')} />}
+      />
       <Body muted small>
         {t('onTheRoad')}
         {newest ? ` · ${t('updatedAgo')} ${ago(newest, now)}` : ''}
@@ -56,7 +55,7 @@ export default function Checkpoints() {
             title={lang === 'ar' ? r.name_ar : r.name_en}
             subtitle={
               r.last_report_at
-                ? `${r.reports_30m > 0 ? `${ltr(r.reports_30m)} ${t('reportsWord')} · ` : ''}${ago(r.last_report_at, now)}${
+                ? `${r.reports_30m > 0 ? `${ltr(r.reports_30m)} ${t(reportsKey(r.reports_30m))} · ` : ''}${ago(r.last_report_at, now)}${
                     confidence(r) === 'unconfirmed' ? ` · ${t('statusUnconfirmed')}` : ''
                   }`
                 : t('noRecentReports')

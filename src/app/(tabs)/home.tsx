@@ -23,7 +23,7 @@ import { Icon } from '@/components/icon';
 import { RouteCheckpoints } from '@/components/route-checkpoints';
 import { SearchMorph, type Rect } from '@/components/search-morph';
 import { useTripSearch } from '@/components/trip-search';
-import { Body, GlassButton, ListRow, Screen, TopBar, useFont } from '@/components/ui';
+import { Body, GlassButton, ListRow, Screen, TabHeader, useFont } from '@/components/ui';
 import { formatLongDay } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
 import { heroLink, pickHero, usualTime, type CancelledHero, type DriveHero, type RateHero, type SeatHero } from '@/lib/home-state';
@@ -336,31 +336,30 @@ export default function Home() {
     <Screen
       scroll
       tab
-      // The bell opens the inbox; its clay dot means something arrived you haven't seen.
-      top={
-        <TopBar
-          end={
-            <GlassButton
-              icon="bell"
-              label={unread > 0 ? `${t('notificationsTitle')} · ${t('unread')}` : t('notificationsTitle')}
-              dot={unread > 0}
-              onPress={() => router.push('/notifications')}
-            />
-          }
-        />
-      }
-      contentStyle={{ paddingTop: space.sm }}
     >
-      <View style={{ gap: 2 }}>
-        <Body muted small>
-          {formatLongDay(now, lang)}
-        </Body>
-        <Text style={[styles.greeting, { fontFamily: f.bold }]}>
-          {greeting}
-          {rtl ? '، ' : ', '}
-          {firstName}
-        </Text>
-      </View>
+      <TabHeader
+        kicker={
+          <Body muted small>
+            {formatLongDay(now, lang)}
+          </Body>
+        }
+        title={
+          <Text style={[styles.greeting, { fontFamily: f.bold }]}>
+            {greeting}
+            {rtl ? '، ' : ', '}
+            {firstName}
+          </Text>
+        }
+        // The bell opens the inbox; its clay dot means something arrived you haven't seen.
+        action={
+          <GlassButton
+            icon="bell"
+            label={unread > 0 ? `${t('notificationsTitle')} · ${t('unread')}` : t('notificationsTitle')}
+            dot={unread > 0}
+            onPress={() => router.push('/notifications')}
+          />
+        }
+      />
 
       {link ? (
         <Pressable accessibilityRole="button" onPress={open} style={({ pressed }) => [styles.hero, pressed && { opacity: 0.7 }]}>

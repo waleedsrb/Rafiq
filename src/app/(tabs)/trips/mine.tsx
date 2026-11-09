@@ -5,7 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
 import { TripRow } from '@/components/trip-row';
-import { Body, Choice, Screen, Title, ltr } from '@/components/ui';
+import { Body, Choice, Screen, TabHeader, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useBookingChanges } from '@/lib/live';
 import { useSession, useT } from '@/lib/session';
@@ -93,7 +93,7 @@ export default function MyTrips() {
     }
     for (const trip of (pastDrives.data as DriverTrip[] | null) ?? []) {
       const riders = trip.bookings.filter((b) => b.status === 'completed').length;
-      rows.push({ key: trip.id, trip, asDriver: true, detail: `${t('tabAsDriver')} · ${ltr(riders)} ${t('passengers')}` });
+      rows.push({ key: trip.id, trip, asDriver: true, detail: `${t('tabAsDriver')} · ${ltr(riders)} ${t(riders === 1 ? 'ridersOne' : 'ridersMany')}` });
     }
     rows.sort((a, b) => b.trip.departs_at.localeCompare(a.trip.departs_at));
     setPast(rows);
@@ -107,8 +107,8 @@ export default function MyTrips() {
   useBookingChanges(load);
 
   return (
-    <Screen scroll tab contentStyle={{ paddingTop: 72 }}>
-      <Title>{t('tabTrips')}</Title>
+    <Screen scroll tab>
+      <TabHeader title={t('tabTrips')} />
       <Choice<Tab>
         value={tab}
         onChange={setTab}

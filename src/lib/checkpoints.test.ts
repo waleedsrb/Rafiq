@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { HOLD_MS, HUM_FAST_MS, HUM_SLOW_MS, confidence, humGap, humPattern, minutesAgo } from './checkpoints.ts';
+import { HOLD_MS, HUM_FAST_MS, HUM_SLOW_MS, confidence, humGap, humPattern, minutesAgo, reportsKey } from './checkpoints.ts';
 
 test('minutes ago rounds down and never goes negative', () => {
   const now = new Date('2026-11-07T08:30:00Z');
@@ -28,4 +28,11 @@ test('confidence: nothing without a status, otherwise confirmed or not yet', () 
   assert.equal(confidence({ status: 'open', confirmed: true }), 'confirmed');
   assert.equal(confidence({ status: 'closed', confirmed: false }), 'unconfirmed');
   assert.equal(confidence({ status: 'crowded' }), 'unconfirmed'); // an older app version's row
+});
+
+test('report counts take the right word: 1 report, 2-10 reports, Arabic 11+ form', () => {
+  assert.equal(reportsKey(1), 'reportsWordOne');
+  assert.equal(reportsKey(2), 'reportsWord');
+  assert.equal(reportsKey(10), 'reportsWord');
+  assert.equal(reportsKey(11), 'reportsWordMany');
 });
