@@ -561,7 +561,7 @@ export function TripDetails({
         setStep('details');
       }}
     >
-      <TripSheet {...common} {...page} onShare={step === 'details' && canShare ? share : null} />
+      <TripSheet {...common} {...page} step={{ key: step, depth: step === 'details' ? 0 : 1 }} onShare={step === 'details' && canShare ? share : null} />
     </TripOpenerContext.Provider>
   );
 }
