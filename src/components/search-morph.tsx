@@ -9,23 +9,24 @@
 //
 // Motion: one spring value `p` (0 = the bar, 1 = the header) drives everything, on the UI
 // thread. Opening is slightly under-damped, so the glass settles with one soft give; while
-// it travels it stretches a little along the way it moves, like a drop. Closing is calmer.
+// it travels it stretches a little along the way it moves, like a drop.
 // With "Reduce motion" on, it just appears and disappears.
 //
-// Closing runs the other way: the list slides up and tucks under the bar while the bar
-// folds back down into Home's grey "Where to?".
+// Closing: the list rides along under the bar and slides up into it, so the page looks
+// swallowed by the bar while the bar glides back down into Home's grey "Where to?". It is a
+// spring that starts at the speed of your swipe, so a flick and the × both feel continuous.
 //
 // Glass is only on the bar, the one thing floating over content that scrolls under it.
 // While it moves and changes size it is a frosted blur (Apple's Liquid Glass view turns
-// into a flat grey block if it is resized every frame). Once it has settled at the top,
-// real Liquid Glass (iOS 26) takes over from the blur, and steps aside again before closing.
+// into a flat grey block if it moves or is resized every frame). Once it has settled at the
+// top, real Liquid Glass (iOS 26) takes over, and the bar stays pinned while you swipe down
+// (only the page under it follows your finger), so the glass never moves.
 
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
-  Easing,
   Extrapolation,
   interpolate,
   runOnJS,
@@ -57,9 +58,10 @@ const SIDE = 12; // the glass floats this far from the screen edges
 const OPEN = { damping: 19, stiffness: 190, mass: 1 };
 // Swipe down to close: past this far, or flicked fast (same feel as the app's sheets).
 const PULL_CLOSE = 90;
-// Closing is a smooth glide home rather than a spring: no overshoot near the bar.
-const CLOSE_MS = 460;
-const CLOSE_EASE = Easing.bezier(0.4, 0, 0.2, 1);
+// Closing: a near-critically damped spring (no bounce near the bar) that keeps your swipe's speed.
+const CLOSE = { damping: 24, stiffness: 150, mass: 1, overshootClamping: true };
+// How far the list slides up into the bar as it folds away.
+const TUCK = 220;
 const LIQUID_GLASS = isLiquidGlassAvailable();
 
 export function SearchMorph({
@@ -86,7 +88,7 @@ export function SearchMorph({
   const { t } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height: screenH } = useWindowDimensions();
   const reduced = useReducedMotion();
 
   const p = useSharedValue(0);
@@ -95,6 +97,7 @@ export function SearchMorph({
   const drag = useSharedValue(0);
   const pull = useSharedValue(0);
   const leaving = useSharedValue(0); // 1 while closing: the list tucks up instead of dropping down
+  const flick = useSharedValue(0); // the swipe's speed when you let go, in points per second (down = +)
   // Real Liquid Glass only while the bar is still at the top (see the note at the top).
   const [settled, setSettled] = useState(false);
 
@@ -113,7 +116,12 @@ export function SearchMorph({
         'worklet';
         if (finished) runOnJS(onClosed)();
       };
-      p.value = withTiming(0, { duration: reduced ? 120 : CLOSE_MS, easing: CLOSE_EASE }, done);
+      // The spring starts at the finger's speed: p runs 1 -> 0 over the bar's trip down.
+      const trip = Math.max(1, from.y - (insets.top + 6));
+      p.value = reduced
+        ? withTiming(0, { duration: 120 }, done)
+        : withSpring(0, { ...CLOSE, velocity: -Math.max(0, flick.value) / trip }, done);
+      drag.value = reduced ? 0 : withSpring(0, CLOSE);
     }
   }, [closing]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -129,7 +137,10 @@ export function SearchMorph({
     onEndDrag: (e) => {
       // iOS reports a pull-down flick as negative velocity (in points per millisecond).
       const fast = (e.velocity?.y ?? 0) < -motion.dismissVelocity / 1000;
-      if (e.contentOffset.y < -PULL_CLOSE || (e.contentOffset.y < -12 && fast)) runOnJS(requestClose)();
+      if (e.contentOffset.y < -PULL_CLOSE || (e.contentOffset.y < -12 && fast)) {
+        flick.value = -(e.velocity?.y ?? 0) * 1000;
+        runOnJS(requestClose)();
+      }
     },
   });
 
@@ -144,8 +155,10 @@ export function SearchMorph({
     },
     onDeactivate: (e) => {
       'worklet';
-      if (e.translationY > PULL_CLOSE || e.velocityY > motion.dismissVelocity) runOnJS(requestClose)();
-      else drag.value = withTiming(0, { duration: motion.inMs });
+      if (e.translationY > PULL_CLOSE || e.velocityY > motion.dismissVelocity) {
+        flick.value = e.velocityY;
+        runOnJS(requestClose)();
+      } else drag.value = withTiming(0, { duration: motion.inMs });
     },
   });
 
@@ -154,7 +167,8 @@ export function SearchMorph({
     const k = Math.sin(Math.PI * Math.min(1, Math.max(0, p.value)));
     const stretch = reduced ? 0 : 0.05 * k;
     return {
-      top: interpolate(p.value, [0, 1], [from.y, to.y], Extrapolation.EXTEND) + drag.value + pull.value * 0.5,
+      // Pinned while you swipe: only the page follows the finger (moving Liquid Glass turns grey).
+      top: interpolate(p.value, [0, 1], [from.y, to.y], Extrapolation.EXTEND),
       left: interpolate(p.value, [0, 1], [from.x, to.x], Extrapolation.EXTEND),
       width: interpolate(p.value, [0, 1], [from.width, to.width], Extrapolation.EXTEND),
       height: interpolate(p.value, [0, 1], [from.height, HEAD_H], Extrapolation.EXTEND),
@@ -174,17 +188,19 @@ export function SearchMorph({
   // When closing, the porcelain waits until the list has tucked away, then fades to Home.
   const page = useAnimatedStyle(() => ({
     opacity:
-      interpolate(p.value, leaving.value ? [0, 0.45] : [0, 0.6], [0, 1], Extrapolation.CLAMP) *
+      interpolate(p.value, leaving.value ? [0, 0.3] : [0, 0.6], [0, 1], Extrapolation.CLAMP) *
       interpolate(drag.value + pull.value, [0, PULL_CLOSE * 3], [1, 0.75], Extrapolation.CLAMP),
   }));
-  // Opening: the list rises a little into place. Closing: it slides up under the bar and fades.
+  // Opening: the list rises a little into place.
+  // Closing: the list slides up into the bar while the bar comes down, and the page is cut
+  // off at the middle of the bar (see `clip`), so everything disappears into the glass.
   const list = useAnimatedStyle(() => {
     if (leaving.value) {
       return {
-        opacity: interpolate(p.value, [0.5, 0.95], [0, 1], Extrapolation.CLAMP),
+        opacity: interpolate(p.value, [0, 0.25], [0, 1], Extrapolation.CLAMP),
         transform: [
-          { translateY: interpolate(p.value, [0.45, 1], [-72, 0], Extrapolation.CLAMP) + Math.max(0, drag.value) },
-          { scale: interpolate(p.value, [0.45, 1], [0.97, 1], Extrapolation.CLAMP) },
+          { translateY: interpolate(p.value, [0, 1], [-TUCK, 0], Extrapolation.CLAMP) + Math.max(0, drag.value) },
+          { scale: 1 },
         ],
       };
     }
@@ -194,10 +210,26 @@ export function SearchMorph({
     };
   });
 
+  // While closing, the page only exists below the middle of the bar: what goes above it is
+  // gone, so the list reads as tucked under the glass, and Home shows above the bar as it lands.
+  // (Read the shared values inside each style itself, so Reanimated sees them change.)
+  const clip = useAnimatedStyle(() => ({
+    top: leaving.value
+      ? interpolate(p.value, [0, 1], [from.y + from.height / 2, to.y + HEAD_H / 2], Extrapolation.EXTEND)
+      : 0,
+  }));
+  const unclip = useAnimatedStyle(() => ({
+    top: leaving.value
+      ? -interpolate(p.value, [0, 1], [from.y + from.height / 2, to.y + HEAD_H / 2], Extrapolation.EXTEND)
+      : 0,
+  }));
+
   return (
     <Modal visible={!hidden} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => requestClose()}>
       {/* A Modal is its own native window, so gestures need their own root inside it. */}
       <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents={closing ? 'none' : 'auto'}>
+        <Animated.View style={[styles.clip, clip]} pointerEvents="box-none">
+        <Animated.View style={[styles.unclip, { height: screenH }, unclip]} pointerEvents="box-none">
         <Animated.View style={[StyleSheet.absoluteFill, styles.page, page]}>
           <Animated.ScrollView
             onScroll={onScroll}
@@ -222,6 +254,8 @@ export function SearchMorph({
 
         {/* A porcelain band behind the status bar, so the list doesn't show through the clock. */}
         <Animated.View style={[styles.statusBand, { height: insets.top }, page]} pointerEvents="none" />
+        </Animated.View>
+        </Animated.View>
 
         <GestureDetector gesture={pan}>
         <Animated.View style={[styles.glass, glassStyle]}>
@@ -266,14 +300,14 @@ export function SearchMorph({
   function requestClose() {
     if (closing) return;
     tapFeel();
-    // Let go of any pull, so the glass folds back from where your finger left it.
-    drag.value = withTiming(0, { duration: motion.outMs });
     onRequestClose();
   }
 }
 
 const styles = StyleSheet.create({
   page: { backgroundColor: colors.surface },
+  clip: { position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden' },
+  unclip: { position: 'absolute', left: 0, right: 0 },
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
   glass: {
     position: 'absolute',
