@@ -19,7 +19,7 @@ import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
 import { clampNotificationSwipe, notificationSwipeArmed, notificationSwipeResult, type NotificationSwipeAction } from '@/lib/notification-swipe';
-import { colors, motion, radii, space } from '@/theme/tokens';
+import { colors, motion, sizes, space } from '@/theme/tokens';
 
 export function NotificationSwipe({ children, canRead, readLabel, deleteLabel, onRead, onDelete }: {
   /** The row itself. It receives a press handler that first closes an open swipe. */
@@ -145,8 +145,9 @@ const styles = StyleSheet.create({
   clip: { overflow: 'hidden' },
   row: { backgroundColor: colors.surface },
   panel: { position: 'absolute', top: 0, bottom: 0, overflow: 'hidden', flexDirection: 'row' },
-  action: { flex: 1, paddingVertical: 6, paddingHorizontal: space.xs },
-  capsule: { flex: 1, borderRadius: radii.container, alignItems: 'center', justifyContent: 'center', gap: 2, overflow: 'hidden' },
+  // Same height as the app's other buttons (56), centred on the row however tall the row is.
+  action: { flex: 1, justifyContent: 'center', paddingHorizontal: space.xs },
+  capsule: { height: sizes.button, borderRadius: sizes.button / 2, alignItems: 'center', justifyContent: 'center', gap: 2, overflow: 'hidden' },
   center: { alignItems: 'center', justifyContent: 'center', gap: 2 },
   label: { fontSize: 12, lineHeight: 16, maxWidth: 72, textAlign: 'center' },
 });

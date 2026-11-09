@@ -8,7 +8,6 @@
 //
 // The map behind is the trip's route with the car on it (src/components/route-map.tsx).
 
-import { BlurView } from 'expo-blur';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
@@ -16,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { STATUS_LOOK, useAgo } from '@/components/checkpoint-badge';
+import { Glass, LIQUID_GLASS, useReduceTransparency } from '@/components/glass';
 import { Icon, type IconName } from '@/components/icon';
 import { RouteMap, useMapCheckpoints } from '@/components/route-map';
 import { SlideToConfirm } from '@/components/slide-to-confirm';
@@ -37,23 +37,23 @@ export function nightNow(d = new Date()) {
   return h >= 18 || h < 6;
 }
 
-type Look = { ink: string; sub: string; panel: string; line: string; button: string; blur: 'light' | 'dark' };
+// `veil` is the wash on the glass: lighter than before so the map shows through, still strong
+// enough for big text at a glance while driving.
+type Look = { ink: string; sub: string; veil: string; line: string; button: string };
 
 const DAY: Look = {
   ink: colors.ink,
   sub: colors.inkSecondary,
-  panel: 'rgba(247,246,243,0.86)',
+  veil: 'rgba(247,246,243,0.5)',
   line: colors.hairline,
   button: 'rgba(23,25,28,0.06)',
-  blur: 'light',
 };
 const NIGHT: Look = {
   ink: '#F4F3EF',
   sub: '#9A9DA2',
-  panel: 'rgba(23,25,28,0.88)',
+  veil: 'rgba(23,25,28,0.55)',
   line: 'rgba(255,255,255,0.10)',
   button: 'rgba(255,255,255,0.10)',
-  blur: 'dark',
 };
 
 export function DriveMode({
@@ -93,6 +93,12 @@ export function DriveMode({
   const reduced = useReducedMotion();
   const ago = useAgo();
   const c = dark ? NIGHT : DAY;
+  // Native glass waits until drive mode has faded in: under a fading parent it greys out.
+  const [still, setStill] = useState(reduced);
+  useEffect(() => {
+    const id = setTimeout(() => setStill(true), 360);
+    return () => clearTimeout(id);
+  }, []);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
@@ -144,9 +150,9 @@ export function DriveMode({
 
       {/* Top: leave drive mode, and the next checkpoint. */}
       <View style={[styles.top, { top: insets.top + 6, direction }]}>
-        <RoundButton icon="x" label={t('leaveDriveMode')} onPress={onLeave} c={c} />
-        <View style={[styles.banner, { backgroundColor: closed ? colors.statusClosed : c.panel }]}>
-          {closed ? null : <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, styles.round]} />}
+        <RoundButton icon="x" label={t('leaveDriveMode')} onPress={onLeave} c={c} dark={dark} still={still} />
+        <View style={[styles.banner, closed && { backgroundColor: colors.statusClosed }]}>
+          {closed ? null : <Glass radius={24} native={still} dark={dark} veil={c.veil} />}
           <View style={[styles.bannerIcon, { backgroundColor: closed ? 'rgba(255,255,255,0.2)' : c.button }]}>
             <Icon name={bannerIcon} size={22} color={closed ? '#FFFFFF' : statusTint} />
           </View>
@@ -179,12 +185,11 @@ export function DriveMode({
             bottom: corners.inset,
             borderRadius: corners.card,
             paddingBottom: Math.max(space.screen, insets.bottom - corners.inset),
-            backgroundColor: c.panel,
             direction,
           },
         ]}
       >
-        <BlurView intensity={50} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: corners.card }]} />
+        <Glass radius={corners.card} native={still} dark={dark} veil={c.veil} blur={50} />
         <View style={styles.statsRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.eta, { color: c.ink }, align]}>
@@ -200,7 +205,7 @@ export function DriveMode({
               </View>
             ))}
           </View>
-          <RoundButton icon={dark ? 'sun' : 'moon'} label={t(dark ? 'lightMode' : 'darkMode')} onPress={onToggleDark} c={c} />
+          <RoundButton icon={dark ? 'sun' : 'moon'} label={t(dark ? 'lightMode' : 'darkMode')} onPress={onToggleDark} c={c} dark={dark} still={still} />
         </View>
         <View style={styles.twoButtons}>
           <PanelButton icon="shareNetwork" label={t('shareShort')} onPress={onShare} c={c} />
@@ -212,16 +217,19 @@ export function DriveMode({
   );
 }
 
-function RoundButton({ icon, label, onPress, c }: { icon: IconName; label: string; onPress: () => void; c: Look }) {
+function RoundButton({ icon, label, onPress, c, dark, still }: { icon: IconName; label: string; onPress: () => void; c: Look; dark: boolean; still: boolean }) {
+  const solid = useReduceTransparency();
+  // Real glass answers the press itself; dimming its parent would grey it out.
+  const live = LIQUID_GLASS && still && !solid;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.roundButton, { backgroundColor: c.panel }, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.roundButton, live && { overflow: 'visible' }, !live && pressed && { opacity: 0.7 }]}
     >
-      <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
+      <Glass radius={24} native={still} dark={dark} veil={c.veil} interactive />
       <Icon name={icon} size={22} color={c.ink} />
     </Pressable>
   );
@@ -245,7 +253,6 @@ function PanelButton({ icon, label, onPress, c }: { icon: IconName; label: strin
 
 const styles = StyleSheet.create({
   top: { position: 'absolute', left: space.md, right: space.md, flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  round: { borderRadius: 24 },
   banner: {
     flex: 1,
     minHeight: 72,
