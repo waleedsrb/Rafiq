@@ -61,7 +61,7 @@ const OPEN = { damping: 19, stiffness: 190, mass: 1 };
 // Swipe down to close: past this far, or flicked fast (same feel as the app's sheets).
 const PULL_CLOSE = 90;
 // Closing: a near-critically damped spring (no bounce near the bar) that keeps your swipe's speed.
-const CLOSE = { damping: 24, stiffness: 150, mass: 1, overshootClamping: true };
+const CLOSE = { damping: 30, stiffness: 260, mass: 1, overshootClamping: true };
 // How far the list slides up into the bar as it folds away.
 const TUCK = 220;
 const LIQUID_GLASS = isLiquidGlassAvailable();
@@ -139,6 +139,7 @@ export function SearchMorph({
   }, [closing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const top = insets.top + 6;
+  const nativeGlass = LIQUID_GLASS && settled && !closing;
   const to = { x: SIDE, y: top, width: width - SIDE * 2 };
 
   // Pulling the list down past its top and letting go closes the search.
@@ -270,17 +271,27 @@ export function SearchMorph({
         </Animated.View>
         </Animated.View>
 
+        {nativeGlass ? (
+          // Real Liquid Glass sits on its own, outside every animated, clipped or see-through
+          // parent, at the settled header's exact spot. The moving bar above it goes clear.
+          <GlassView
+            pointerEvents="none"
+            glassEffectStyle="regular"
+            style={{ position: 'absolute', top: to.y, left: to.x, width: to.width, height: HEAD_H, borderRadius: 26 }}
+          />
+        ) : null}
+
         <GestureDetector gesture={pan}>
         <Animated.View style={[styles.glass, glassStyle]}>
           {/* Frosted glass that stays light and readable. Apple's native Liquid Glass view turned
               into a flat grey slab here (it doesn't survive being resized every frame), so the
               moving header uses the blur that the app's glass buttons fall back to. */}
-          <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
-          {LIQUID_GLASS && settled && !closing ? (
-            // No fade on purpose: Liquid Glass must never sit under a see-through parent.
-            <GlassView style={[StyleSheet.absoluteFill, { borderRadius: 26 }]} glassEffectStyle="regular" pointerEvents="none" />
-          ) : null}
+          {nativeGlass ? null : (
+            <>
+              <BlurView intensity={40} tint="extraLight" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
+            </>
+          )}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, barSkin]} pointerEvents="none" />
 
           {/* The bar's face, so the first frame looks exactly like what you tapped. */}

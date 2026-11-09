@@ -3,6 +3,7 @@
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
+import * as Updates from 'expo-updates';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
@@ -173,11 +174,21 @@ export default function Account() {
           }}
         />
       </View>
+      {/* Which published version this is, so a phone test can be matched to a change. */}
+      <Text style={[styles.build, { fontFamily: f.regular }]}>{buildLabel()}</Text>
     </TabScreen>
   );
 }
 
+function buildLabel() {
+  const sha = (process.env.EXPO_PUBLIC_BUILD ?? 'dev').slice(0, 7);
+  const at = Updates.createdAt;
+  const when = at ? ` · ${at.toISOString().slice(0, 16).replace('T', ' ')} UTC` : '';
+  return `${sha}${when}`;
+}
+
 const styles = StyleSheet.create({
+  build: { fontSize: 11, color: colors.inkSecondary, textAlign: 'center', marginTop: space.lg },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { fontSize: 20, lineHeight: 26, color: colors.ink, flexShrink: 1 },
