@@ -235,6 +235,13 @@ export const strings = {
   thisWeek: { ar_m: 'هذا الأسبوع', en: 'This week' },
   earlier: { ar_m: 'قبل ذلك', en: 'Earlier' },
   unread: { ar_m: 'غير مقروء', en: 'Unread' },
+  notificationRead: { ar_m: 'مقروء', en: 'Read' },
+  notificationMarkRead: { ar_m: 'تعيين كمقروء', en: 'Mark as read' },
+  notificationDelete: { ar_m: 'حذف', en: 'Delete' },
+  notificationSwipeHint: { ar_m: 'اسحب قليلًا لإظهار الخيار، أو أكمل السحب لتنفيذه.', ar_f: 'اسحبي قليلًا لإظهار الخيار، أو أكملي السحب لتنفيذه.', en: 'Swipe partway for an action, or fully to apply it.' },
+  notificationLoadFailed: { ar_m: 'تعذّر تحميل الإشعارات.', en: 'Could not load notifications.' },
+  notificationActionFailed: { ar_m: 'لم يُحفظ التغيير. حاول مرة أخرى.', ar_f: 'لم يُحفظ التغيير. حاولي مرة أخرى.', en: 'The change could not be saved. Try again.' },
+  notificationRetry: { ar_m: 'حاول مرة أخرى', ar_f: 'حاولي مرة أخرى', en: 'Try again' },
 
   // Your profile (Account tab)
   yourProfile: { ar_m: 'ملفك الشخصي', en: 'Your profile' },

@@ -9,6 +9,9 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
+import { useSession } from './session';
+import { inboxChanged } from './notifications';
+import { notificationIdFromPush } from './inbox';
 
 // Show notifications as a banner even when the app is open.
 Notifications.setNotificationHandler({
@@ -75,23 +78,41 @@ export async function forgetPush() {
  * asks), and open the right screen when a notification is tapped.
  */
 export function usePush(signedIn: boolean) {
+  const { session } = useSession();
+  const userId = session?.user.id;
   useEffect(() => {
-    if (!signedIn || Platform.OS === 'web') return;
+    if (!signedIn || !userId || Platform.OS === 'web') return;
+    let live = true;
 
     Notifications.getPermissionsAsync().then((p) => {
       if (p.granted) registerToken();
     });
 
     function open(n: Notifications.Notification) {
-      const url = n.request.content.data?.url;
+      const data = n.request.content.data;
+      const url = data?.url;
+      // New pushes identify the exact inbox row. Older pushes still open their
+      // destination; matching by URL would incorrectly read other messages.
+      const id = notificationIdFromPush(data?.notification_id);
+      if (id !== null) {
+        void (async () => {
+          try {
+            const { data: readAt, error } = await supabase.rpc('mark_notification_read', { p_id: id });
+            if (live && !error && typeof readAt === 'string') inboxChanged(userId!);
+          } catch {
+            // A read-sync failure must not block the destination opening. The row
+            // stays unread and can be retried explicitly from the inbox.
+          }
+        })();
+      }
       if (typeof url === 'string') {
         router.push(url as never);
-        Notifications.clearLastNotificationResponse();
       }
+      if (typeof url === 'string' || id !== null) Notifications.clearLastNotificationResponse();
     }
     const last = Notifications.getLastNotificationResponse();
     if (last?.notification) open(last.notification);
     const sub = Notifications.addNotificationResponseReceivedListener((r) => open(r.notification));
-    return () => sub.remove();
-  }, [signedIn]);
+    return () => { live = false; sub.remove(); };
+  }, [signedIn, userId]);
 }
