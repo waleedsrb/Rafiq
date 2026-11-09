@@ -2,7 +2,17 @@
 import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
-import { answerDialog, cancelDialog, choose, confirm, currentDialog, notify, resetDialogs, subscribeDialogs } from './dialog.ts';
+import {
+  answerDialog,
+  cancelDialog,
+  choose,
+  confirm,
+  currentDialog,
+  notify,
+  placementOf,
+  resetDialogs,
+  subscribeDialogs,
+} from './dialog.ts';
 
 beforeEach(() => resetDialogs());
 
@@ -69,4 +79,22 @@ test('dialogsClosed resolves at once when nothing is showing, and has a safety t
   const started = Date.now();
   await dialogsClosed(30);
   assert.ok(Date.now() - started >= 25);
+});
+
+test('one placement rule: sheets by default, a dangerous yes/no in the middle', () => {
+  void confirm({ title: 'Cancel?', yes: 'Yes', no: 'Keep' });
+  assert.equal(placementOf(currentDialog()!.spec), 'sheet');
+  resetDialogs();
+  void confirm({ title: 'Cancel?', yes: 'Yes', no: 'Keep', tone: 'warning' });
+  assert.equal(placementOf(currentDialog()!.spec), 'sheet');
+  resetDialogs();
+  void confirm({ title: 'Delete?', yes: 'Delete', no: 'Keep', tone: 'danger' });
+  assert.equal(placementOf(currentDialog()!.spec), 'center');
+  resetDialogs();
+  void choose({ title: 'Photo', options: [{ label: 'Camera', value: 'c' }], cancel: 'Cancel' });
+  assert.equal(placementOf(currentDialog()!.spec), 'sheet');
+  resetDialogs();
+  void notify({ title: 'Heads up', ok: 'OK', tone: 'danger' });
+  assert.equal(placementOf(currentDialog()!.spec), 'center');
+  assert.equal(placementOf({ placement: 'sheet', tone: 'danger' }), 'sheet', 'a screen can still say where');
 });

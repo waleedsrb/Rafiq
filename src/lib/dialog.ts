@@ -25,8 +25,17 @@ export type DialogAction<T> = {
   icon?: string;
 };
 
+/**
+ * Where the pop-up sits. One rule for the whole app (see placementOf):
+ * sheet  = docked to the bottom edge, swipe down to close. The default.
+ * center = a card in the middle, for a serious "are you sure?" you shouldn't flick away.
+ */
+export type DialogPlacement = 'sheet' | 'center';
+
 export type DialogSpec<T> = {
   title: string;
+  /** Leave out to follow the house rule (placementOf). */
+  placement?: DialogPlacement;
   body?: string;
   tone?: DialogTone;
   /** 'buttons': stacked capsules (questions). 'list': rows with icons (pick one of several). */
@@ -49,7 +58,7 @@ let nextId = 1;
 const listeners = new Set<() => void>();
 
 // Is the pop-up still on screen? Answering a pop-up empties the queue at once, but on
-// iOS the sheet takes a moment to leave. Opening the camera, the photo library or a
+// iOS the pop-up takes a moment to leave. Opening the camera, the photo library or a
 // permission prompt during that moment makes iOS refuse it and the app looks frozen.
 // The host tells us when the pop-up has really gone (see setDialogOnScreen).
 let onScreen = false;
@@ -70,6 +79,17 @@ export function subscribeDialogs(listener: () => void) {
 /** For the host: the pop-up to show now, or null. */
 export function currentDialog(): DialogEntry | null {
   return queue[0] ?? null;
+}
+
+/**
+ * The house rule: every pop-up is a bottom sheet, except a dangerous yes/no
+ * (delete account, cancel a trip with passengers), which sits in the middle so
+ * it can't be swiped away by accident and reads as a real stop.
+ */
+export function placementOf(spec: Pick<DialogSpec<unknown>, 'placement' | 'tone' | 'layout'>): DialogPlacement {
+  if (spec.placement) return spec.placement;
+  if (spec.tone === 'danger' && spec.layout !== 'list') return 'center';
+  return 'sheet';
 }
 
 /** Show a pop-up and wait for the answer. */
