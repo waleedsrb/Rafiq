@@ -20,6 +20,8 @@ export type Profile = {
   id_verified_at: string | null;
   /** Set when an admin confirmed gender from the ID (slice 12). Women-only trips need it. */
   gender_verified_at: string | null;
+  /** Profile photo in the "avatars" bucket, or null. Optional unless settings say otherwise. */
+  avatar_path: string | null;
 };
 
 type SessionState = {
@@ -48,7 +50,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       async (userId) => {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, gender, language, id_verified_at, gender_verified_at')
+          .select('id, full_name, gender, language, id_verified_at, gender_verified_at, avatar_path')
           .eq('id', userId)
           .maybeSingle();
         if (error) throw error;

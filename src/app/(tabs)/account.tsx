@@ -3,11 +3,14 @@
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { StatsRow } from '@/components/stats-row';
-import { IconCircle, ListRow, TabScreen, ltr, useFont } from '@/components/ui';
+import { Body, ListRow, TabScreen, ltr, useFont } from '@/components/ui';
+import { removeAvatar, setAvatar } from '@/lib/avatar';
+import { askForPhoto } from '@/lib/photo-pick';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
@@ -22,7 +25,9 @@ type Extra = { created_at: string; emergency_name: string | null };
 export default function Account() {
   const { t, lang } = useT();
   const { f, rtl } = useFont();
-  const { profile, session } = useSession();
+  const { profile, session, refreshProfile } = useSession();
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [car, setCar] = useState<{ car_model: string; car_color: string; plate: string } | null>(null);
   const [extra, setExtra] = useState<Extra | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -54,6 +59,31 @@ export default function Account() {
   );
 
   const name = profile?.full_name ?? '';
+  const avatarPath = profile?.avatar_path ?? null;
+
+  // Add, change or remove the profile photo.
+  async function editPhoto() {
+    if (!session || photoBusy) return;
+    const res = await askForPhoto({
+      title: t(avatarPath ? 'profilePhoto' : 'addProfilePhoto'),
+      labels: { take: t('takePhoto'), choose: t('choosePhoto'), cancel: t('cancel') },
+      square: true,
+      extra: avatarPath ? [{ label: t('removePhoto'), value: 'remove' as const, icon: 'x' }] : [],
+    });
+    if (res === 'denied') return setPhotoError(t('photoPermission'));
+    if (!res) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      if (res === 'remove') await removeAvatar(session.user.id, avatarPath!);
+      else await setAvatar(session.user.id, res, avatarPath);
+      await refreshProfile();
+    } catch {
+      setPhotoError(t('somethingWrong'));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
   const verified = !!profile?.id_verified_at;
   const since = extra
     ? new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', { month: 'long', year: 'numeric' }).format(
@@ -70,7 +100,17 @@ export default function Account() {
       fixed={
         <>
           <View style={styles.header}>
-            <IconCircle letter={name.charAt(0)} size={72} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(avatarPath ? 'profilePhoto' : 'addProfilePhoto')}
+              onPress={editPhoto}
+              style={{ opacity: photoBusy ? 0.5 : 1 }}
+            >
+              <Avatar path={avatarPath} name={name} size={72} />
+              <View style={styles.cameraBadge}>
+                <Icon name="camera" size={14} color={colors.onInk} />
+              </View>
+            </Pressable>
             <View style={{ flex: 1, gap: 2 }}>
               <View style={styles.nameLine}>
                 <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>
@@ -84,11 +124,15 @@ export default function Account() {
               ) : null}
             </View>
           </View>
+          {photoError ? <Body error>{photoError}</Body> : null}
           {stats ? <StatsRow stats={stats} /> : null}
         </>
       }
     >
       <View>
+        {avatarPath ? null : (
+          <ListRow icon="camera" title={t('addProfilePhoto')} subtitle={t('profilePhotoWhy')} onPress={editPhoto} />
+        )}
         <ListRow
           icon="carProfile"
           title={car ? t('myCar') : t('addYourCar')}
@@ -138,4 +182,17 @@ const styles = StyleSheet.create({
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { fontSize: 20, lineHeight: 26, color: colors.ink, flexShrink: 1 },
   meta: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    end: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.ink,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

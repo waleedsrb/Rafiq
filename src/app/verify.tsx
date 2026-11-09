@@ -2,22 +2,19 @@
 // a driver sends ID, licence and car photos before their first trip.
 // An admin approves or rejects it (see /admin). The database enforces the rule.
 
-import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { Body, Button, IconCircle, Screen, Title, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
-import { choose as askChoice, dialogsClosed } from '@/lib/dialog';
 import { goBack } from '@/lib/nav';
+import { askForPhoto, type Picked } from '@/lib/photo-pick';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { PHOTO_SLOTS, uploadCheckPhoto, useCheckStatus, type CheckKind, type PhotoSlot } from '@/lib/verification';
 import { colors, radii, space } from '@/theme/tokens';
-
-type Picked = { uri: string; base64: string; mimeType: string };
 
 const SLOT_ICON: Record<PhotoSlot, IconName> = { id: 'identificationCard', licence: 'identificationCard', car: 'car' };
 
@@ -35,34 +32,16 @@ export default function Verify() {
   const slots = PHOTO_SLOTS[kind];
   const allPicked = slots.every((s) => photos[s]);
 
-  async function pick(slot: PhotoSlot, from: 'camera' | 'library') {
-    const perm =
-      from === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return setError(t('photoPermission'));
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, base64: true };
-    const res = from === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
-    const asset = res.canceled ? null : res.assets[0];
-    if (!asset?.base64) return;
-    setError(null);
-    setPhotos((p) => ({ ...p, [slot]: { uri: asset.uri, base64: asset.base64!, mimeType: asset.mimeType ?? 'image/jpeg' } }));
-  }
-
-  // On a phone, ask camera or photos. The web has no camera picker, so go straight to files.
-  function choose(slot: PhotoSlot) {
-    if (Platform.OS === 'web') return pick(slot, 'library');
-    askChoice({
+  // Take or choose the photo for one slot (camera/photos pop-up first on a phone).
+  async function choose(slot: PhotoSlot) {
+    const res = await askForPhoto({
       title: t(`slot_${slot}` as StringKey),
-      options: [
-        { label: t('takePhoto'), value: 'camera' as const, icon: 'camera' },
-        { label: t('choosePhoto'), value: 'library' as const, icon: 'image' },
-      ],
-      cancel: t('cancel'),
-    }).then(async (from) => {
-      if (!from) return;
-      // Let the pop-up finish leaving first: iOS can't open the camera or photos on top of it.
-      await dialogsClosed();
-      pick(slot, from);
+      labels: { take: t('takePhoto'), choose: t('choosePhoto'), cancel: t('cancel') },
     });
+    if (res === 'denied') return setError(t('photoPermission'));
+    if (!res) return;
+    setError(null);
+    setPhotos((p) => ({ ...p, [slot]: res }));
   }
 
   async function send() {

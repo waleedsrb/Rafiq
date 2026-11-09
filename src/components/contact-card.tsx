@@ -4,9 +4,10 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { Plate } from '@/components/plate';
-import { IconCircle, ListRow, ltr } from '@/components/ui';
+import { ListRow, ltr } from '@/components/ui';
 import { formatPhone, telLink } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -31,12 +32,12 @@ export function useContact(bookingId: string | null) {
   return c;
 }
 
-export function ContactCard({ contact: c }: { contact: Contact }) {
+export function ContactCard({ contact: c, avatarPath }: { contact: Contact; avatarPath?: string | null }) {
   const { t } = useT();
   return (
     <View>
       <ListRow
-        leading={<IconCircle letter={c.first_name.charAt(0)} />}
+        leading={<Avatar path={avatarPath} name={c.first_name} />}
         title={c.first_name}
         subtitle={c.phone ? ltr(formatPhone(c.phone)) : t('driverLabel')}
         trailing={
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
 });
 
 /** Loads the contact for one accepted booking, then shows it. */
-export function BookingContact({ bookingId }: { bookingId: string }) {
+export function BookingContact({ bookingId, avatarPath }: { bookingId: string; avatarPath?: string | null }) {
   const c = useContact(bookingId);
-  return c ? <ContactCard contact={c} /> : null;
+  return c ? <ContactCard contact={c} avatarPath={avatarPath} /> : null;
 }
