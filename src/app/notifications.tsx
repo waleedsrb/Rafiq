@@ -9,6 +9,7 @@ import { Body, GlassButton, IconCircle, Label, ListRow, Screen, Title, TopBar, B
 import { groupInbox, inboxIcon, needsYou, type InboxGroup, type Notification } from '@/lib/inbox';
 import { formatDay, shortTime } from '@/lib/format';
 import { useT } from '@/lib/session';
+import { openTrip } from '@/lib/trip-layer';
 import { supabase } from '@/lib/supabase';
 import { colors, space } from '@/theme/tokens';
 
@@ -89,7 +90,7 @@ export default function Notifications() {
                 }
                 subtitle={`${n.body} · ${when(n.created_at)}`}
                 trailing={n.read_at ? <View style={styles.dotSpace} /> : <View style={styles.dot} accessibilityLabel={t('unread')} />}
-                onPress={n.url ? () => router.push(n.url as never) : undefined}
+                onPress={n.url ? () => openUrl(n.url!) : undefined}
               />
             ))}
           </View>
@@ -105,3 +106,10 @@ const styles = StyleSheet.create({
   dotSpace: { width: 8 },
   empty: { alignItems: 'center', gap: space.md, paddingVertical: space.xxl },
 });
+
+/** A trip opens as the card over this page; anything else is a page of its own. */
+function openUrl(url: string) {
+  const trip = /^\/trips\/([0-9a-f-]{36})$/i.exec(url);
+  if (trip) openTrip(trip[1]);
+  else router.push(url as never);
+}

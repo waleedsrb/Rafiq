@@ -1,11 +1,13 @@
 // One trip in a list: route, day and time, an extra line, and the price.
 // Hairline below, no card, as in the design system.
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
 
 import { formatDay, formatTime } from '@/lib/format';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
+import { openTripFrom, type Rect } from '@/lib/trip-layer';
 import { colors, fonts, space } from '@/theme/tokens';
 
 export function TripRow({
@@ -24,15 +26,21 @@ export function TripRow({
   detail?: string;
   /** Clay text for "something needs you", e.g. a pending status. */
   signal?: string;
-  onPress?: () => void;
+  /** Gets where the row is on screen, so a trip can grow out of it. */
+  onPress?: (from: Rect | null) => void;
 }) {
+  const ref = useRef<HostInstance>(null);
   const { t, lang } = useT();
   const f = fonts[lang];
   const d = new Date(departsAt);
   const arrow = lang === 'ar' ? '←' : '→';
 
   return (
-    <Pressable disabled={!onPress} onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
+    <Pressable
+      ref={ref}
+      disabled={!onPress}
+      onPress={() => onPress && openTripFrom(ref.current, '', (_id, from) => onPress(from ?? null))}
+      style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
       <View style={styles.main}>
         <Text style={[styles.route, { fontFamily: f.medium }]}>
           {t(origin)} {arrow} {t(destination)}

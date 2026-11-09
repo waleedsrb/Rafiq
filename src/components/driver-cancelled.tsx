@@ -12,6 +12,7 @@ import { noticeGiven } from '@/lib/earnings';
 import { shortTime } from '@/lib/format';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+import { useOpenTrip } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
 import { colors, space } from '@/theme/tokens';
 
@@ -34,6 +35,7 @@ export function DriverCancelled({
   late,
   excused,
   refunded,
+  onSearchAgain,
 }: {
   tripId: string;
   origin: City;
@@ -44,8 +46,11 @@ export function DriverCancelled({
   excused: boolean;
   /** The amount given back to a card, or null when nothing was paid (cash pilot). */
   refunded: number | null;
+  /** Inside the trip card: go back to the search instead of opening a results page. */
+  onSearchAgain?: () => void;
 }) {
   const { t } = useT();
+  const openTrip = useOpenTrip();
   const { f, rtl } = useFont();
   const [others, setOthers] = useState<Other[] | null>(null);
   const departs = new Date(departsAt);
@@ -114,7 +119,7 @@ export function DriverCancelled({
                 title={[o.driver_first_name, o.driver_last_initial ? `${o.driver_last_initial}.` : ''].filter(Boolean).join(' ')}
                 subtitle={[o.car_model, `${ltr(o.seats_left)} ${t('seatsFree')}`, ltr(`${o.price_ils}₪`)].filter(Boolean).join(' · ')}
                 trailing={<Text style={[styles.time, { fontFamily: f.bold }]}>{ltr(shortTime(new Date(o.departs_at)))}</Text>}
-                onPress={() => router.push({ pathname: '/trips/[id]', params: { id: o.id } })}
+                onPress={() => openTrip(o.id)}
               />
             ))
           )}
@@ -126,7 +131,7 @@ export function DriverCancelled({
         label={t('searchAgain')}
         icon="search"
         onPress={() =>
-          router.push({
+          onSearchAgain ? onSearchAgain() : router.push({
             pathname: '/trips/results',
             params: { origin, destination, day: String(day) },
           })

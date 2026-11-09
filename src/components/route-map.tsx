@@ -55,6 +55,7 @@ export function RouteMap({
   destination,
   height = 300,
   topInset = 0,
+  bottomInset = 0,
   labels,
   interactive,
   onExpand,
@@ -70,6 +71,8 @@ export function RouteMap({
   height?: number;
   /** Space taken by the floating top bar, so the route isn't hidden under it. */
   topInset?: number;
+  /** Space taken by a card over the bottom of the map (the trip card). */
+  bottomInset?: number;
 }) {
   const { t } = useT();
   const { f, rtl } = useFont();
@@ -83,7 +86,7 @@ export function RouteMap({
 
   const fit = () =>
     ref.current?.fitToCoordinates(line, {
-      edgePadding: { top: topInset + 40, bottom: 56, left: 48, right: 48 },
+      edgePadding: { top: topInset + 40, bottom: bottomInset + 56, left: 48, right: 48 },
       animated: false,
     });
   useEffect(() => {

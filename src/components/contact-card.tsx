@@ -6,7 +6,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
-import { Plate } from '@/components/plate';
+import { PlateArt } from '@/components/plate-art';
 import { ListRow, ltr } from '@/components/ui';
 import { formatPhone, telLink } from '@/lib/phone';
 import { useT } from '@/lib/session';
@@ -63,7 +63,7 @@ export function ContactCard({ contact: c, avatarPath, seed }: { contact: Contact
       ) : null}
       {c.plate ? (
         <View style={styles.plateRow}>
-          <Plate plate={c.plate} />
+          <PlateArt plate={c.plate} width={170} />
         </View>
       ) : null}
     </View>

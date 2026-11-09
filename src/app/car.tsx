@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { Plate } from '@/components/plate';
+import { PlateArt } from '@/components/plate-art';
 import { Body, Button, Field, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { goBack } from '@/lib/nav';
@@ -146,7 +146,7 @@ export default function Car() {
       />
       {normalized ? (
         <View style={styles.preview}>
-          <Plate plate={normalized} />
+          <PlateArt plate={normalized} width={220} />
           <Body muted small>
             {t('platePreviewHint')}
           </Body>

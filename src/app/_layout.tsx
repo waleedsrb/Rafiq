@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { DialogHost } from '@/components/dialog-host';
 import { LaunchGate } from '@/components/launch-gate';
+import { TripLayerHost } from '@/components/trip-layer-host';
 import { usePush } from '@/lib/push';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/theme/tokens';
@@ -95,6 +96,8 @@ function Routes() {
           </Stack.Protected>
         </Stack>
       )}
+      {/* Trips open as a card over the page you're on (src/lib/trip-layer.ts). */}
+      {ready ? <TripLayerHost /> : null}
     </LaunchGate>
   );
 }

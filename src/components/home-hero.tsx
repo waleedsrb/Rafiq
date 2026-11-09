@@ -15,6 +15,7 @@ import { clock, formatCountdown, formatLongDay, shortTime } from '@/lib/format';
 import { usualDay } from '@/lib/home-state';
 import { shortName } from '@/lib/names';
 import { useSession, useT } from '@/lib/session';
+import { openTrip } from '@/lib/trip-layer';
 import { reliabilityText, type Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
@@ -247,7 +248,7 @@ export function IdlePassenger({ route, verified }: { route: Route | null; verifi
         </Body>
         <Buttons>
           <View style={{ flex: 1 }}>
-            <Button label={t('requestSeat')} onPress={() => router.push({ pathname: '/trips/[id]', params: { id: trip.id } })} />
+            <Button label={t('requestSeat')} onPress={() => openTrip(trip.id)} />
           </View>
           {more > 0 ? (
             <View style={{ flex: 1 }}>

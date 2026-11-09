@@ -1,0 +1,457 @@
+// The frame every trip state lives in (design B with A's bar, Nov 9):
+// the route map fills the screen, and the trip sits on a glass card floating over it.
+//
+// - Three heights: middle (where it opens), full (swipe up) and the glass bar (swipe down),
+//   which shows the time, one line on where things stand, and the state's one button.
+// - It grows out of whatever you tapped (a search result, a row in My trips) and folds
+//   back into it when you close it. Opened from nowhere in particular, it rises from below.
+// - Each state only fills the slots: header (label, time, route), body, footer, bar.
+//
+// Motion: two values on the UI thread. `p` is the morph (0 = the row you tapped, 1 = in
+// place); `pos` is the height (0 = bar, 1 = middle, 2 = full). The card's frame is worked
+// out from both every frame. Apple's Liquid Glass only goes on the bar once it has
+// settled: native glass turns into a grey slab while its size animates (see search-morph).
+
+import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import Animated, {
+  cancelAnimation,
+  runOnJS,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Icon } from '@/components/icon';
+import { RouteMap } from '@/components/route-map';
+import { GlassButton, useFont } from '@/components/ui';
+import { shortTime } from '@/lib/format';
+import { tapFeel } from '@/lib/haptics';
+import { useT } from '@/lib/session';
+import type { Rect } from '@/lib/trip-layer';
+import type { City } from '@/lib/trip-form';
+import { colors, fonts, shadows, sizes, space } from '@/theme/tokens';
+
+export type Detent = 'mini' | 'mid' | 'full';
+export type SheetAction = { label: string; onPress: () => void; secondary?: boolean; loading?: boolean };
+export type SheetMini = { sub: string; tone?: 'clay' | 'ok'; action?: SheetAction | null };
+
+const LIQUID_GLASS = isLiquidGlassAvailable();
+const M = 10; // the card floats this far from the screen edges
+const R = 32; // its corners
+const BAR_H = 64;
+const BAR_SIDE = 12;
+const POS: Record<Detent, number> = { mini: 0, mid: 1, full: 2 };
+const DETENTS: Detent[] = ['mini', 'mid', 'full'];
+
+const OPEN = { damping: 20, stiffness: 190, mass: 1 };
+const SNAP = { damping: 26, stiffness: 260, mass: 1, overshootClamping: true };
+const CLOSE = { damping: 30, stiffness: 280, mass: 1, overshootClamping: true };
+// A flick faster than this (points per second) moves one height in that direction.
+const FLICK = 600;
+
+const clamp01 = (v: number) => {
+  'worklet';
+  return Math.min(1, Math.max(0, v));
+};
+
+export function TripSheet({
+  origin,
+  destination,
+  departsAt,
+  header,
+  body,
+  footer,
+  mini,
+  from,
+  settled,
+  start = 'mid',
+  want,
+  closing,
+  onRequestClose,
+  onClosed,
+  onShare,
+}: {
+  origin: City;
+  destination: City;
+  departsAt: string;
+  header: ReactNode;
+  body: ReactNode;
+  footer?: ReactNode;
+  mini: SheetMini;
+  /** What was tapped, so the card grows out of it. Null: rise from below. */
+  from: Rect | null;
+  /** Already open (coming back to it): skip the opening morph. */
+  settled?: boolean;
+  start?: Detent;
+  /** Move to a height from outside (a step that needs room, Request opening the bar). */
+  want?: { to: Detent; key: number } | null;
+  closing: boolean;
+  onRequestClose: () => void;
+  onClosed: () => void;
+  onShare?: (() => void) | null;
+}) {
+  const { t } = useT();
+  const { f, rtl, direction } = useFont();
+  const insets = useSafeAreaInsets();
+  const { width: W, height: H } = useWindowDimensions();
+  const reduced = useReducedMotion();
+
+  // The three heights, as the card's top edge.
+  const fullTop = insets.top + 6 + sizes.touch + 10;
+  const midTop = Math.round(H * 0.44);
+  const barBottom = Math.max(insets.bottom, 12);
+  const barTop = H - barBottom - BAR_H;
+
+  const p = useSharedValue(settled ? 1 : 0);
+  const pos = useSharedValue(POS[start]);
+  const dragTop = useSharedValue(0);
+  const [at, setAt] = useState<Detent>(start);
+  const [moving, setMoving] = useState(false);
+
+  // Where the card starts: on the row you tapped, or just below the screen.
+  const origin0 = from
+    ? { top: from.y, left: from.x, width: from.width, height: from.height, radius: 14 }
+    : { top: H + 24, left: M, width: W - 2 * M, height: H - M - midTop, radius: R };
+
+  const topOf = (v: number) => {
+    'worklet';
+    return v >= 1 ? midTop + (fullTop - midTop) * (v - 1) : barTop + (midTop - barTop) * v;
+  };
+  const posOf = (top: number) => {
+    'worklet';
+    if (top <= midTop) return Math.min(2.04, 1 + (midTop - top) / (midTop - fullTop));
+    return Math.max(-0.04, 1 - (top - midTop) / (barTop - midTop));
+  };
+  // The card's frame at a height.
+  const frameAt = (v: number) => {
+    'worklet';
+    if (v >= 1) {
+      const top = topOf(v);
+      return { top, left: M, width: W - 2 * M, height: H - M - top, radius: R };
+    }
+    const k = Math.max(0, v);
+    const mix = (a: number, b: number) => a + (b - a) * k;
+    return {
+      top: mix(barTop, midTop),
+      left: mix(BAR_SIDE, M),
+      width: mix(W - 2 * BAR_SIDE, W - 2 * M),
+      height: mix(BAR_H, H - M - midTop),
+      radius: mix(BAR_H / 2, R),
+    };
+  };
+
+  const landed = (d: Detent) => {
+    setAt(d);
+    setMoving(false);
+  };
+  const goTo = (d: Detent) => {
+    'worklet';
+    pos.value = reduced
+      ? withTiming(POS[d], { duration: 160 }, (ok) => {
+          if (ok) runOnJS(landed)(d);
+        })
+      : withSpring(POS[d], SNAP, (ok) => {
+          if (ok) runOnJS(landed)(d);
+        });
+  };
+  const moveTo = (d: Detent) => {
+    setMoving(true);
+    goTo(d);
+  };
+
+  // Open: grow out of the row. Close: fold back into it.
+  useEffect(() => {
+    if (closing) {
+      const done = (ok?: boolean) => {
+        'worklet';
+        if (ok) runOnJS(onClosed)();
+      };
+      setMoving(true);
+      p.value = reduced ? withTiming(0, { duration: 140 }, done) : withSpring(0, CLOSE, done);
+    } else if (!settled) {
+      p.value = reduced ? withTiming(1, { duration: 140 }) : withSpring(1, OPEN);
+    }
+  }, [closing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (want) moveTo(want.to);
+  }, [want?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Drag the card (by its top or the bar) between the three heights.
+  const startMove = () => setMoving(true);
+  const panConfig = {
+    enabled: !closing,
+    activeOffsetY: [-8, 8] as [number, number],
+    failOffsetX: [-20, 20] as [number, number],
+    onActivate: () => {
+      'worklet';
+      cancelAnimation(pos);
+      dragTop.value = topOf(pos.value);
+      runOnJS(startMove)();
+    },
+    onUpdate: (e: { translationY: number }) => {
+      'worklet';
+      pos.value = posOf(dragTop.value + e.translationY);
+    },
+    onDeactivate: (e: { velocityY: number }) => {
+      'worklet';
+      const v = pos.value;
+      let i: number;
+      if (e.velocityY > FLICK) i = v > 1.02 ? 1 : 0;
+      else if (e.velocityY < -FLICK) i = v < 0.98 ? 1 : 2;
+      else {
+        // The nearest height, by where the top edge is.
+        const top = topOf(v);
+        const d = [barTop, midTop, fullTop].map((x) => Math.abs(x - top));
+        i = d.indexOf(Math.min(d[0], d[1], d[2]));
+      }
+      goTo(DETENTS[i]);
+    },
+  };
+  const panTop = usePanGesture(panConfig);
+  const panBar = usePanGesture(panConfig);
+
+  // Pull the details down past their top (iOS rubber band) to drop one height.
+  const onScroll = useAnimatedScrollHandler({
+    onEndDrag: (e) => {
+      if (e.contentOffset.y < -70) {
+        runOnJS(startMove)();
+        goTo(pos.value > 1.5 ? 'mid' : 'mini');
+      }
+    },
+  });
+
+  const cardStyle = useAnimatedStyle(() => {
+    const g = frameAt(pos.value);
+    const k = p.value;
+    const mix = (a: number, b: number) => a + (b - a) * k;
+    return {
+      top: mix(origin0.top, g.top),
+      left: mix(origin0.left, g.left),
+      width: mix(origin0.width, g.width),
+      height: mix(origin0.height, g.height),
+      borderRadius: mix(origin0.radius, g.radius),
+    };
+  });
+  const clipStyle = useAnimatedStyle(() => {
+    const g = frameAt(pos.value);
+    return { borderRadius: origin0.radius + (g.radius - origin0.radius) * p.value };
+  });
+  // Contents fade in late in the morph, and swap between the card's and the bar's by height.
+  // (One opacity per view: two animated styles on one view would fight over it.)
+  const fullStyle = useAnimatedStyle(() => ({
+    opacity: clamp01((p.value - 0.35) / 0.45) * clamp01((pos.value - 0.35) / 0.5),
+  }));
+  const barStyle = useAnimatedStyle(() => ({
+    opacity: clamp01((p.value - 0.35) / 0.45) * clamp01((0.4 - pos.value) / 0.4),
+  }));
+  // The card is porcelain glass; the bar is lighter, clearer glass.
+  const cardFill = useAnimatedStyle(() => ({ opacity: clamp01(pos.value) }));
+  // The tapped row's own porcelain covers the card at first, so the first frame matches it.
+  const skin = useAnimatedStyle(() => ({ opacity: 1 - clamp01(p.value / 0.5) }));
+  const mapStyle = useAnimatedStyle(() => ({ opacity: clamp01(p.value / 0.6) }));
+  const topStyle = useAnimatedStyle(() => ({ opacity: clamp01((p.value - 0.5) / 0.5) }));
+
+  const glassBar = LIQUID_GLASS && at === 'mini' && !moving && !closing;
+  const time = shortTime(new Date(departsAt));
+  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents={closing ? 'none' : 'box-none'}>
+      <Animated.View style={[StyleSheet.absoluteFill, mapStyle]}>
+        <RouteMap
+          origin={origin}
+          destination={destination}
+          height={H}
+          topInset={insets.top + 60}
+          bottomInset={H - midTop}
+          interactive
+        />
+      </Animated.View>
+
+      <Animated.View style={[styles.top, { top: insets.top + 6, direction }, topStyle]} pointerEvents="box-none">
+        <GlassButton icon="x" label={t('closeTrip')} onPress={onRequestClose} />
+        {onShare ? <GlassButton icon="shareNetwork" label={t('shareTrip')} onPress={onShare} /> : <View />}
+      </Animated.View>
+
+      <Animated.View style={[styles.card, cardStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
+          {glassBar ? (
+            <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" isInteractive />
+          ) : (
+            <>
+              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
+              <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} />
+            </>
+          )}
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, skin]} pointerEvents="none" />
+
+          {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
+          <Animated.View style={[StyleSheet.absoluteFill, fullStyle]} pointerEvents={at === 'mini' && !moving ? 'none' : 'box-none'}>
+            <GestureDetector gesture={panTop}>
+              <View style={[styles.head, { direction }]}>
+                <Pressable
+                  accessibilityRole="adjustable"
+                  accessibilityLabel={t('sheetHandle')}
+                  onPress={() => moveTo(at === 'full' ? 'mid' : 'full')}
+                  hitSlop={8}
+                  style={styles.grabZone}
+                >
+                  <View style={styles.grab} />
+                </Pressable>
+                {header}
+              </View>
+            </GestureDetector>
+            <Animated.ScrollView
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
+              contentContainerStyle={[styles.body, { direction }]}
+            >
+              {body}
+            </Animated.ScrollView>
+            {footer ? (
+              <View style={[styles.footer, { paddingBottom: Math.max(space.md, insets.bottom - M + 6), direction }]}>{footer}</View>
+            ) : (
+              <View style={{ height: Math.max(space.md, insets.bottom - M) }} />
+            )}
+          </Animated.View>
+
+          {/* The bar: time, where things stand, and the one button that matters now. */}
+          <GestureDetector gesture={panBar}>
+            <Animated.View
+              style={[styles.bar, { direction }, barStyle]}
+              pointerEvents={at === 'mini' && !moving ? 'auto' : 'none'}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${time}, ${mini.sub}`}
+                accessibilityHint={t('sheetHandle')}
+                onPress={() => {
+                  tapFeel();
+                  moveTo('mid');
+                }}
+                style={styles.barText}
+              >
+                <Text style={[styles.barTime, align]}>{time}</Text>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.barSub,
+                    { fontFamily: f.regular },
+                    align,
+                    mini.tone === 'clay' && { color: colors.clay, fontFamily: f.medium },
+                    mini.tone === 'ok' && { color: colors.statusOpen, fontFamily: f.medium },
+                  ]}
+                >
+                  {mini.sub}
+                </Text>
+              </Pressable>
+              {mini.action ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={mini.action.onPress}
+                  disabled={mini.action.loading}
+                  style={({ pressed }) => [styles.barButton, mini.action?.secondary && styles.barButtonQuiet, pressed && { opacity: 0.7 }]}
+                >
+                  {mini.action.loading ? (
+                    <ActivityIndicator size="small" color={mini.action.secondary ? colors.ink : colors.onInk} />
+                  ) : (
+                    <Text style={[styles.barButtonText, { fontFamily: f.medium }, mini.action.secondary && { color: colors.ink }]}>
+                      {mini.action.label}
+                    </Text>
+                  )}
+                </Pressable>
+              ) : null}
+            </Animated.View>
+          </GestureDetector>
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
+
+/** A step inside the card (Request, Rate, the driver): back arrow and a title. */
+export function StepHeader({ title, kicker, onBack }: { title: string; kicker?: string; onBack: () => void }) {
+  const { t } = useT();
+  const { f, rtl } = useFont();
+  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
+  return (
+    <View style={styles.step}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} hitSlop={8} style={styles.stepBack}>
+        <Icon name={rtl ? 'caretRight' : 'caretLeft'} size={18} />
+      </Pressable>
+      <View style={{ flex: 1 }}>
+        {kicker ? <Text style={[styles.kicker, { fontFamily: f.regular }, align]}>{kicker}</Text> : null}
+        <Text style={[styles.stepTitle, { fontFamily: f.bold }, align]}>{title}</Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  top: { position: 'absolute', left: space.screen, right: space.screen, flexDirection: 'row', justifyContent: 'space-between' },
+  card: {
+    position: 'absolute',
+    ...shadows.glass,
+  },
+  clip: {
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.8)',
+  },
+  cardFill: { backgroundColor: 'rgba(247,246,243,0.62)' },
+  head: { paddingHorizontal: 18, paddingBottom: space.sm },
+  grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
+  grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },
+  body: { paddingHorizontal: 18, paddingBottom: space.md, gap: space.md },
+  footer: { paddingHorizontal: 18, paddingTop: space.sm, gap: space.sm },
+  bar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: BAR_H,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingStart: 20,
+    paddingEnd: 10,
+  },
+  barText: { flex: 1, justifyContent: 'center', height: '100%' },
+  barTime: { fontFamily: fonts.en.bold, fontSize: 18, lineHeight: 22, color: colors.ink },
+  barSub: { fontSize: 12, lineHeight: 16, color: colors.inkSecondary },
+  barButton: {
+    height: 44,
+    minWidth: 72,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    backgroundColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  barButtonQuiet: { backgroundColor: 'rgba(23,25,28,0.07)' },
+  barButtonText: { fontSize: 14, color: colors.onInk },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepBack: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(23,25,28,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kicker: { fontSize: 12, lineHeight: 16, color: colors.inkSecondary },
+  stepTitle: { fontSize: 19, lineHeight: 26, color: colors.ink },
+});

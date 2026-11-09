@@ -1,4 +1,5 @@
-// Draws Rafiq's pop-ups (see src/lib/dialog.ts). Mounted once, in the root layout.
+// Draws Rafiq's pop-ups (see src/lib/dialog.ts). Mounted in the root layout, and again inside
+// any full-screen layer of ours (the trip card), which then draws them instead.
 //
 // One pattern for every pop-up that asks you to act (design system C5):
 // - Sheet (the default): docked to the bottom edge with 28pt top corners and a
@@ -29,8 +30,12 @@ import {
   cancelDialog,
   currentDialog,
   placementOf,
+  popDialogLayer,
+  pushDialogLayer,
   setDialogOnScreen,
+  subscribeDialogLayers,
   subscribeDialogs,
+  topDialogLayer,
   type DialogEntry,
   type DialogTone,
 } from '@/lib/dialog';
@@ -52,8 +57,11 @@ const TONES: Record<DialogTone, { icon: IconName; fg: string; bg: string; button
 const IN = { duration: motion.inMs, easing: Easing.out(Easing.cubic) };
 const OUT = { duration: motion.outMs, easing: Easing.in(Easing.cubic) };
 
-export function DialogHost() {
-  const current = useSyncExternalStore(subscribeDialogs, currentDialog, currentDialog);
+export function DialogHost({ layer = 0 }: { layer?: number }) {
+  // Only the newest layer draws (see pushDialogLayer): the root one, or the trip card's.
+  const top = useSyncExternalStore(subscribeDialogLayers, topDialogLayer, topDialogLayer);
+  const queued = useSyncExternalStore(subscribeDialogs, currentDialog, currentDialog);
+  const current = top === layer ? queued : null;
   // `shown` is what we draw. It outlives `current` while the pop-up animates away,
   // so it can leave smoothly and tell us when it has really gone.
   const [shown, setShown] = useState<DialogEntry | null>(null);
@@ -362,3 +370,17 @@ const styles = StyleSheet.create({
   quiet: { height: sizes.touch + 4, alignItems: 'center', justifyContent: 'center' },
   quietText: { fontSize: 16, color: colors.ink },
 });
+
+/**
+ * Pop-ups for a full-screen layer of ours (a Modal: the trip card, the search). Put it
+ * inside that layer; while it is mounted, pop-ups are drawn here instead of the root.
+ */
+export function DialogLayer() {
+  const [layer, setLayer] = useState<number | null>(null);
+  useEffect(() => {
+    const id = pushDialogLayer();
+    setLayer(id);
+    return () => popDialogLayer(id);
+  }, []);
+  return layer === null ? null : <DialogHost layer={layer} />;
+}
