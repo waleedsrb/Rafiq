@@ -608,6 +608,8 @@ export const strings = {
   minAgo: { ar_m: 'د', en: 'min ago' },
   justNow: { ar_m: 'الآن', en: 'just now' },
   reportsWord: { ar_m: 'بلاغات', en: 'reports' },
+  reportsWordOne: { ar_m: 'بلاغ', en: 'report' },
+  reportsWordMany: { ar_m: 'بلاغًا', en: 'reports' },
   openMap: { ar_m: 'افتح الخريطة', en: 'Open the map' },
   checkpointsMap: { ar_m: 'خريطة الحواجز', en: 'Checkpoints map' },
   noRecentReports: { ar_m: 'لا بلاغات حديثة', en: 'No recent reports' },

@@ -7,7 +7,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { StatsRow } from '@/components/stats-row';
-import { IconCircle, ListRow, Screen, Title, ltr, useFont } from '@/components/ui';
+import { IconCircle, ListRow, Screen, TabHeader, ltr, useFont } from '@/components/ui';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
@@ -64,8 +64,8 @@ export default function Account() {
   const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
-    <Screen scroll tab contentStyle={{ paddingTop: 72 }}>
-      <Title>{t('yourProfile')}</Title>
+    <Screen scroll tab>
+      <TabHeader title={t('yourProfile')} />
 
       <View style={styles.header}>
         <IconCircle letter={name.charAt(0)} size={72} />

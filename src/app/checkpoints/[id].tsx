@@ -9,7 +9,7 @@ import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/ch
 import { FollowBell } from '@/components/follow-bell';
 import { HoldToReport } from '@/components/hold-to-report';
 import { Body, Label, ListRow, Screen, SectionTitle, Title, ltr, useFont } from '@/components/ui';
-import { STATUSES, confidence, type CheckpointStatus } from '@/lib/checkpoints';
+import { STATUSES, confidence, reportsKey, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
 import { warnFeel } from '@/lib/haptics';
 import type { StringKey } from '@/i18n/strings';
@@ -143,7 +143,7 @@ export default function CheckpointDetail() {
       <View style={styles.sectionHead}>
         <SectionTitle>{t('lastHour')}</SectionTitle>
         <Body muted small>
-          {ltr(reports.length)} {t('reportsWord')}
+          {ltr(reports.length)} {t(reportsKey(reports.length))}
         </Body>
       </View>
       {reports.length === 0 ? <Body muted>{t('noReportsYet')}</Body> : null}

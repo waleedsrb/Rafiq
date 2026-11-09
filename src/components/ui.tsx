@@ -93,14 +93,14 @@ export function Screen({
         {topBar}
         {scroll ? (
           <ScrollView
-            contentContainerStyle={[styles.content, overlay || tab ? { paddingBottom: 120 } : null, contentStyle]}
+            contentContainerStyle={[styles.content, tab && !topBar ? styles.tabContent : null, overlay || tab ? { paddingBottom: 120 } : null, contentStyle]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             {children}
           </ScrollView>
         ) : (
-          <View style={[styles.content, contentStyle]}>{children}</View>
+          <View style={[styles.content, tab && !topBar ? styles.tabContent : null, contentStyle]}>{children}</View>
         )}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
         {overlay}
@@ -165,6 +165,24 @@ export function BackButton() {
   const { t } = useT();
   const { rtl } = useFont();
   return <GlassButton icon={rtl ? 'caretRight' : 'caretLeft'} label={t('back')} onPress={goBack} />;
+}
+
+/**
+ * The top of a tab's root page (Home, My trips, Checkpoints, Account). No back button
+ * here, so the title starts right under the status bar and the page's one action
+ * (bell, map) sits on the same line at the far end. Subpages keep the back-button
+ * row with the title underneath it.
+ */
+export function TabHeader({ title, kicker, action }: { title: ReactNode; kicker?: ReactNode; action?: ReactNode }) {
+  return (
+    <View style={styles.tabHeader}>
+      <View style={styles.tabHeaderText}>
+        {kicker}
+        {typeof title === 'string' ? <Title>{title}</Title> : title}
+      </View>
+      {action}
+    </View>
+  );
 }
 
 export function Title({ children, size = 'title' }: { children: ReactNode; size?: 'title' | 'display' }) {
@@ -536,6 +554,10 @@ const styles = StyleSheet.create({
     paddingBottom: space.md,
   },
   topSpacer: { width: sizes.touch, height: sizes.touch },
+  // Tab roots have no top bar: a small gap under the status bar, then the TabHeader.
+  tabContent: { paddingTop: space.md },
+  tabHeader: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: sizes.touch },
+  tabHeaderText: { flex: 1, gap: 2 },
   sheet: {
     marginTop: -radii.sheet,
     borderTopLeftRadius: radii.sheet,
