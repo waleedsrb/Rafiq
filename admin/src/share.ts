@@ -6,7 +6,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-import { cityName, minutesAgo, tripStatus, type Lang, type SharedTrip } from './share-logic';
+import { minutesAgo, placeName, tripStatus, type Lang, type SharedTrip } from './share-logic';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -100,7 +100,7 @@ function render() {
     el(
       'div',
       { class: 'card' },
-      row(s.route, `${cityName(trip.origin, lang)} ${lang === 'ar' ? '←' : '→'} ${cityName(trip.destination, lang)}`),
+      row(s.route, `${placeName(trip, 'origin', lang)} ${lang === 'ar' ? '←' : '→'} ${placeName(trip, 'destination', lang)}`),
       row(s.departs, time),
       row(s.driver, trip.driver_name),
       car ? row(s.car, car) : null,

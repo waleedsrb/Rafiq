@@ -34,7 +34,7 @@ select pg_temp.check((select founding_at is not null from public.driver_details)
 -- Trip c1: a1 and a2 booked; a1 rides, a2 doesn't come. Then the trip finishes.
 select pg_temp.as_user(null);
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils) values
-  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '1 day', 4, 25);
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 4, 25);
 insert into public.bookings (id, trip_id, passenger_id) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a1'),
   ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a2');
@@ -87,7 +87,7 @@ select pg_temp.check((select note = 'Great music' from public.person_reviews('00
 reset role;
 select pg_temp.as_user(null);
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils) values
-  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-00000000000d', 'nablus', 'ramallah', now() + interval '3 hours', 4, 25);
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-00000000000d', 'osm-n293546203', 'osm-n246843686', now() + interval '3 hours', 4, 25);
 insert into public.bookings (id, trip_id, passenger_id) values
   ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000a3');
 update public.bookings set status = 'accepted' where id = '00000000-0000-0000-0000-0000000000b3';

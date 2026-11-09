@@ -77,23 +77,23 @@ end $$;
 select pg_temp.act_as('00000000-0000-0000-0000-00000000000e');
 select pg_temp.expect_error($$
   insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils, women_only)
-  values ('00000000-0000-0000-0000-00000000000e', 'ramallah', 'nablus', now() + interval '1 day', 3, 25, true)
+  values ('00000000-0000-0000-0000-00000000000e', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 3, 25, true)
 $$, 'Only women');
 select pg_temp.act_as('00000000-0000-0000-0000-00000000000d');
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils, women_only) values
-  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '1 day', 3, 25, true),
-  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '1 day 1 hour', 3, 25, false);
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 3, 25, true),
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day 1 hour', 3, 25, false);
 
 -- 4. Men don't see it in search; verified women do.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a1');
 do $$ begin
-  if (select count(*) from public.search_trips('ramallah', 'nablus', now(), now() + interval '2 days')) <> 1 then
+  if (select count(*) from public.search_trips('osm-n246843686', 'osm-n293546203', now(), now() + interval '2 days')) <> 1 then
     raise exception 'FAIL: a man should only see the open trip';
   end if;
 end $$;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a2');
 do $$ begin
-  if (select count(*) from public.search_trips('ramallah', 'nablus', now(), now() + interval '2 days') where women_only) <> 1 then
+  if (select count(*) from public.search_trips('osm-n246843686', 'osm-n293546203', now(), now() + interval '2 days') where women_only) <> 1 then
     raise exception 'FAIL: a woman should see the women-only trip';
   end if;
 end $$;
@@ -121,10 +121,10 @@ $$, 'cancel_trip');
 
 -- 8. Late cancels: three trips tonight, each with an accepted seat.
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils) values
-  ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-00000000000d', 'nablus', 'ramallah', now() + interval '3 hours', 3, 25),
-  ('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-00000000000d', 'nablus', 'ramallah', now() + interval '4 hours', 3, 25),
-  ('00000000-0000-0000-0000-0000000000d3', '00000000-0000-0000-0000-00000000000d', 'nablus', 'ramallah', now() + interval '5 hours', 3, 25),
-  ('00000000-0000-0000-0000-0000000000d4', '00000000-0000-0000-0000-00000000000d', 'nablus', 'ramallah', now() + interval '6 hours', 3, 25);
+  ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-00000000000d', 'osm-n293546203', 'osm-n246843686', now() + interval '3 hours', 3, 25),
+  ('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-00000000000d', 'osm-n293546203', 'osm-n246843686', now() + interval '4 hours', 3, 25),
+  ('00000000-0000-0000-0000-0000000000d3', '00000000-0000-0000-0000-00000000000d', 'osm-n293546203', 'osm-n246843686', now() + interval '5 hours', 3, 25),
+  ('00000000-0000-0000-0000-0000000000d4', '00000000-0000-0000-0000-00000000000d', 'osm-n293546203', 'osm-n246843686', now() + interval '6 hours', 3, 25);
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a2');
 insert into public.bookings (id, trip_id, passenger_id) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-0000000000a2'),
@@ -172,7 +172,7 @@ do $$ begin
 end $$;
 select pg_temp.expect_error($$
   insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-  values ('00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '2 days', 3, 25)
+  values ('00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '2 days', 3, 25)
 $$, 'Posting is paused');
 
 -- The passengers still got their money back (the driver cancelled).
@@ -187,13 +187,13 @@ end $$;
 -- 9. Old late cancels (older than 30 days, or a pause that ended) don't block posting.
 select pg_temp.act_as(null);
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils, cancelled_at, cancelled_late) values
-  ('00000000-0000-0000-0000-00000000000e', 'ramallah', 'nablus', now() - interval '40 days', 3, 25, now() - interval '40 days', true),
-  ('00000000-0000-0000-0000-00000000000e', 'ramallah', 'nablus', now() - interval '20 days', 3, 25, now() - interval '20 days', true),
-  ('00000000-0000-0000-0000-00000000000e', 'ramallah', 'nablus', now() - interval '10 days', 3, 25, now() - interval '10 days', true),
-  ('00000000-0000-0000-0000-00000000000e', 'ramallah', 'nablus', now() - interval '9 days',  3, 25, now() - interval '9 days', true);
+  ('00000000-0000-0000-0000-00000000000e', 'osm-n246843686', 'osm-n293546203', now() - interval '40 days', 3, 25, now() - interval '40 days', true),
+  ('00000000-0000-0000-0000-00000000000e', 'osm-n246843686', 'osm-n293546203', now() - interval '20 days', 3, 25, now() - interval '20 days', true),
+  ('00000000-0000-0000-0000-00000000000e', 'osm-n246843686', 'osm-n293546203', now() - interval '10 days', 3, 25, now() - interval '10 days', true),
+  ('00000000-0000-0000-0000-00000000000e', 'osm-n246843686', 'osm-n293546203', now() - interval '9 days',  3, 25, now() - interval '9 days', true);
 select pg_temp.act_as('00000000-0000-0000-0000-00000000000e');
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-00000000000e', 'ramallah', 'nablus', now() + interval '2 days', 3, 25);
+values ('00000000-0000-0000-0000-00000000000e', 'osm-n246843686', 'osm-n293546203', now() + interval '2 days', 3, 25);
 
 select 'All safety checks passed' as result;
 rollback;

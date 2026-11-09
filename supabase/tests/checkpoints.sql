@@ -26,7 +26,7 @@ values ('00000000-0000-0000-0000-00000000000d', 'Kia Picanto', 'White', '7-1234-
 select pg_temp.as_user(null);
 update public.driver_details set verified_at = now();
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-00000000000d', 'ramallah', 'nablus', now() + interval '1 hour', 3, 25);
+values ('00000000-0000-0000-0000-00000000000d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 hour', 3, 25);
 update public.trips set departs_at = now() - interval '20 minutes';
 -- Old reports: Huwara closed 90 minutes ago, Atara open 3 hours ago (too old to count).
 insert into public.checkpoint_reports (checkpoint_id, reporter_id, status) values

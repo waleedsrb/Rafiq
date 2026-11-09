@@ -35,7 +35,7 @@ import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
 import { pushAfterDialog } from '@/lib/nav';
-import { CITY_SQUARE } from '@/lib/places';
+import { centreName, routeName } from '@/lib/places';
 import { telLink } from '@/lib/phone';
 import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
@@ -297,7 +297,7 @@ export function TripDetails({
   };
   const emergency = () => session && openEmergency(trip.id, session.user.id, lang, t);
   const price = ltr(`${trip.price_ils}₪`);
-  const route = `${t(trip.origin)} ${lang === 'ar' ? '←' : '→'} ${t(trip.destination)}`;
+  const route = routeName(trip.origin, trip.destination, lang);
 
   async function share() {
     if (!trip || !contact) return;
@@ -312,7 +312,7 @@ export function TripDetails({
   const canShare = (status === 'accepted' || onRoad) && !!contact;
 
   // ---------- Steps inside the card ----------
-  const pickupLabel = trip.pickup_label ?? t(CITY_SQUARE[trip.origin]);
+  const pickupLabel = trip.pickup_label ?? centreName(trip.origin, lang);
   const common = {
     pickup: trip.pickup_lat !== null && trip.pickup_lng !== null ? { latitude: Number(trip.pickup_lat), longitude: Number(trip.pickup_lng) } : null,
     origin: trip.origin,
@@ -444,7 +444,7 @@ export function TripDetails({
         </Body>
       ) : null}
 
-      {onRoad ? <RouteCheckpoints origin={trip.origin} /> : null}
+      {onRoad ? <RouteCheckpoints origin={trip.origin} destination={trip.destination} /> : null}
 
       {(status === 'accepted' || arrived) && contact && !findCar ? (
         <>

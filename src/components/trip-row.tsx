@@ -5,6 +5,7 @@ import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
 
 import { formatDay, formatTime } from '@/lib/format';
+import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { openTripFrom, type Rect } from '@/lib/trip-layer';
@@ -43,7 +44,7 @@ export function TripRow({
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
       <View style={styles.main}>
         <Text style={[styles.route, { fontFamily: f.medium }]}>
-          {t(origin)} {arrow} {t(destination)}
+          {placeName(origin, lang)} {arrow} {placeName(destination, lang)}
         </Text>
         <Text style={[styles.meta, { fontFamily: f.regular }]}>
           {formatDay(d, lang)} · {formatTime(d, lang)}

@@ -900,6 +900,33 @@ export const strings = {
   ratedAll: { ar_m: 'شكرًا، وصلت تقييماتك', en: 'Thanks, your ratings are in' },
   later: { ar_m: 'لاحقًا', en: 'Later' },
   shareShort: { ar_m: 'شارك الرحلة', ar_f: 'شاركي الرحلة', en: 'Share trip' },
+
+  // Place search (whole West Bank)
+  whereFrom: { ar_m: 'من أين؟', en: 'Where from?' },
+  whereTo: { ar_m: 'إلى أين؟', en: 'Where to?' },
+  searchTownPlaceholder: { ar_m: 'ابحث عن مدينة أو قرية', ar_f: 'ابحثي عن مدينة أو قرية', en: 'Search for a town or village' },
+  bigTowns: { ar_m: 'المدن', en: 'Cities' },
+  townsAndVillages: { ar_m: 'مدن وقرى', en: 'Towns and villages' },
+  outsideWestBank: { ar_m: 'خارج الضفة الغربية', en: 'Outside the West Bank' },
+  flagOutside: { ar_m: 'خارج الضفة', en: 'Outside' },
+  flagSettlement: { ar_m: 'مستوطنة', en: 'Settlement' },
+  flagJerusalem: { ar_m: 'القدس · تحتاج تصريحًا', en: 'Jerusalem · permit' },
+  outsideTitle: { ar_m: '{place} خارج الضفة الغربية', en: '{place} is outside the West Bank' },
+  settlementTitle: { ar_m: '{place} مستوطنة', en: '{place} is a settlement' },
+  jerusalemTitle: { ar_m: '{place} في القدس', en: '{place} is in Jerusalem' },
+  outsideBody: {
+    ar_m: 'رحلات رفيق داخل الضفة الغربية فقط، ولا نعرف حالة الحواجز خارجها.',
+    en: 'Rafiq trips stay inside the West Bank, and we don’t know the checkpoints beyond it.',
+  },
+  pickAnotherPlace: { ar_m: 'اختر مكانًا آخر', ar_f: 'اختاري مكانًا آخر', en: 'Pick another place' },
+  noPlaceFound: { ar_m: 'لم نجد هذا المكان. جرّب كتابته بطريقة أخرى.', ar_f: 'لم نجد هذا المكان. جرّبي كتابته بطريقة أخرى.', en: 'We couldn’t find that place. Try another spelling.' },
+  kmFromPlace: { ar_m: 'على بعد {n} كم من {place}', en: '{n} km from {place}' },
+  fromPlace: { ar_m: 'من {place}', en: 'From {place}' },
+  toPlace: { ar_m: 'إلى {place}', en: 'To {place}' },
+  nearbyTrips: { ar_m: 'رحلات من بلدات قريبة', en: 'Trips from nearby towns' },
+  samePlaceTwice: { ar_m: 'اختر مكانين مختلفين', ar_f: 'اختاري مكانين مختلفين', en: 'Pick two different places' },
+  postedTimes: { ar_m: 'نشرتها {n} مرة', en: 'Posted {n} times' },
+  suggestedForKm: { ar_m: 'المعتاد لنحو {n} كم:', en: 'Usual for about {n} km:' },
 } satisfies Record<string, Variants>;
 
 export type StringKey = keyof typeof strings;

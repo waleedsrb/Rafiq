@@ -23,7 +23,7 @@ import { ltr, useFont } from '@/components/ui';
 import { arrivalAt, distanceParts, nextOnRoad } from '@/lib/drive';
 import { clock } from '@/lib/format';
 import { distanceM } from '@/lib/pickup';
-import { CITY_POINT, CITY_SQUARE, type LatLng } from '@/lib/places';
+import { centreName, centrePoint, onRamallahNablusRoad, placeName, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { useScreenCorners } from '@/theme/screen-corners';
@@ -85,7 +85,7 @@ export function DriveMode({
   onEmergency: () => void;
   onLeave: () => void;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
   const corners = useScreenCorners();
@@ -101,9 +101,11 @@ export function DriveMode({
 
   // Checkpoints in driving order, kept fresh while you drive.
   const all = useMapCheckpoints(60_000);
-  const road = origin === 'ramallah' ? all : [...all].reverse();
-  const start = pickup ?? CITY_POINT[origin];
-  const dest = CITY_POINT[destination];
+  // The four hand-placed ones only on the Ramallah - Nablus road, in driving order.
+  const way = onRamallahNablusRoad(origin, destination);
+  const road = way === 'forward' ? all : way === 'back' ? [...all].reverse() : [];
+  const start = pickup ?? centrePoint(origin);
+  const dest = centrePoint(destination);
   const next = nextOnRoad(road, car, dest);
   const eta = arrivalAt(now, car, start, dest, new Date(startedAt));
   const etaClock = clock(eta);
@@ -114,7 +116,7 @@ export function DriveMode({
   const meters = cp ? next!.meters : car ? distanceM(car, dest) : null;
   const dist = meters !== null ? distanceParts(meters) : null;
   const bannerIcon: IconName = cp ? (cp.status === 'open' ? 'check' : cp.status ? 'warning' : 'barricade') : 'mapPin';
-  const bannerTitle = cp ? (cp.status ? `${cp.name} · ${t(STATUS_LOOK[cp.status].word)}` : cp.name) : `${t(destination)} · ${t(CITY_SQUARE[destination])}`;
+  const bannerTitle = cp ? (cp.status ? `${cp.name} · ${t(STATUS_LOOK[cp.status].word)}` : cp.name) : `${placeName(destination, lang)} · ${centreName(destination, lang)}`;
   const bannerSub = cp
     ? `${t('nextCheckpoint')} · ${cp.reportedAt ? ago(cp.reportedAt, now) : t('noRecentReport')}`
     : t('destinationPoint');

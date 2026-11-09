@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
+import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { colors, radii, space } from '@/theme/tokens';
@@ -13,26 +14,43 @@ export function RouteCard({
   origin,
   destination,
   onSwap,
+  onPick,
   note,
 }: {
   origin: City;
   destination: City;
   onSwap?: () => void;
+  /** Tap a row to change that end (opens the place search). */
+  onPick?: (end: 'origin' | 'destination') => void;
   /** Small grey text at the end of the first row, e.g. the date. */
   note?: string;
 }) {
-  const { t } = useT();
-  const { f } = useFont();
-  const row = (city: City, label: string, mark: 'start' | 'end') => (
-    <View style={styles.cardRow}>
-      <View style={mark === 'start' ? styles.markStart : styles.markEnd} />
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.cardLabel, { fontFamily: f.regular }]}>{label}</Text>
-        <Text style={[styles.cardCity, { fontFamily: f.medium }]}>{t(city)}</Text>
-      </View>
-      {mark === 'start' && note ? <Text style={[styles.cardLabel, { fontFamily: f.regular }]}>{note}</Text> : null}
-    </View>
-  );
+  const { t, lang } = useT();
+  const { f, rtl } = useFont();
+  const row = (city: City, label: string, mark: 'start' | 'end') => {
+    const inner = (
+      <>
+        <View style={mark === 'start' ? styles.markStart : styles.markEnd} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.cardLabel, { fontFamily: f.regular }]}>{label}</Text>
+          <Text style={[styles.cardCity, { fontFamily: f.medium }]} numberOfLines={1}>{placeName(city, lang)}</Text>
+        </View>
+        {mark === 'start' && note ? <Text style={[styles.cardLabel, { fontFamily: f.regular }]}>{note}</Text> : null}
+        {onPick ? <Icon name={rtl ? 'caretLeft' : 'caretRight'} size={16} color={colors.inkSecondary} /> : null}
+      </>
+    );
+    if (!onPick) return <View style={styles.cardRow}>{inner}</View>;
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label} ${placeName(city, lang)}`}
+        onPress={() => onPick(mark === 'start' ? 'origin' : 'destination')}
+        style={({ pressed }) => [styles.cardRow, pressed && { opacity: 0.6 }]}
+      >
+        {inner}
+      </Pressable>
+    );
+  };
   return (
     <View style={styles.card}>
       <View style={{ flex: 1 }}>

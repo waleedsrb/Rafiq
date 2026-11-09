@@ -47,12 +47,12 @@ update public.driver_details set verified_at = now();
 update public.profiles set id_verified_at = now();
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
 values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000d',
-        'ramallah', 'nablus', now() + interval '1 day', 1, 25);
+        'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 1, 25);
 
 -- Same city both ways is rejected.
 select pg_temp.expect_error($$
   insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
-  values ('00000000-0000-0000-0000-00000000000d', 'nablus', 'nablus', now(), 2, 20)
+  values ('00000000-0000-0000-0000-00000000000d', 'osm-n293546203', 'osm-n293546203', now(), 2, 20)
 $$, 'trips_check');
 
 -- Driver can't book their own trip.

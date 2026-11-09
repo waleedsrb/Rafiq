@@ -31,7 +31,7 @@ insert into public.profiles (id, full_name, gender, language, id_verified_at) va
 insert into public.driver_details (driver_id, car_model, car_color, plate, verified_at)
 values ('00000000-0000-0000-0000-0000000000d1', 'Kia', 'White', '7-1111-95', now());
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils)
-values ('00000000-0000-0000-0000-00000000f001', '00000000-0000-0000-0000-0000000000d1', 'ramallah', 'nablus', now() + interval '2 days', 3, 25);
+values ('00000000-0000-0000-0000-00000000f001', '00000000-0000-0000-0000-0000000000d1', 'osm-n246843686', 'osm-n293546203', now() + interval '2 days', 3, 25);
 insert into public.bookings (id, trip_id, passenger_id)
 values ('00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-00000000f001', '00000000-0000-0000-0000-0000000000b1');
 do $$ begin execute format('grant usage on schema %I to authenticated', pg_my_temp_schema()::regnamespace); end $$;

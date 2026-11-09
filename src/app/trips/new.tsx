@@ -16,6 +16,7 @@ import { ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PickupMap } from '@/components/pickup-map';
+import { PlacePicker } from '@/components/place-picker';
 import { RouteCard } from '@/components/route-card';
 import { TimeWheel } from '@/components/time-wheel';
 import { TripHero } from '@/components/trip-hero';
@@ -25,13 +26,13 @@ import { photoGate, photoGateText } from '@/lib/avatar';
 import { formatChipDay, formatDay, formatLongDay, shortTime } from '@/lib/format';
 import { successFeel } from '@/lib/haptics';
 import { goBack } from '@/lib/nav';
-import { CITY_POINT, CITY_SQUARE, type LatLng } from '@/lib/places';
+import { centreName, centrePoint, NABLUS, place, placeKm, RAMALLAH, routeName, type LatLng } from '@/lib/places';
 import { labelOk, movePickup, offerSpots, spotAt, type Pickup } from '@/lib/pickup';
 import { askForPush } from '@/lib/push';
 import { WEEK, WORK_WEEK, toDbTime, toggleDay, weekdayName } from '@/lib/recurring';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { PRICE_MAX, SEATS_MAX, SEATS_MIN, SUGGESTED_PRICE, type City } from '@/lib/trip-form';
+import { PRICE_MAX, SEATS_MAX, SEATS_MIN, suggestedPrice, type City } from '@/lib/trip-form';
 import { colors, space } from '@/theme/tokens';
 
 type Step = 'where' | 'pickup' | 'when' | 'seats' | 'posted';
@@ -42,6 +43,7 @@ const WEEKLY = DAYS; // the "Weekly" pill sits after the days
 
 type LastTrip = {
   origin: City;
+  destination: City;
   departs_at: string;
   seats_total: number;
   price_ils: number;
@@ -57,9 +59,14 @@ export default function NewTrip() {
   const canWomenOnly = isVerifiedWoman(profile);
 
   // Home's "post your usual trip" opens this already filled in.
-  const params = useLocalSearchParams<{ origin?: City; day?: string; time?: string }>();
-  const [origin, setOrigin] = useState<City>(params.origin === 'nablus' ? 'nablus' : 'ramallah');
-  const destination: City = origin === 'ramallah' ? 'nablus' : 'ramallah';
+  const params = useLocalSearchParams<{ origin?: City; destination?: City; day?: string; time?: string }>();
+  const [ends, setRoute] = useState<{ origin: City; destination: City }>(() => {
+    const o = place(params.origin)?.id ?? RAMALLAH;
+    const d = place(params.destination)?.id;
+    return { origin: o, destination: d && d !== o ? d : o === NABLUS ? RAMALLAH : NABLUS };
+  });
+  const { origin, destination } = ends;
+  const [picking, setPicking] = useState<'origin' | 'destination' | null>(null);
 
   const [step, setStep] = useState<Step>('where');
   const [closing, setClosing] = useState(false);
@@ -67,7 +74,8 @@ export default function NewTrip() {
   const [weekdays, setWeekdays] = useState<number[]>(WORK_WEEK);
   const [time, setTime] = useState(() => parseHm(params.time) ?? { h: 7, m: 30 });
   const [seats, setSeats] = useState(3);
-  const [price, setPrice] = useState(SUGGESTED_PRICE);
+  const km = placeKm(origin, destination);
+  const [price, setPrice] = useState(() => suggestedPrice(km));
   const [womenOnly, setWomenOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -77,20 +85,29 @@ export default function NewTrip() {
 
   // ─── Your last trip fills the card in ─────────────────────────────────────────
   const [last, setLast] = useState<LastTrip | null>(null);
+  // The routes you post most, for one-tap picking on the first step.
+  const [past, setPast] = useState<{ origin: City; destination: City; times: number }[]>([]);
+  // A new route gets the price that fits its distance (your last trip's price stays for the same route).
+  const pickRoute = (next: { origin: City; destination: City }) => {
+    setRoute(next);
+    const sameAsLast = last && place(last.origin)?.id === next.origin && place(last.destination)?.id === next.destination;
+    setPrice(sameAsLast ? Math.min(PRICE_MAX, Math.max(1, Math.round(Number(last.price_ils)))) : suggestedPrice(placeKm(next.origin, next.destination)));
+  };
   useEffect(() => {
     if (!session) return;
     supabase
       .from('trips')
-      .select('origin, departs_at, seats_total, price_ils, pickup_label, pickup_lat, pickup_lng')
+      .select('origin, destination, departs_at, seats_total, price_ils, pickup_label, pickup_lat, pickup_lng')
       .eq('driver_id', session.user.id)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(20)
       .then(({ data }) => {
-        const l = data as LastTrip | null;
+        const rows = (data as LastTrip[] | null) ?? [];
+        setPast(usualRoutes(rows));
+        const l = rows[0];
         if (!l) return;
         setLast(l);
-        if (!params.origin) setOrigin(l.origin);
+        if (!params.origin && place(l.origin) && place(l.destination)) setRoute({ origin: place(l.origin)!.id, destination: place(l.destination)!.id });
         if (!params.time) {
           const d = new Date(l.departs_at);
           setTime({ h: d.getHours(), m: d.getMinutes() });
@@ -151,14 +168,14 @@ export default function NewTrip() {
     last && last.origin === origin && last.pickup_label && last.pickup_lat !== null && last.pickup_lng !== null
       ? { label: last.pickup_label, latitude: Number(last.pickup_lat), longitude: Number(last.pickup_lng) }
       : null;
-  const centreLabel = t(CITY_SQUARE[origin]);
+  const centreLabel = centreName(origin, lang);
   const spots = useMemo(
-    () => offerSpots(usual, popular, { label: centreLabel, ...CITY_POINT[origin] }),
+    () => offerSpots(usual, popular, { label: centreLabel, ...centrePoint(origin) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [usual?.label, usual?.latitude, usual?.longitude, popular, centreLabel, origin],
   );
   const [pickup, setPickup] = useState<Pickup | null>(null);
-  const [mapAt, setMapAt] = useState<LatLng & { key: number }>({ ...CITY_POINT[origin], key: 0 });
+  const [mapAt, setMapAt] = useState<LatLng & { key: number }>({ ...centrePoint(origin), key: 0 });
   const pickSpot = (p: Pickup) => {
     setPickup({ label: p.label, latitude: p.latitude, longitude: p.longitude });
     setMapAt((m) => ({ latitude: p.latitude, longitude: p.longitude, key: m.key + 1 }));
@@ -254,7 +271,7 @@ export default function NewTrip() {
   }
 
   // ─── The card's slots per step ────────────────────────────────────────────────
-  const route = `${t(origin)} ${lang === 'ar' ? '←' : '→'} ${t(destination)}`;
+  const route = routeName(origin, destination, lang);
   let header;
   let body;
   let footer;
@@ -310,7 +327,26 @@ export default function NewTrip() {
     if (form === 'where') {
       body = (
         <>
-          <RouteCard origin={origin} destination={destination} onSwap={() => setOrigin(destination)} />
+          <RouteCard
+            origin={origin}
+            destination={destination}
+            onSwap={() => pickRoute({ origin: destination, destination: origin })}
+            onPick={setPicking}
+          />
+          {past.length ? (
+            <View>
+              {past.map((r, i) => (
+                <ListRow
+                  key={`${r.origin}-${r.destination}`}
+                  last={i === past.length - 1}
+                  icon={r.origin === origin && r.destination === destination ? 'check' : 'clock'}
+                  title={routeName(r.origin, r.destination, lang)}
+                  subtitle={t('postedTimes').replace('{n}', ltr(r.times))}
+                  onPress={() => pickRoute({ origin: r.origin, destination: r.destination })}
+                />
+              ))}
+            </View>
+          ) : null}
           {demand ? (
             <View style={styles.demand}>
               <ListRow
@@ -344,7 +380,7 @@ export default function NewTrip() {
           <Field
             label={t('pickupLabel')}
             value={pickup?.label ?? ''}
-            onChangeText={(v) => setPickup((p) => (p ? { ...p, label: v } : { label: v, ...CITY_POINT[origin] }))}
+            onChangeText={(v) => setPickup((p) => (p ? { ...p, label: v } : { label: v, ...centrePoint(origin) }))}
             placeholder={t('pickupLabelPlaceholder')}
             maxLength={80}
           />
@@ -384,7 +420,11 @@ export default function NewTrip() {
             last={!canWomenOnly}
             icon="currency"
             title={`${t('seatPrice')} · ${ltr(`${price}₪`)}`}
-            subtitle={`${t('suggestedPrice')} ${ltr(`${SUGGESTED_PRICE}₪`)}`}
+            subtitle={
+              km !== null
+                ? `${t('suggestedForKm').replace('{n}', ltr(Math.round(km)))} ${ltr(`${suggestedPrice(km)}₪`)}`
+                : `${t('suggestedPrice')} ${ltr(`${suggestedPrice(km)}₪`)}`
+            }
             trailing={<Stepper value={price} min={1} max={PRICE_MAX} onChange={setPrice} />}
           />
           {canWomenOnly ? (
@@ -436,8 +476,35 @@ export default function NewTrip() {
         pickup={pickup}
         map={step === 'pickup' && !pausedUntil ? <PickupMap center={mapAt} onMove={onMapMove} visibleBottom={sheetMidTop(H)} /> : undefined}
       />
+      <PlacePicker
+        visible={picking !== null}
+        title={t(picking === 'destination' ? 'whereTo' : 'whereFrom')}
+        exclude={picking === 'destination' ? origin : picking === 'origin' ? destination : undefined}
+        onPick={(id) => {
+          // Picking the town at the other end flips the route.
+          if (picking === 'origin') pickRoute(id === destination ? { origin: id, destination: origin } : { origin: id, destination });
+          else pickRoute(id === origin ? { origin: destination, destination: id } : { origin, destination: id });
+          setPicking(null);
+        }}
+        onClose={() => setPicking(null)}
+      />
     </GestureHandlerRootView>
   );
+}
+
+/** Your most posted routes (up to 3), most first, from your recent trips. */
+function usualRoutes(rows: { origin: City; destination: City }[]): { origin: City; destination: City; times: number }[] {
+  const count = new Map<string, { origin: City; destination: City; times: number }>();
+  for (const r of rows) {
+    const o = place(r.origin)?.id;
+    const d = place(r.destination)?.id;
+    if (!o || !d) continue;
+    const key = `${o}>${d}`;
+    const c = count.get(key) ?? { origin: o, destination: d, times: 0 };
+    c.times++;
+    count.set(key, c);
+  }
+  return [...count.values()].sort((a, b) => b.times - a.times).slice(0, 3);
 }
 
 /** "7:30" from Home's link, or null. */

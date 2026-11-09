@@ -38,7 +38,7 @@ import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
 import { goBack } from '@/lib/nav';
 import { formatPhone, telLink } from '@/lib/phone';
-import { CITY_SQUARE } from '@/lib/places';
+import { centreName, routeName } from '@/lib/places';
 import { useDriverPosition } from '@/lib/position';
 import { isLateTripCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
@@ -244,7 +244,7 @@ export default function DriverTrip() {
   const departs = new Date(trip?.departs_at ?? Date.now());
   const state = trip ? tripState(trip) : 'scheduled';
   const price = Number(trip?.price_ils ?? 0);
-  const route = trip ? `${t(trip.origin)} ${lang === 'ar' ? '←' : '→'} ${t(trip.destination)}` : '';
+  const route = trip ? routeName(trip.origin, trip.destination, lang) : '';
   const asking = requests.filter((r) => r.status === 'requested');
   const riders = requests.filter((r) => r.status === 'accepted');
   const rode = requests.filter((r) => r.status === 'completed');
@@ -259,7 +259,7 @@ export default function DriverTrip() {
   const canCancelTrip = state === 'scheduled' && departs > now;
   const canRate = state === 'finished' && !!trip?.finished_at && ratingOpen(now, new Date(trip.finished_at));
   const unrated = rode.filter((r) => rated[r.id] === undefined);
-  const pickupLabel = trip ? (trip.pickup_label ?? t(CITY_SQUARE[trip.origin])) : '';
+  const pickupLabel = trip ? (trip.pickup_label ?? centreName(trip.origin, lang)) : '';
   const pickup = trip?.pickup_lat != null && trip.pickup_lng != null ? { latitude: Number(trip.pickup_lat), longitude: Number(trip.pickup_lng) } : null;
 
   const toRate: RideToRate[] = rode.map((r) => ({

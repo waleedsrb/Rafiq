@@ -24,8 +24,8 @@ update public.profiles set id_verified_at = now();
 
 -- Trip c1 (2 seats each for a1, 1 for a2 who doesn't come), finished. Trip c2 not finished yet.
 insert into public.trips (id, driver_id, origin, destination, departs_at, seats_total, price_ils) values
-  ('00000000-0000-0000-0000-0000000002c1', '00000000-0000-0000-0000-00000000020d', 'ramallah', 'nablus', now() + interval '1 day', 4, 25),
-  ('00000000-0000-0000-0000-0000000002c2', '00000000-0000-0000-0000-00000000020d', 'nablus', 'ramallah', now() + interval '3 days', 4, 25);
+  ('00000000-0000-0000-0000-0000000002c1', '00000000-0000-0000-0000-00000000020d', 'osm-n246843686', 'osm-n293546203', now() + interval '1 day', 4, 25),
+  ('00000000-0000-0000-0000-0000000002c2', '00000000-0000-0000-0000-00000000020d', 'osm-n293546203', 'osm-n246843686', now() + interval '3 days', 4, 25);
 insert into public.bookings (id, trip_id, passenger_id, seats) values
   ('00000000-0000-0000-0000-0000000002b1', '00000000-0000-0000-0000-0000000002c1', '00000000-0000-0000-0000-0000000002a1', 2),
   ('00000000-0000-0000-0000-0000000002b2', '00000000-0000-0000-0000-0000000002c1', '00000000-0000-0000-0000-0000000002a2', 1),

@@ -29,6 +29,7 @@ import { tapFeel } from '@/lib/haptics';
 import { heroLink, pickHero, usualTime, type CancelledHero, type DriveHero, type RateHero, type SeatHero } from '@/lib/home-state';
 import { useBookingChanges } from '@/lib/live';
 import { useUnreadCount } from '@/lib/notifications';
+import { NABLUS, RAMALLAH } from '@/lib/places';
 import { useSession, useT } from '@/lib/session';
 import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
@@ -128,10 +129,14 @@ export default function Home() {
   // Start from your usual direction once we know it. The week loads now, while you're
   // still on Home, so the trips are already there when the bar opens.
   const usualOrigin = data?.route?.origin;
-  const { setOrigin } = searchState;
+  const usualDestination = data?.route?.destination;
+  const { setOrigin, setDestination } = searchState;
   useEffect(() => {
-    if (usualOrigin && !search) setOrigin(usualOrigin);
-  }, [usualOrigin]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (usualOrigin && usualDestination && !search) {
+      setOrigin(usualOrigin);
+      setDestination(usualDestination);
+    }
+  }, [usualOrigin, usualDestination]); // eslint-disable-line react-hooks/exhaustive-deps
   // A page opened from inside the search (the ID check from a trip card): the search steps
   // aside while it's up, and is back as you left it when you return.
   useFocusEffect(
@@ -324,13 +329,12 @@ export default function Home() {
   }
 
   // The route whose checkpoints we show: the trip on top, else your usual route.
-  const heroOrigin: City =
-    (hero?.kind === 'seat' && data?.seat?.info.origin) ||
-    (hero?.kind === 'drive' && hero.drive.tripId === data?.driveWithRequests?.tripId && data.driveWithRequests?.info.origin) ||
-    (hero?.kind === 'drive' && data?.drive?.info.origin) ||
-    (hero?.kind === 'idleDriver' && data?.driving?.route.origin) ||
-    data?.route?.origin ||
-    'ramallah';
+  const heroRoute: { origin: City; destination: City } =
+    (hero?.kind === 'seat' && data?.seat?.info) ||
+    (hero?.kind === 'drive' && hero.drive.tripId === data?.driveWithRequests?.tripId && data.driveWithRequests?.info) ||
+    (hero?.kind === 'drive' && data?.drive?.info) ||
+    (hero?.kind === 'idleDriver' && data?.driving?.route) ||
+    data?.route || { origin: RAMALLAH, destination: NABLUS };
 
   // The quiet row under the search: the other role, or (already driving) one more trip.
   const quiet =
@@ -396,7 +400,7 @@ export default function Home() {
         </View>
       </Pressable>
 
-      {data ? <RouteCheckpoints origin={heroOrigin} reportedOnly limit={3} /> : null}
+      {data ? <RouteCheckpoints origin={heroRoute.origin} destination={heroRoute.destination} reportedOnly limit={3} /> : null}
 
       {quiet === 'post' ? (
         <ListRow last icon="plus" title={t('homeDriving')} subtitle={t('homeDrivingSub')} onPress={() => router.push('/trips/new')} />
