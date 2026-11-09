@@ -46,3 +46,19 @@ export function inboxIcon(kind: string) {
 export function needsYou(n: Pick<Notification, 'kind' | 'read_at'>): boolean {
   return n.read_at === null && ['requested', 'trip_cancelled', 'verification_rejected'].includes(n.kind);
 }
+
+export type InboxChange = { type: 'read'; id: number; readAt: string } | { type: 'delete'; id: number };
+
+/** Apply a confirmed server action without resetting another message's state. */
+export function applyInboxChange(rows: Notification[], change: InboxChange): Notification[] {
+  if (change.type === 'delete') return rows.filter((n) => n.id !== change.id);
+  return rows.map((n) => n.id === change.id && !n.read_at ? { ...n, read_at: change.readAt } : n);
+}
+
+
+/** Push payloads use strings so Postgres bigint IDs never lose precision. */
+export function notificationIdFromPush(value: unknown): string | null {
+  if (typeof value === 'string' && /^[1-9]\d*$/.test(value)) return value;
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return String(value);
+  return null;
+}
