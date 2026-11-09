@@ -35,6 +35,7 @@ import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
 import { pushAfterDialog } from '@/lib/nav';
+import { CITY_SQUARE } from '@/lib/places';
 import { telLink } from '@/lib/phone';
 import { freeCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
@@ -59,6 +60,10 @@ type Trip = {
   cancel_reason: string | null;
   started_at: string | null;
   finished_at: string | null;
+  // Where the driver meets riders (null on trips posted before pickups: the city square).
+  pickup_label: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
   profiles: { full_name: string; avatar_path: string | null }; // the driver, joined through trips.driver_id
   trip_series: { weekdays: number[]; stopped_at: string | null } | null; // set when the trip repeats weekly
 };
@@ -119,7 +124,7 @@ export function TripDetails({
       supabase
         .from('trips')
         .select(
-          'id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, profiles!trips_driver_id_fkey(full_name, avatar_path), trip_series(weekdays, stopped_at)',
+          'id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, profiles!trips_driver_id_fkey(full_name, avatar_path), trip_series(weekdays, stopped_at)',
         )
         .eq('id', tripId)
         .single(),
@@ -307,7 +312,9 @@ export function TripDetails({
   const canShare = (status === 'accepted' || onRoad) && !!contact;
 
   // ---------- Steps inside the card ----------
+  const pickupLabel = trip.pickup_label ?? t(CITY_SQUARE[trip.origin]);
   const common = {
+    pickup: trip.pickup_lat !== null && trip.pickup_lng !== null ? { latitude: Number(trip.pickup_lat), longitude: Number(trip.pickup_lng) } : null,
     origin: trip.origin,
     destination: trip.destination,
     departsAt: trip.departs_at,
@@ -369,6 +376,7 @@ export function TripDetails({
       {endedNote || status === 'requested' ? null : (
         <>
           {trip.trip_series && !trip.trip_series.stopped_at ? <ListRow icon="calendar" title={repeatsText(trip.trip_series.weekdays)} /> : null}
+          <ListRow icon="mapPin" title={pickupLabel} subtitle={t('pickupRow')} last={!!trip.cancelled_at} />
           {trip.cancelled_at ? null : (
             <ListRow
               last
@@ -417,6 +425,9 @@ export function TripDetails({
           </Body>
           <PlateArt plate={contact.plate} width={250} />
           {contact.car_model ? <Body>{[contact.car_model, contact.car_color].filter(Boolean).join(' · ')}</Body> : null}
+          <Body muted small>
+            {t('pickupFrom')} · {pickupLabel}
+          </Body>
         </View>
       ) : null}
       {findCar && hereAt ? <Note tone="ok" icon="check" text={t('driverKnowsHere')} /> : null}

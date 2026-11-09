@@ -59,7 +59,10 @@ export function RouteMap({
   labels,
   interactive,
   onExpand,
+  start,
 }: {
+  /** The pickup point, when the driver picked one; else the city square. */
+  start?: LatLng;
   /** Pan and zoom (the full-screen map). */
   interactive?: boolean;
   /** Tap the map (or its expand button) to open it full screen. */
@@ -78,7 +81,7 @@ export function RouteMap({
   const { f, rtl } = useFont();
   const ref = useRef<MapView>(null);
   const checkpoints = useMapCheckpoints();
-  const from = CITY_POINT[origin];
+  const from = start ?? CITY_POINT[origin];
   const to = CITY_POINT[destination];
   // Checkpoints are stored Ramallah-first; flip them when driving the other way.
   const onRoad = origin === 'ramallah' ? checkpoints : [...checkpoints].reverse();
@@ -95,7 +98,7 @@ export function RouteMap({
     fit();
     // Re-fit once the checkpoints arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkpoints.length, origin]);
+  }, [checkpoints.length, origin, from.latitude, from.longitude]);
 
   return (
     <View style={{ height }}>

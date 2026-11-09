@@ -21,6 +21,7 @@ import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
+import { CITY_SQUARE } from '@/lib/places';
 import { isLateTripCancel } from '@/lib/rules';
 import { useDriverPosition } from '@/lib/position';
 import { useSession, useT } from '@/lib/session';
@@ -40,6 +41,7 @@ type Trip = {
   trip_series: { id: string; weekdays: number[]; stopped_at: string | null } | null; // weekly pattern, if any
   started_at: string | null;
   finished_at: string | null;
+  pickup_label: string | null; // where you meet riders (null: the city square)
 };
 type Request = {
   id: string;
@@ -69,7 +71,7 @@ export default function TripRequests() {
   const load = useCallback(async () => {
     if (!id) return;
     const [tripRes, reqRes, seatsRes] = await Promise.all([
-      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, trip_series(id, weekdays, stopped_at)').eq('id', id).single(),
+      supabase.from('trips').select('id, origin, destination, departs_at, price_ils, cancelled_at, started_at, finished_at, pickup_label, trip_series(id, weekdays, stopped_at)').eq('id', id).single(),
       supabase
         .from('bookings')
         .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name, avatar_path)')
@@ -295,6 +297,10 @@ export default function TripRequests() {
           />
         </View>
       ) : null}
+
+      <View>
+        <ListRow last icon="mapPin" title={trip.pickup_label ?? t(CITY_SQUARE[trip.origin])} subtitle={t('pickupRow')} />
+      </View>
 
       <SectionTitle>{t('passengers')}</SectionTitle>
       {requests.length === 0 ? <Body muted>{t('noRequests')}</Body> : null}

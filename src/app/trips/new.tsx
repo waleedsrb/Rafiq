@@ -1,42 +1,105 @@
-// Driver posts a trip: route, day (or weekly days), time, seats, price.
+// Driver posts a trip, as four short steps inside the trip card over the map (Nov 9,
+// driver flow, Option A): where to, where you meet riders, when, then seats and price.
+// It uses the same card as a passenger's trip (src/components/trip-sheet.tsx), so the
+// tinted glass, the bar, the spacing and the calm motion are the same on both sides.
+//
+// The card starts filled in from your last trip (route, pickup, time, seats, price), so
+// on a normal day posting is Next, Next, Next, Publish. Home's "post your usual trip"
+// opens it with the route and time already chosen.
+//
+// After Publish the steps turn into the posted trip in place, and only then do we ask
+// for notifications ("tell me when someone asks for a seat").
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { PickupMap } from '@/components/pickup-map';
 import { RouteCard } from '@/components/route-card';
-import { Body, Button, Chip, ChipRow, Choice, Field, Label, ListRow, Screen, Stepper, Title, ltr } from '@/components/ui';
-import { formatChipDay, formatDay, formatLongDay, shortTime } from '@/lib/format';
-import { isVerifiedWoman, useSession, useT } from '@/lib/session';
+import { TimeWheel } from '@/components/time-wheel';
+import { TripHero } from '@/components/trip-hero';
+import { StepHeader, TripSheet, sheetMidTop, type SheetMini } from '@/components/trip-sheet';
+import { Body, Button, Chip, Field, ListRow, PillChips, Stepper, ltr } from '@/components/ui';
 import { photoGate, photoGateText } from '@/lib/avatar';
+import { formatChipDay, formatDay, formatLongDay, shortTime } from '@/lib/format';
+import { successFeel } from '@/lib/haptics';
 import { goBack } from '@/lib/nav';
+import { CITY_POINT, CITY_SQUARE, type LatLng } from '@/lib/places';
+import { labelOk, movePickup, offerSpots, spotAt, type Pickup } from '@/lib/pickup';
 import { askForPush } from '@/lib/push';
 import { WEEK, WORK_WEEK, toDbTime, toggleDay, weekdayName } from '@/lib/recurring';
+import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { SEATS_MAX, SEATS_MIN, SUGGESTED_PRICE, departureFrom, parsePrice, parseTime, type City } from '@/lib/trip-form';
-import { colors, fonts, space } from '@/theme/tokens';
+import { PRICE_MAX, SEATS_MAX, SEATS_MIN, SUGGESTED_PRICE, type City } from '@/lib/trip-form';
+import { colors, space } from '@/theme/tokens';
 
-type Route = `${City}>${City}`;
+type Step = 'where' | 'pickup' | 'when' | 'seats' | 'posted';
+type FormStep = Exclude<Step, 'posted'>;
+const STEPS: FormStep[] = ['where', 'pickup', 'when', 'seats'];
+const DAYS = 7; // today plus the next 6: drivers post a week ahead at most
+const WEEKLY = DAYS; // the "Weekly" pill sits after the days
+
+type LastTrip = {
+  origin: City;
+  departs_at: string;
+  seats_total: number;
+  price_ils: number;
+  pickup_label: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+};
 
 export default function NewTrip() {
   const { t, lang } = useT();
   const { session, profile } = useSession();
+  const { height: H } = useWindowDimensions();
   const canWomenOnly = isVerifiedWoman(profile);
 
-  // Home's "post your usual trip" opens this screen already filled in.
+  // Home's "post your usual trip" opens this already filled in.
   const params = useLocalSearchParams<{ origin?: City; day?: string; time?: string }>();
-  const [route, setRoute] = useState<Route>(params.origin === 'nablus' ? 'nablus>ramallah' : 'ramallah>nablus');
-  const [day, setDay] = useState(() => Math.min(6, Math.max(0, Number(params.day) || 0)));
-  const [repeat, setRepeat] = useState<'once' | 'weekly'>('once');
+  const [origin, setOrigin] = useState<City>(params.origin === 'nablus' ? 'nablus' : 'ramallah');
+  const destination: City = origin === 'ramallah' ? 'nablus' : 'ramallah';
+
+  const [step, setStep] = useState<Step>('where');
+  const [closing, setClosing] = useState(false);
+  const [day, setDay] = useState(() => Math.min(DAYS - 1, Math.max(0, Number(params.day) || 0)));
   const [weekdays, setWeekdays] = useState<number[]>(WORK_WEEK);
-  const [time, setTime] = useState(params.time && /^\d{1,2}:\d{2}$/.test(params.time) ? params.time : '');
+  const [time, setTime] = useState(() => parseHm(params.time) ?? { h: 7, m: 30 });
   const [seats, setSeats] = useState(3);
-  const [price, setPrice] = useState(String(SUGGESTED_PRICE));
+  const [price, setPrice] = useState(SUGGESTED_PRICE);
+  const [womenOnly, setWomenOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [womenOnly, setWomenOnly] = useState(false);
+  const [posted, setPosted] = useState<{ weekly: boolean; departsAt: string } | null>(null);
   // After 3 late cancels in 30 days, posting pauses for a week (see my_driving_record()).
   const [pausedUntil, setPausedUntil] = useState<Date | null>(null);
+
+  // ─── Your last trip fills the card in ─────────────────────────────────────────
+  const [last, setLast] = useState<LastTrip | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from('trips')
+      .select('origin, departs_at, seats_total, price_ils, pickup_label, pickup_lat, pickup_lng')
+      .eq('driver_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        const l = data as LastTrip | null;
+        if (!l) return;
+        setLast(l);
+        if (!params.origin) setOrigin(l.origin);
+        if (!params.time) {
+          const d = new Date(l.departs_at);
+          setTime({ h: d.getHours(), m: d.getMinutes() });
+        }
+        setSeats(Math.min(SEATS_MAX, Math.max(SEATS_MIN, l.seats_total)));
+        setPrice(Math.min(PRICE_MAX, Math.max(1, Math.round(Number(l.price_ils)))));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   // No car yet? Add it first. Car not checked yet? Send the driver check first.
   // (The database would refuse the trip anyway: see require_car().)
@@ -59,19 +122,6 @@ export default function NewTrip() {
     }, [session]),
   );
 
-  // Today plus the next 6 days. Drivers post a week ahead at most for now.
-  const days = useMemo(() => {
-    const now = new Date();
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now);
-      d.setDate(d.getDate() + i);
-      const label = i === 0 ? t('today') : i === 1 ? t('tomorrow') : formatChipDay(d, lang);
-      return { value: i, label };
-    });
-  }, [t, lang]);
-
-  const [origin, destination] = route.split('>') as [City, City];
-
   // Riders who asked to be alerted on this route: the first day someone is waiting.
   const [demand, setDemand] = useState<{ on_date: string; waiting: number } | null>(null);
   useEffect(() => {
@@ -84,47 +134,108 @@ export default function NewTrip() {
     };
   }, [origin, destination]);
 
-  async function publish() {
-    const priceIls = parsePrice(price);
-    let insert;
-    if (repeat === 'weekly') {
-      // A weekly pattern: the server posts the real trips for the coming week, and keeps doing so.
-      const tm = parseTime(time);
-      if (!tm) return setError(t('timeInvalid'));
-      if (priceIls === null) return setError(t('priceInvalid'));
-      if (!session) return;
-      insert = () =>
-        supabase.from('trip_series').insert({
-          driver_id: session.user.id,
-          origin,
-          destination,
-          weekdays,
-          depart_time: toDbTime(tm.h, tm.m), // a wall-clock time in Palestine
-          seats_total: seats,
-          price_ils: priceIls,
-          women_only: canWomenOnly && womenOnly,
-        });
-    } else {
-      const departsAt = departureFrom(day, time, new Date());
-      if (!departsAt) return setError(t('timeInvalid'));
-      if (priceIls === null) return setError(t('priceInvalid'));
-      if (!session) return;
-      insert = () =>
-        supabase.from('trips').insert({
-          driver_id: session.user.id,
-          origin,
-          destination,
-          departs_at: departsAt.toISOString(), // stored in UTC, shown in local time
-          seats_total: seats,
-          price_ils: priceIls,
-          women_only: canWomenOnly && womenOnly,
-        });
-    }
+  // ─── Pickup ───────────────────────────────────────────────────────────────────
+  const [popular, setPopular] = useState<Pickup[]>([]);
+  useEffect(() => {
+    let gone = false;
+    supabase.rpc('popular_pickups', { p_city: origin, p_limit: 3 }).then(({ data }) => {
+      if (gone) return;
+      const rows = (data as { label: string; lat: number; lng: number }[] | null) ?? [];
+      setPopular(rows.map((r) => ({ label: r.label, latitude: Number(r.lat), longitude: Number(r.lng) })));
+    });
+    return () => {
+      gone = true;
+    };
+  }, [origin]);
+  const usual: Pickup | null =
+    last && last.origin === origin && last.pickup_label && last.pickup_lat !== null && last.pickup_lng !== null
+      ? { label: last.pickup_label, latitude: Number(last.pickup_lat), longitude: Number(last.pickup_lng) }
+      : null;
+  const centreLabel = t(CITY_SQUARE[origin]);
+  const spots = useMemo(
+    () => offerSpots(usual, popular, { label: centreLabel, ...CITY_POINT[origin] }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [usual?.label, usual?.latitude, usual?.longitude, popular, centreLabel, origin],
+  );
+  const [pickup, setPickup] = useState<Pickup | null>(null);
+  const [mapAt, setMapAt] = useState<LatLng & { key: number }>({ ...CITY_POINT[origin], key: 0 });
+  const pickSpot = (p: Pickup) => {
+    setPickup({ label: p.label, latitude: p.latitude, longitude: p.longitude });
+    setMapAt((m) => ({ latitude: p.latitude, longitude: p.longitude, key: m.key + 1 }));
+  };
+  // A new city (or your usual spot arriving): start from the best offered spot.
+  const best = spots[0];
+  useEffect(() => {
+    if (best) pickSpot(best);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin, best?.label]);
+  // The map moved under the pin. A tapped spot lands on that spot, so nothing changes.
+  const pickupRef = useRef(pickup);
+  pickupRef.current = pickup;
+  const onMapMove = (at: LatLng) => {
+    const prev = pickupRef.current ?? best ?? { label: '', ...at };
+    setPickup(movePickup(prev, at, spots));
+  };
+  const onSpot = pickup ? spotAt(spots, pickup) : null;
 
+  // ─── When ─────────────────────────────────────────────────────────────────────
+  const weekly = day === WEEKLY;
+  const departs = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + (weekly ? 0 : day));
+    d.setHours(time.h, time.m, 0, 0);
+    return d;
+  }, [day, time.h, time.m, weekly]);
+  const timePassed = !weekly && departs.getTime() <= Date.now();
+  const dayLabels = useMemo(
+    () => [
+      ...Array.from({ length: DAYS }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() + i);
+        return i === 0 ? t('today') : i === 1 ? t('tomorrow') : formatChipDay(d, lang);
+      }),
+      t('weeklyChip'),
+    ],
+    [t, lang],
+  );
+  const whenText = weekly ? t('weeklyChip') : day === 0 ? t('today') : day === 1 ? t('tomorrow') : formatDay(departs, lang);
+
+  // ─── Steps ────────────────────────────────────────────────────────────────────
+  const index = step === 'posted' ? STEPS.length : STEPS.indexOf(step);
+  const stepOk =
+    step === 'pickup' ? !!pickup && labelOk(pickup.label) : step === 'when' ? !timePassed && (!weekly || weekdays.length > 0) : true;
+  const close = () => setClosing(true);
+  const next = () => {
+    setError(null);
+    if (step === 'seats') return publish();
+    setStep(STEPS[index + 1]);
+  };
+  const back = () => {
+    setError(null);
+    if (index <= 0) close();
+    else setStep(STEPS[index - 1]);
+  };
+
+  async function publish() {
+    if (!session || !pickup) return;
     if (!(await photoGate(!!profile?.avatar_path, photoGateText(t)))) return;
+    const common = {
+      driver_id: session.user.id,
+      origin,
+      destination,
+      seats_total: seats,
+      price_ils: price,
+      women_only: canWomenOnly && womenOnly,
+      pickup_label: pickup.label.trim(),
+      pickup_lat: pickup.latitude,
+      pickup_lng: pickup.longitude,
+    };
     setSaving(true);
     setError(null);
-    const { error: err } = await insert();
+    const { error: err } = weekly
+      ? // A weekly pattern: the server posts the real trips for the coming week, and keeps doing so.
+        await supabase.from('trip_series').insert({ ...common, weekdays, depart_time: toDbTime(time.h, time.m) }) // a wall-clock time in Palestine
+      : await supabase.from('trips').insert({ ...common, departs_at: departs.toISOString() }); // stored in UTC, shown in local time
     setSaving(false);
     if (err) {
       if (err.message.includes('Posting is paused')) {
@@ -135,143 +246,211 @@ export default function NewTrip() {
       if (err.message.includes('profile photo')) return setError(t('photoNeeded'));
       return setError(err.message.includes('not approved') ? t('driverCheckNeeded') : t('somethingWrong'));
     }
+    successFeel();
+    setPosted({ weekly, departsAt: departs.toISOString() });
+    setStep('posted');
     // Now is when notifications make sense: "tell me when someone asks for a seat".
-    await askForPush();
-    goBack();
+    askForPush();
   }
 
-  return (
-    <Screen back scroll footer={<Button label={t('publishTrip')} onPress={publish} loading={saving} disabled={!time || !price || !!pausedUntil} />}>
-      <Title>{t('postTrip')}</Title>
+  // ─── The card's slots per step ────────────────────────────────────────────────
+  const route = `${t(origin)} ${lang === 'ar' ? '←' : '→'} ${t(destination)}`;
+  let header;
+  let body;
+  let footer;
+  let mini: SheetMini;
 
-      {pausedUntil ? (
-        <Body error>
-          {t('postingPausedUntil')} {formatLongDay(pausedUntil, lang)} {ltr(shortTime(pausedUntil))} {t('postingPausedWhy')}
-        </Body>
-      ) : null}
-
-      <RouteCard origin={origin} destination={destination} onSwap={() => setRoute(`${destination}>${origin}` as Route)} />
-
-      {demand ? (
-        <ListRow
-          last
-          icon="users"
-          title={`${t('demandWaiting')}: ${ltr(demand.waiting)} · ${formatDay(new Date(`${demand.on_date}T12:00:00`), lang)}`}
-          subtitle={t('demandHint')}
-        />
-      ) : null}
-
-      <Choice
-        value={repeat}
-        onChange={setRepeat}
-        options={[
-          { value: 'once', label: t('tripOnce') },
-          { value: 'weekly', label: t('tripWeekly') },
-        ]}
+  if (pausedUntil && step !== 'posted') {
+    header = <StepHeader title={t('postTrip')} onBack={close} />;
+    body = (
+      <Body error>
+        {t('postingPausedUntil')} {formatLongDay(pausedUntil, lang)} {ltr(shortTime(pausedUntil))} {t('postingPausedWhy')}
+      </Body>
+    );
+    footer = <Button variant="secondary" label={t('done')} onPress={close} />;
+    mini = { sub: t('postTrip'), tone: 'clay' };
+  } else if (step === 'posted' && posted) {
+    const title = t(posted.weekly ? 'seriesPosted' : 'tripPosted');
+    header = (
+      <TripHero
+        label={
+          <Body small style={{ color: colors.statusOpen }}>
+            {title}
+          </Body>
+        }
+        departsAt={posted.departsAt}
+        origin={origin}
+        destination={destination}
       />
+    );
+    body = (
+      <View>
+        <ListRow icon="mapPin" title={pickup?.label ?? centreLabel} subtitle={t('pickupRow')} />
+        <ListRow
+          icon="users"
+          title={`${ltr(seats)} ${t('seatsLabel')} · ${ltr(`${price}₪`)} ${t('perSeat')}`}
+          subtitle={posted.weekly ? `${t('weeklyChip')} · ${weekdays.map((d) => weekdayName(d, lang)).join('، ')}` : undefined}
+        />
+        <ListRow last icon="bell" title={t('tripPostedNext')} />
+      </View>
+    );
+    footer = <Button label={t('done')} onPress={close} />;
+    mini = { sub: title, tone: 'ok', action: { label: t('done'), onPress: close } };
+  } else {
+    const form = step as FormStep;
+    const titles: Record<FormStep, string> = {
+      where: t('postStepWhere'),
+      pickup: t('postStepPickup'),
+      when: t('postStepWhen'),
+      seats: t('postStepSeats'),
+    };
+    const kicker = `${t('postTripTitle')} · ${ltr(index + 1)} ${t('stepOf')} ${ltr(STEPS.length)}`;
+    header = <StepHeader title={titles[form]} kicker={kicker} onBack={back} />;
 
-      {repeat === 'once' ? (
-        <View style={{ gap: space.sm }}>
-          <Label>{t('dayLabel')}</Label>
-          <ChipRow value={day} onChange={setDay} options={days} />
-        </View>
-      ) : (
-        <View style={{ gap: space.sm }}>
-          <Label>{t('repeatDaysLabel')}</Label>
-          <View style={styles.weekdays}>
-            {WEEK.map((d) => (
-              <Chip
-                key={d}
-                label={weekdayName(d, lang)}
-                selected={weekdays.includes(d)}
-                onPress={() => setWeekdays((cur) => toggleDay(cur, d))}
+    if (form === 'where') {
+      body = (
+        <>
+          <RouteCard origin={origin} destination={destination} onSwap={() => setOrigin(destination)} />
+          {demand ? (
+            <View style={styles.demand}>
+              <ListRow
+                last
+                icon="users"
+                title={`${t('demandWaiting')}: ${ltr(demand.waiting)} · ${formatDay(new Date(`${demand.on_date}T12:00:00`), lang)}`}
+                subtitle={t('demandHint')}
+              />
+            </View>
+          ) : null}
+        </>
+      );
+    } else if (form === 'pickup') {
+      body = (
+        <>
+          <Body muted small>
+            {t('pickupHint')}
+          </Body>
+          <View>
+            {spots.map((s, i) => (
+              <ListRow
+                key={`${s.kind}-${s.label}`}
+                last={i === spots.length - 1}
+                icon={onSpot === s ? 'check' : 'mapPin'}
+                title={s.label}
+                subtitle={t(s.kind === 'usual' ? 'pickupYourUsual' : s.kind === 'popular' ? 'pickupPopular' : 'pickupCityCentre')}
+                onPress={() => pickSpot(s)}
               />
             ))}
           </View>
-          <Body muted small>
-            {t('repeatHint')}
-          </Body>
-        </View>
-      )}
-
-      <Field
-        label={t('departureTime')}
-        ltr
-        value={time}
-        onChangeText={(v) => {
-          setTime(v);
-          setError(null);
-        }}
-        placeholder="07:30"
-        keyboardType="numbers-and-punctuation"
-        maxLength={5}
-      />
-
-      <View>
-        <ListRow
-          icon="users"
-          title={t('seatsLabel')}
-          trailing={<Stepper value={seats} min={SEATS_MIN} max={SEATS_MAX} onChange={setSeats} />}
-        />
-        <ListRow
-          last={!canWomenOnly}
-          icon="currency"
-          title={t('seatPrice')}
-          subtitle={`${t('suggestedPrice')} ${ltr(`${SUGGESTED_PRICE}₪`)}`}
-          trailing={
-            <View style={styles.priceBox}>
-              <TextInput
-                value={price}
-                onChangeText={(v) => {
-                  setPrice(v);
-                  setError(null);
-                }}
-                keyboardType="decimal-pad"
-                maxLength={6}
-                style={styles.priceInput}
-                accessibilityLabel={t('seatPrice')}
-              />
-              <Text style={styles.priceUnit}>₪</Text>
-            </View>
-          }
-        />
-        {canWomenOnly ? (
-          <ListRow
-            last
-            icon="shieldCheck"
-            title={t('womenOnly')}
-            subtitle={t('womenOnlyHint')}
-            trailing={<Switch value={womenOnly} onValueChange={setWomenOnly} accessibilityLabel={t('womenOnly')} />}
+          <Field
+            label={t('pickupLabel')}
+            value={pickup?.label ?? ''}
+            onChangeText={(v) => setPickup((p) => (p ? { ...p, label: v } : { label: v, ...CITY_POINT[origin] }))}
+            placeholder={t('pickupLabelPlaceholder')}
+            maxLength={80}
           />
-        ) : null}
-      </View>
+        </>
+      );
+    } else if (form === 'when') {
+      body = (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 2 }}>
+            <PillChips labels={dayLabels} selected={day} onPick={setDay} />
+          </ScrollView>
+          {weekly ? (
+            <View style={styles.weekdays}>
+              {WEEK.map((d) => (
+                <Chip key={d} label={weekdayName(d, lang)} selected={weekdays.includes(d)} onPress={() => setWeekdays((cur) => toggleDay(cur, d))} />
+              ))}
+            </View>
+          ) : null}
+          <TimeWheel h={time.h} m={time.m} onChange={(h, m) => setTime({ h, m })} />
+          {timePassed ? (
+            <Body error small style={{ textAlign: 'center' }}>
+              {t('timeInvalid')}
+            </Body>
+          ) : null}
+          {weekly ? (
+            <Body muted small>
+              {t('repeatHint')}
+            </Body>
+          ) : null}
+        </>
+      );
+    } else {
+      body = (
+        <View>
+          <ListRow icon="users" title={t('seatsLabel')} trailing={<Stepper value={seats} min={SEATS_MIN} max={SEATS_MAX} onChange={setSeats} />} />
+          <ListRow
+            last={!canWomenOnly}
+            icon="currency"
+            title={`${t('seatPrice')} · ${ltr(`${price}₪`)}`}
+            subtitle={`${t('suggestedPrice')} ${ltr(`${SUGGESTED_PRICE}₪`)}`}
+            trailing={<Stepper value={price} min={1} max={PRICE_MAX} onChange={setPrice} />}
+          />
+          {canWomenOnly ? (
+            <ListRow
+              last
+              icon="shieldCheck"
+              title={t('womenOnly')}
+              subtitle={t('womenOnlyHint')}
+              trailing={<Switch value={womenOnly} onValueChange={setWomenOnly} accessibilityLabel={t('womenOnly')} />}
+            />
+          ) : null}
+        </View>
+      );
+    }
 
-      {error ? <Body error>{error}</Body> : null}
-    </Screen>
+    // The last button says exactly what goes out: "Publish trip · Tomorrow 7:30".
+    const nextLabel = form === 'seats' ? `${t('publishTrip')} · ${whenText} ${ltr(shortTime(departs))}` : t('nextStep');
+    footer = (
+      <>
+        {error ? (
+          <Body error small style={{ textAlign: 'center' }}>
+            {error}
+          </Body>
+        ) : null}
+        <Button label={nextLabel} onPress={next} disabled={!stepOk} loading={saving} />
+      </>
+    );
+    mini = {
+      sub: `${route} · ${titles[form]}`,
+      action: stepOk ? { label: form === 'seats' ? t('publishTrip') : t('nextStep'), onPress: next, loading: saving } : null,
+    };
+  }
+
+  return (
+    <GestureHandlerRootView style={styles.page}>
+      <TripSheet
+        origin={origin}
+        destination={destination}
+        departsAt={posted?.departsAt ?? departs.toISOString()}
+        header={header}
+        body={body}
+        footer={footer}
+        mini={mini}
+        from={null}
+        closing={closing}
+        onRequestClose={close}
+        onClosed={goBack}
+        step={{ key: step, depth: index }}
+        pickup={pickup}
+        map={step === 'pickup' && !pausedUntil ? <PickupMap center={mapAt} onMove={onMapMove} visibleBottom={sheetMidTop(H)} /> : undefined}
+      />
+    </GestureHandlerRootView>
   );
 }
 
+/** "7:30" from Home's link, or null. */
+function parseHm(s: string | undefined): { h: number; m: number } | null {
+  const m = s?.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  return h < 24 && mm < 60 ? { h, m: mm } : null;
+}
+
 const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: colors.surface },
   weekdays: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  priceBox: {
-    flexDirection: 'row',
-    direction: 'ltr',
-    alignItems: 'center',
-    height: 44,
-    paddingHorizontal: 12,
-    borderRadius: 22,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    gap: 2,
-  },
-  priceInput: {
-    fontFamily: fonts.en.bold,
-    fontSize: 18,
-    color: colors.ink,
-    minWidth: 32,
-    textAlign: 'right',
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', width: 40 } as object) : null),
-  },
-  priceUnit: { fontFamily: fonts.en.bold, fontSize: 18, color: colors.ink },
+  demand: { borderRadius: 16, backgroundColor: colors.claySoft, paddingHorizontal: space.md },
 });
