@@ -26,6 +26,7 @@ import { distanceM } from '@/lib/pickup';
 import { CITY_POINT, CITY_SQUARE, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
+import { useScreenCorners } from '@/theme/screen-corners';
 import { colors, fonts, space } from '@/theme/tokens';
 
 export type Rider = { id: string; name: string; avatarPath: string | null; seed: string };
@@ -87,6 +88,7 @@ export function DriveMode({
   const { t } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
+  const corners = useScreenCorners();
   const { height: H } = useWindowDimensions();
   const reduced = useReducedMotion();
   const ago = useAgo();
@@ -164,8 +166,23 @@ export function DriveMode({
       </View>
 
       {/* Bottom: arrival, riders, and the few things you can do while driving. */}
-      <View style={[styles.panel, { paddingBottom: insets.bottom + space.md, backgroundColor: c.panel, direction }]}>
-        <BlurView intensity={50} tint={c.blur} style={[StyleSheet.absoluteFill, styles.panelRound]} />
+      {/* Floats a few points in from the sides and bottom, its corners concentric with the
+          screen's, so the slider's round ends sit parallel to the phone's corners. */}
+      <View
+        style={[
+          styles.panel,
+          {
+            left: corners.inset,
+            right: corners.inset,
+            bottom: corners.inset,
+            borderRadius: corners.card,
+            paddingBottom: Math.max(space.screen, insets.bottom - corners.inset),
+            backgroundColor: c.panel,
+            direction,
+          },
+        ]}
+      >
+        <BlurView intensity={50} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: corners.card }]} />
         <View style={styles.statsRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.eta, { color: c.ink }, align]}>
@@ -245,17 +262,11 @@ const styles = StyleSheet.create({
   unit: { fontSize: 14 },
   panel: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: 18,
+    paddingTop: space.screen,
     paddingHorizontal: space.screen,
     gap: 14,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
     overflow: 'hidden',
   },
-  panelRound: { borderTopLeftRadius: 32, borderTopRightRadius: 32 },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   eta: { fontFamily: fonts.en.bold, fontSize: 40, lineHeight: 46, letterSpacing: -1 },
   etaLabel: { fontSize: 14 },
