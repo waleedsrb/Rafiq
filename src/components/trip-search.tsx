@@ -5,7 +5,7 @@
 // and by the stand-alone results screen that other screens link to.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type HostInstance } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type HostInstance, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
@@ -21,7 +21,7 @@ import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { countByDay, dayIndex, filterTrips, leavingSoon, PARTS, SEARCH_DAYS, searchDayStart } from '@/lib/trip-search';
 import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
-import { colors, fonts, radii, sizes, space } from '@/theme/tokens';
+import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
 export type Result = {
   id: string;
@@ -54,6 +54,9 @@ export type SearchState = {
   swap: () => void;
   setDay: (d: number) => void;
   setPart: (p: DayPart | null) => void;
+  /** Verified women can narrow the list to women-only trips. */
+  womenOnly: boolean;
+  setWomenOnly: (on: boolean) => void;
   /** The whole week for this direction, earliest first (null until the first answer). */
   week: Result[] | null;
   loading: boolean;
@@ -72,6 +75,7 @@ export function useTripSearch(start?: { origin?: City; destination?: City; day?:
   const { origin, destination } = route;
   const [day, setDay] = useState(start?.day ?? 0);
   const [part, setPart] = useState<DayPart | null>(start?.part ?? null);
+  const [womenOnly, setWomenOnly] = useState(false);
   const [week, setWeek] = useState<Result[] | null>(null);
   const [loading, setLoading] = useState(true);
   const asked = useRef(0);
@@ -105,7 +109,7 @@ export function useTripSearch(start?: { origin?: City; destination?: City; day?:
   const setOrigin = useCallback((c: City) => setRoute((r) => (c === r.destination ? { origin: c, destination: r.origin } : { ...r, origin: c })), []);
   const setDestination = useCallback((c: City) => setRoute((r) => (c === r.origin ? { origin: r.destination, destination: c } : { ...r, destination: c })), []);
   const swap = useCallback(() => setRoute((r) => ({ origin: r.destination, destination: r.origin })), []);
-  return { origin, destination, day, part, setOrigin, setDestination, swap, setDay, setPart, week, loading, counts, dayLabels };
+  return { origin, destination, day, part, setOrigin, setDestination, swap, setDay, setPart, womenOnly, setWomenOnly, week, loading, counts, dayLabels };
 }
 
 /** The day chips: one tap picks the day, the graphite pill glides there, and the list below changes in place. */
@@ -117,23 +121,25 @@ export function DayChips({ s }: { s: SearchState }) {
   );
 }
 
-/** Part-of-day switch, the count line, and the trips for the chosen day. */
-export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: (tripId: string, from?: Rect | null) => void }) {
-  const openInLayer = useOpenTrip();
-  const { t } = useT();
-  const { session, profile } = useSession();
-  const reduced = useReducedMotion();
-  const [womenOnly, setWomenOnly] = useState(false);
-  const now = new Date();
-
+/** The trips of the chosen day, part of the day and (for verified women) women-only switch. */
+function dayTrips(s: SearchState, now: Date) {
   const ofDay = (s.week ?? []).filter((r) => dayIndex(r.departs_at, now) === s.day);
-  const shown = filterTrips(ofDay, s.part, womenOnly);
-  const driverStats = useTripDriverStats(ofDay.map((r) => r.id));
+  return { ofDay, shown: filterTrips(ofDay, s.part, s.womenOnly) };
+}
 
-  // No free seat in what you're looking at? Save the search and hear about the next trip.
+/**
+ * "Alert me": no free seat in what you're looking at? Save the search and hear about the
+ * next trip. Draws nothing while there is a seat to take. The results screen shows it in the
+ * list; the search on Home docks it just above its bar at the bottom, in thumb reach.
+ */
+export function AlertMe({ s, docked, style }: { s: SearchState; docked?: boolean; style?: StyleProp<ViewStyle> }) {
+  const { t } = useT();
+  const { session } = useSession();
+  const reduced = useReducedMotion();
+  const now = new Date();
+  const { shown } = dayTrips(s, now);
   const [alert, setAlert] = useState<'idle' | 'saving' | 'saved' | 'tooMany' | 'error'>('idle');
-  const dayStart = searchDayStart(s.day, now);
-  const win = alertWindow(dayStart, s.part, now);
+  const win = alertWindow(searchDayStart(s.day, now), s.part, now);
   const canAlert = !!s.week && !s.loading && !!win && !shown.some((r) => r.seats_left > 0);
   useEffect(() => setAlert('idle'), [s.part, s.day, s.origin, s.destination]);
 
@@ -151,6 +157,44 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
     if (!error || error.code === '23505') setAlert('saved');
     else setAlert(error.message.includes('10 alerts') ? 'tooMany' : 'error');
   }
+
+  if (!canAlert) return null;
+  return (
+    <Animated.View entering={reduced ? undefined : FadeIn.duration(200)} style={[{ gap: space.sm }, style]}>
+      {alert === 'saved' ? (
+        <View style={docked && styles.dockNote}>
+          <Body muted small>{t('alertSaved')}</Body>
+        </View>
+      ) : (
+        <View style={docked && styles.dockButton}>
+          <Button variant="secondary" icon="bell" label={t('alertMe')} onPress={saveAlert} loading={alert === 'saving'} />
+        </View>
+      )}
+      {alert === 'tooMany' ? <Body error>{t('alertTooMany')}</Body> : null}
+      {alert === 'error' ? <Body error>{t('somethingWrong')}</Body> : null}
+    </Animated.View>
+  );
+}
+
+/** Part-of-day switch, the count line, and the trips for the chosen day. `dockedAlert`: the owner shows <AlertMe> elsewhere. */
+export function SearchResults({
+  s,
+  onOpenTrip,
+  dockedAlert,
+}: {
+  s: SearchState;
+  onOpenTrip?: (tripId: string, from?: Rect | null) => void;
+  dockedAlert?: boolean;
+}) {
+  const openInLayer = useOpenTrip();
+  const { t } = useT();
+  const { profile } = useSession();
+  const reduced = useReducedMotion();
+  const now = new Date();
+  const { womenOnly, setWomenOnly } = s;
+
+  const { ofDay, shown } = dayTrips(s, now);
+  const driverStats = useTripDriverStats(ofDay.map((r) => r.id));
 
   // A trip grows out of its row, over the results (see trip-sheet.tsx).
   const open = onOpenTrip ?? openInLayer;
@@ -179,17 +223,7 @@ export function SearchResults({ s, onOpenTrip }: { s: SearchState; onOpenTrip?: 
           <Body muted>{t('noResults')}</Body>
         </Animated.View>
       ) : null}
-      {canAlert ? (
-        alert === 'saved' ? (
-          <Body muted small>{t('alertSaved')}</Body>
-        ) : (
-          <View style={{ gap: space.sm }}>
-            <Button variant="secondary" icon="bell" label={t('alertMe')} onPress={saveAlert} loading={alert === 'saving'} />
-            {alert === 'tooMany' ? <Body error>{t('alertTooMany')}</Body> : null}
-            {alert === 'error' ? <Body error>{t('somethingWrong')}</Body> : null}
-          </View>
-        )
-      ) : null}
+      {dockedAlert ? null : <AlertMe s={s} />}
 
       {/* First load: a small spinner. After that the old list dims while the new one comes. */}
       {s.loading && !s.week ? <ActivityIndicator style={{ marginTop: space.md }} color={colors.inkSecondary} /> : null}
@@ -339,6 +373,16 @@ function SeatSquares({ left, total }: { left: number; total: number }) {
 }
 
 const styles = StyleSheet.create({
+  // Docked over the list, so it needs its own porcelain behind the outline.
+  dockButton: { borderRadius: radii.capsule, backgroundColor: colors.surface, ...shadows.float },
+  dockNote: {
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radii.capsule,
+    backgroundColor: colors.surface,
+    ...shadows.float,
+  },
   tabs: { flexDirection: 'row', gap: 18 },
   tab: { paddingBottom: 8 },
   tabLine: { backgroundColor: colors.ink, borderRadius: 1 },
