@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { notificationIdFromPush, applyInboxChange, groupInbox, inboxIcon, needsYou, type Notification } from './inbox.ts';
+import { notificationIdFromPush, applyInboxChange, groupInbox, inboxIcon, inboxWords, needsYou, type Notification } from './inbox.ts';
 
 const row = (id: number, at: Date, kind = 'accepted', read = false): Notification => ({
   id,
@@ -97,4 +97,13 @@ test('a failed change can be put back exactly, and mark all keeps earlier read t
   assert.equal(applyInboxChange(read, { type: 'unread', id: 3 })[0].read_at, null);
   const all = applyInboxChange(rows, { type: 'readAll', readAt: 'now' });
   assert.deepEqual(all.map((n) => n.read_at), ['now', rows[1].read_at, 'now']);
+});
+
+test('inbox words follow the app language, older one-language messages fall back', () => {
+  const both = { ...row(1, new Date()), title: 'New seat request', body: 'Omar wants a seat',
+    title_ar: 'طلب مقعد جديد', body_ar: 'عمر يريد مقعداً', title_en: 'New seat request', body_en: 'Omar wants a seat' };
+  assert.deepEqual(inboxWords(both, 'ar'), { title: 'طلب مقعد جديد', body: 'عمر يريد مقعداً' });
+  assert.deepEqual(inboxWords(both, 'en'), { title: 'New seat request', body: 'Omar wants a seat' });
+  const old = { ...row(2, new Date()), title: 'Trip finished', body: 'Thank you.' };
+  assert.deepEqual(inboxWords(old, 'ar'), { title: 'Trip finished', body: 'Thank you.' });
 });
