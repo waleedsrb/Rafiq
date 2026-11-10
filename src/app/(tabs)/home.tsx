@@ -372,10 +372,11 @@ export default function Home() {
           {firstName}
         </Text>
       }
-      // The bell opens the inbox; it fills in when something arrived you haven't seen.
+      // The bell opens the inbox; it fills in clay when something arrived you haven't seen.
       action={
         <GlassButton
           icon={unread > 0 ? 'bellFill' : 'bell'}
+          iconColor={unread > 0 ? colors.clay : undefined}
           label={unread > 0 ? `${t('notificationsTitle')} · ${t('unread')}` : t('notificationsTitle')}
           onPress={() => router.push('/notifications')}
         />
