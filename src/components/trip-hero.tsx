@@ -33,7 +33,9 @@ export function TripHero({
       {label}
       <View style={styles.timeRow}>
         <Text style={styles.time}>{time}</Text>
-        <Text style={[styles.part, { fontFamily: f.regular }]}>
+        {/* One line beside the time: a wider time (12:00) shrinks the day a little instead of
+            pushing it onto its own line. */}
+        <Text style={[styles.part, { fontFamily: f.regular }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
           {pm ? t('pm') : t('am')} · {formatLongDay(d, lang)}
         </Text>
       </View>
@@ -46,8 +48,8 @@ export function TripHero({
 }
 
 const styles = StyleSheet.create({
-  timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm, flexWrap: 'wrap' },
+  timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
   time: { fontFamily: fonts.en.bold, fontSize: 56, lineHeight: 62, color: colors.ink, letterSpacing: -1.6 },
-  part: { fontSize: 15, color: colors.inkSecondary },
+  part: { fontSize: 15, color: colors.inkSecondary, flexShrink: 1 },
   route: { fontSize: 22, lineHeight: 30, color: colors.ink },
 });

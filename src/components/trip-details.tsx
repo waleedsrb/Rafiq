@@ -370,8 +370,9 @@ export function TripDetails({
         }}
         subtitle={
           <View style={{ gap: 2 }}>
-            {driverVerified ? <VerifiedLine /> : <Body muted small>{t('driverLabel')}</Body>}
-            <StatsLine stats={driverStats} />
+            {driverVerified ? <VerifiedLine founding={!!driverStats?.founding_driver} /> : <Body muted small>{t('driverLabel')}</Body>}
+            {/* The founding badge rides on the verified line: at the end of the stats it got cut off. */}
+            <StatsLine stats={driverStats} showBadge={!driverVerified} />
           </View>
         }
         last={!!endedNote || driverCancelled || status === 'requested'}
@@ -581,13 +582,14 @@ export function TripDetails({
 }
 
 /** "Verified driver" with the seal, under the driver's name. */
-function VerifiedLine() {
+function VerifiedLine({ founding }: { founding?: boolean }) {
   const { t } = useT();
   return (
     <View style={styles.labelRow}>
       <Icon name="sealCheck" size={14} color={colors.statusOpen} />
       <Body muted small>
         {t('verifiedDriver')}
+        {founding ? ` · ${t('foundingDriver')}` : ''}
       </Body>
     </View>
   );

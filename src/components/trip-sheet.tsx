@@ -88,6 +88,7 @@ export function TripSheet({
   from,
   settled,
   start = 'mid',
+  fitContent = true,
   want,
   closing,
   onRequestClose,
@@ -128,6 +129,9 @@ export function TripSheet({
   checkpointIds?: string[] | null;
   /** `checkpointIds` is the whole list even when empty (posting, Change my way). */
   checkpointsExact?: boolean;
+  /** Lower the middle height to fit short details (default). Off where the map behind
+   *  expects the standard height (the pickup picker centres its pin above it). */
+  fitContent?: boolean;
 }) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
@@ -143,7 +147,14 @@ export function TripSheet({
 
   // The three heights, as the card's top edge.
   const fullTop = insets.top + 6 + sizes.touch + 10;
-  const midTop = sheetMidTop(H);
+  // Middle height: 44% of the screen, or lower when the details are shorter than that, so a
+  // short card (a full trip, nothing to book) doesn't end in an empty band. Its bottom edge
+  // never moves; only the top comes down to fit.
+  const [headH, setHeadH] = useState(0);
+  const [bodyH, setBodyH] = useState(0);
+  const [footH, setFootH] = useState(0);
+  const fitTop = fitContent && headH && bodyH && (!footer || footH) ? H - cardBottom - (headH + bodyH + (footer ? footH : space.md)) : 0;
+  const midTop = Math.max(sheetMidTop(H), Math.round(fitTop));
   // The bar is a capsule, like iOS's floating tab bar. It sits as far in from the sides and
   // bottom as it takes for its round ends to run parallel to the screen corners
   // (screen radius minus half its height), so it never looks pinched into the corner.
@@ -417,7 +428,7 @@ export function TripSheet({
           {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
           <Animated.View style={[styles.full, fullStyle]} pointerEvents={at === 'mini' && !moving ? 'none' : 'box-none'}>
             <GestureDetector gesture={panTop}>
-              <View style={[styles.head, { direction }]}>
+              <View style={[styles.head, { direction }]} onLayout={(e) => setHeadH(e.nativeEvent.layout.height)}>
                 <Pressable
                   accessibilityRole="adjustable"
                   accessibilityLabel={t('sheetHandle')}
@@ -440,13 +451,14 @@ export function TripSheet({
               showsVerticalScrollIndicator={false}
               style={{ flex: 1 }}
               contentContainerStyle={[styles.body, { direction }]}
+              onContentSizeChange={(_, h) => setBodyH(h)}
             >
               <Animated.View key={stepKey} entering={enter} style={{ gap: space.md }}>
                 {body}
               </Animated.View>
             </Animated.ScrollView>
             {footer ? (
-              <View style={[styles.footer, { paddingBottom: footerBottom, direction }]}>
+              <View style={[styles.footer, { paddingBottom: footerBottom, direction }]} onLayout={(e) => setFootH(e.nativeEvent.layout.height)}>
                 <Animated.View key={stepKey} entering={enter} style={{ gap: space.sm }}>
                   {footer}
                 </Animated.View>
