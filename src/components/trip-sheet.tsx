@@ -285,6 +285,7 @@ export function TripSheet({
     },
   });
 
+  const solid = useAnimatedStyle(() => ({ opacity: clamp01((pos.value - 1.25) / 0.7) }));
   const headLine = useAnimatedStyle(() => ({ opacity: clamp01(under.value / 8) }));
   const footLine = useAnimatedStyle(() => ({ opacity: clamp01(below.value / 8) }));
 
@@ -399,6 +400,9 @@ export function TripSheet({
           {/* Moving: the frosted stand-in, the same look as everywhere else. It stays glass at
               every height, all the way to full: never a solid sheet. */}
           {glass ? null : <Glass native={false} />}
+          {/* Like Find My: glass at the middle height, then a smooth fade to solid porcelain as
+              the card rises to full, so long details read like a page. It follows the finger. */}
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, solid]} pointerEvents="none" />
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, skin]} pointerEvents="none" />
 
           {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
