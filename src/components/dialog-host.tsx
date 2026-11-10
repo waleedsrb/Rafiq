@@ -75,7 +75,7 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
   const corners = useScreenCorners();
   const { height: screenH } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
-  const { f, rtl, direction } = useFont();
+  const { f, direction } = useFont();
   const { t } = useT();
 
   // 0 = off screen, 1 = in place. `drag` is how far the finger has pulled the sheet down.
@@ -181,7 +181,6 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
   const { spec } = shown;
   const tone = TONES[spec.tone ?? 'neutral'];
   const list = spec.layout === 'list';
-  const align = rtl ? ('right' as const) : ('left' as const);
   const answer = (value: unknown) => {
     if (!closing) answerDialog(shown.id, value);
   };
@@ -197,12 +196,12 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
       <View style={styles.texts}>
         <Text
           accessibilityRole="header"
-          style={[styles.title, { fontFamily: f.bold, textAlign: isSheet ? align : 'center' }]}
+          style={[styles.title, { fontFamily: f.bold, textAlign: isSheet ? undefined : 'center' }]}
         >
           {spec.title}
         </Text>
         {spec.body ? (
-          <Text style={[styles.body, { fontFamily: f.regular, textAlign: isSheet ? align : 'center' }]}>{spec.body}</Text>
+          <Text style={[styles.body, { fontFamily: f.regular, textAlign: isSheet ? undefined : 'center' }]}>{spec.body}</Text>
         ) : null}
       </View>
 
@@ -223,7 +222,7 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
                   <Icon name={a.icon as IconName} size={20} />
                 </View>
               ) : null}
-              <Text style={[styles.rowText, { fontFamily: f.medium, textAlign: align }]}>{a.label}</Text>
+              <Text style={[styles.rowText, { fontFamily: f.medium }]}>{a.label}</Text>
             </Pressable>
           ))}
         </View>

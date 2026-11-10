@@ -132,7 +132,6 @@ export function DriveMode({
   const statusTint = cp?.status && !closed ? STATUS_LOOK[cp.status].color : bannerInk;
 
   const panelH = 250 + insets.bottom;
-  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: dark ? '#17191C' : colors.surface }]} entering={reduced ? undefined : FadeIn.duration(320)}>
@@ -158,10 +157,10 @@ export function DriveMode({
             <Icon name={bannerIcon} size={22} color={closed ? '#FFFFFF' : statusTint} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text numberOfLines={1} style={[styles.bannerTitle, { fontFamily: f.bold, color: bannerInk }, align]}>
+            <Text numberOfLines={1} style={[styles.bannerTitle, { fontFamily: f.bold, color: bannerInk }]}>
               {bannerTitle}
             </Text>
-            <Text numberOfLines={1} style={[styles.bannerSub, { fontFamily: f.regular, color: bannerSubInk }, align]}>
+            <Text numberOfLines={1} style={[styles.bannerSub, { fontFamily: f.regular, color: bannerSubInk }]}>
               {bannerSub}
             </Text>
           </View>
@@ -209,11 +208,11 @@ export function DriveMode({
         <BlurView intensity={50} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: corners.card }]} />
         <View style={styles.statsRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.eta, { color: c.ink }, align]}>
+            <Text style={[styles.eta, { color: c.ink }]}>
               {etaClock.time}
               <Text style={[styles.unit, { fontFamily: f.regular, color: c.sub }]}> {etaClock.pm ? t('pm') : t('am')}</Text>
             </Text>
-            <Text style={[styles.etaLabel, { fontFamily: f.regular, color: c.sub }, align]}>{t('expectedArrival')}</Text>
+            <Text style={[styles.etaLabel, { fontFamily: f.regular, color: c.sub }]}>{t('expectedArrival')}</Text>
           </View>
           <View style={styles.faces} accessibilityLabel={riders.map((r) => r.name).join(', ')}>
             {riders.slice(0, 4).map((r, i) => (

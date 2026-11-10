@@ -41,11 +41,21 @@ import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
 import { Icon, type IconName } from './icon';
 
+// Arabic layout rule (read before aligning any text):
+// Screens set `direction: 'rtl'` on their root view for Arabic. Inside such a view
+// React Native treats textAlign 'left' / 'right' as START / END, not as screen sides,
+// so `textAlign: 'right'` puts Arabic text on the LEFT. For <Text>, leave textAlign
+// unset (or 'center'): it then starts on the reading side in both languages, next to
+// the icons that flip with the row. Only <TextInput> takes real screen sides; use
+// inputAlign() for it. src/lib/rtl-align.test.ts guards this.
 export function useFont() {
   const { lang } = useT();
   const rtl = isRTL(lang);
   return { f: fonts[lang], rtl, direction: rtl ? ('rtl' as const) : ('ltr' as const) };
 }
+
+/** Screen side for a TextInput's text (TextInputs, unlike Text, don't flip left/right). */
+export const inputAlign = (rtl: boolean) => (rtl ? ('right' as const) : ('left' as const));
 
 /** Wrap numbers, times and plates so they stay left-to-right inside Arabic. */
 export const ltr = (s: string | number) => `⁦${s}⁩`;
@@ -446,7 +456,7 @@ export function Field({
             styles.fieldInput,
             { fontFamily: isLtr ? fonts.en.regular : f.regular },
             // Phone numbers, codes and plates read left to right even in Arabic.
-            { textAlign: isLtr || direction === 'ltr' ? 'left' : 'right', writingDirection: isLtr ? 'ltr' : direction },
+            { textAlign: inputAlign(!isLtr && direction === 'rtl'), writingDirection: isLtr ? 'ltr' : direction },
             style,
           ]}
         />
@@ -694,10 +704,10 @@ export function ListRow({
     <>
       {leading ?? (icon ? <IconCircle icon={icon} /> : null)}
       <View style={styles.rowText}>
-        {typeof title === 'string' ? <Text style={[styles.rowTitle, { fontFamily: f.medium, textAlign: rtl ? 'right' : 'left' }]}>{title}</Text> : title}
+        {typeof title === 'string' ? <Text style={[styles.rowTitle, { fontFamily: f.medium }]}>{title}</Text> : title}
         {subtitle ? (
           typeof subtitle === 'string' ? (
-            <Text style={[styles.rowSubtitle, { fontFamily: f.regular, textAlign: rtl ? 'right' : 'left' }]}>{subtitle}</Text>
+            <Text style={[styles.rowSubtitle, { fontFamily: f.regular }]}>{subtitle}</Text>
           ) : (
             subtitle
           )

@@ -51,7 +51,7 @@ export function DriverCancelled({
 }) {
   const { t } = useT();
   const openTrip = useOpenTrip();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const [others, setOthers] = useState<Other[] | null>(null);
   const departs = new Date(departsAt);
 
@@ -88,11 +88,11 @@ export function DriverCancelled({
       <View style={{ gap: 4 }}>
         <View style={styles.row}>
           <Icon name="warning" size={16} color={colors.clay} />
-          <Text style={[styles.clay, { fontFamily: f.medium, textAlign: rtl ? 'right' : 'left' }]}>
+          <Text style={[styles.clay, { fontFamily: f.medium }]}>
             {t('cancelledHoursBefore').replace('{n}', `${ltr(n)} ${unit}`)}
           </Text>
         </View>
-        <Text style={[styles.title, { fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]}>{t('sorryCancelled')}</Text>
+        <Text style={[styles.title, { fontFamily: f.bold }]}>{t('sorryCancelled')}</Text>
         <Body muted>{refunded === null ? t('cancelledCashNote') : t('cancelledRefund').replace('{amount}', ltr(`${refunded}₪`))}</Body>
         {excused ? (
           <Body muted small>

@@ -315,7 +315,7 @@ function TimeFirstRow({
 }) {
   const ref = useRef<HostInstance>(null);
   const { t, lang } = useT();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const full = r.seats_left <= 0;
   const name = r.driver_last_initial ? `${r.driver_first_name} ${r.driver_last_initial}.` : r.driver_first_name;
   // A nearby trip says where it really goes: "From Bitunia · 3 km".
@@ -324,7 +324,6 @@ function TimeFirstRow({
     Number(r.destination_km) > 0 ? `${t('toPlace').replace('{place}', placeName(r.destination, lang))} · ${r.destination_km} ${t('kmUnit')}` : null,
   ];
   const sub = [...where, r.women_only ? t('womenOnly') : null, r.car_model].filter(Boolean).join(' · ');
-  const align = rtl ? ('right' as const) : ('left' as const);
   const seatsText = full ? t('full') : `${r.seats_left} ${t('seatsFree')}`;
   return (
     <Pressable
@@ -337,7 +336,7 @@ function TimeFirstRow({
       <Text style={[styles.time, full && { color: colors.inkSecondary }]}>{shortTime(new Date(r.departs_at))}</Text>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.nameRow}>
-          <Text style={[styles.name, { fontFamily: f.medium, textAlign: align }, full && { color: colors.inkSecondary }]} numberOfLines={1}>
+          <Text style={[styles.name, { fontFamily: f.medium }, full && { color: colors.inkSecondary }]} numberOfLines={1}>
             {name}
           </Text>
           {r.driver_verified ? (
@@ -346,7 +345,7 @@ function TimeFirstRow({
             </View>
           ) : null}
         </View>
-        <Text style={[styles.meta, { fontFamily: f.regular, textAlign: align }]} numberOfLines={1}>
+        <Text style={[styles.meta, { fontFamily: f.regular }]} numberOfLines={1}>
           {sub}
           {soon ? <Text style={{ color: colors.statusOpen, fontFamily: f.medium }}>{sub ? ' · ' : ''}{t('leavingSoon')}</Text> : null}
         </Text>

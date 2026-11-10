@@ -25,7 +25,7 @@ type Extra = { created_at: string; emergency_name: string | null };
 
 export default function Account() {
   const { t, lang } = useT();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const { profile, session, refreshProfile } = useSession();
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -92,7 +92,6 @@ export default function Account() {
       )
     : null;
   const role = car ? t('rolePassengerDriver') : t('rolePassenger');
-  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
     <TabScreen
@@ -114,14 +113,14 @@ export default function Account() {
             </Pressable>
             <View style={{ flex: 1, gap: 2 }}>
               <View style={styles.nameLine}>
-                <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>
+                <Text style={[styles.name, { fontFamily: f.bold }]}>{name}</Text>
                 {verified ? <Icon name="sealCheck" size={20} color={colors.statusOpen} /> : null}
               </View>
-              <Text style={[styles.meta, { fontFamily: f.regular }, align]}>
+              <Text style={[styles.meta, { fontFamily: f.regular }]}>
                 {since ? `${role} · ${t('memberSince')} ${since}` : role}
               </Text>
               {session?.user.phone ? (
-                <Text style={[styles.meta, { fontFamily: f.regular }, align]}>{ltr(formatPhone(session.user.phone))}</Text>
+                <Text style={[styles.meta, { fontFamily: f.regular }]}>{ltr(formatPhone(session.user.phone))}</Text>
               ) : null}
             </View>
           </View>

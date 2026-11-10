@@ -548,7 +548,7 @@ export function SearchMorph({
                   <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={places.close} hitSlop={6} style={styles.round}>
                     <Icon name={rtl ? 'caretRight' : 'caretLeft'} size={18} />
                   </Pressable>
-                  <Text style={[styles.route, { flex: 1, fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]}>
+                  <Text style={[styles.route, { flex: 1, fontFamily: f.bold }]}>
                     {t(picking === 'origin' ? 'whereFrom' : 'whereTo')}
                   </Text>
                   <Pressable accessibilityRole="button" accessibilityLabel={t('swapDirection')} onPress={() => { tapFeel(); s.swap(); }} hitSlop={6} style={styles.round}>
@@ -578,7 +578,7 @@ export function SearchMorph({
                         onPress={() => { tapFeel(); places.open(end); }}
                         hitSlop={{ top: 2, bottom: 2 }}
                       >
-                        <Text style={[styles.route, { fontFamily: f.bold, textAlign: rtl ? 'right' : 'left' }]} numberOfLines={1}>
+                        <Text style={[styles.route, { fontFamily: f.bold }]} numberOfLines={1}>
                           {placeName(s[end], lang)}
                         </Text>
                       </Pressable>

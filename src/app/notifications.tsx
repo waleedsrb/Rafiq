@@ -214,7 +214,7 @@ function InboxRow({ n, subtitle, last, onOpen, onRead, onDelete }: {
   onOpen: () => void; onRead: () => void; onDelete: () => void;
 }) {
   const { t } = useT();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const unread = !n.read_at;
   return (
     <NotificationSwipe canRead={unread} readLabel={t('notificationRead')} deleteLabel={t('notificationDelete')} onRead={onRead} onDelete={onDelete}>
@@ -239,7 +239,7 @@ function InboxRow({ n, subtitle, last, onOpen, onRead, onDelete }: {
             last={last}
             icon={inboxIcon(n.kind)}
             title={
-              <Text style={[styles.title, { fontFamily: unread ? f.medium : f.regular, textAlign: rtl ? 'right' : 'left' }, needsYou(n) && { color: colors.clay }]}>
+              <Text style={[styles.title, { fontFamily: unread ? f.medium : f.regular }, needsYou(n) && { color: colors.clay }]}>
                 {n.title}
               </Text>
             }

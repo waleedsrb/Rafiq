@@ -11,7 +11,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { Body, Button, Field, ListRow, ltr, useFont } from '@/components/ui';
+import { Body, Button, Field, ListRow, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { checkCard, fakeTokenize, formatCardNumber, formatExpiry } from '@/lib/payments';
 import { askForPush } from '@/lib/push';
@@ -30,7 +30,6 @@ export function useRequestSeat(
   onDone: () => void,
 ): { ready: boolean; cash: boolean; title: string; trip: CheckoutTrip | null; body: ReactNode; footer: ReactNode } {
   const { t } = useT();
-  const { rtl } = useFont();
   const [trip, setTrip] = useState<CheckoutTrip | null>(null);
   const [fee, setFee] = useState<number | null>(null);
   const [number, setNumber] = useState('');
@@ -191,7 +190,7 @@ export function useRequestSeat(
 
         <View style={[styles.test, { flexDirection: 'row' }]}>
           <Icon name="shieldCheck" size={18} color={colors.inkSecondary} />
-          <Body muted small style={{ flex: 1, textAlign: rtl ? 'right' : 'left' }}>
+          <Body muted small style={{ flex: 1 }}>
             {t('testMode')}
           </Body>
         </View>

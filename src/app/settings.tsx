@@ -26,7 +26,7 @@ type Prefs = {
 
 export default function Settings() {
   const { t, lang } = useT();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const { session, refreshProfile } = useSession();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +138,7 @@ export default function Settings() {
             </View>
           }
           title={
-            <Text style={{ fontSize: 16, lineHeight: 22, color: colors.statusClosed, fontFamily: f.medium, textAlign: rtl ? 'right' : 'left' }}>
+            <Text style={{ fontSize: 16, lineHeight: 22, color: colors.statusClosed, fontFamily: f.medium }}>
               {t('deleteAccount')}
             </Text>
           }
