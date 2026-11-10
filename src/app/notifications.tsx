@@ -17,7 +17,7 @@ import { NotificationSwipe } from '@/components/notification-swipe';
 import { BackButton, Body, GlassButton, IconCircle, Label, ListRow, Screen, Title, TopBar, useFont } from '@/components/ui';
 import { formatDay, shortTime } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
-import { applyInboxChange, groupInbox, inboxIcon, needsYou, type InboxChange, type InboxGroup, type Notification } from '@/lib/inbox';
+import { applyInboxChange, groupInbox, inboxIcon, inboxWords, needsYou, type InboxChange, type InboxGroup, type Notification } from '@/lib/inbox';
 import { inboxChanged } from '@/lib/notifications';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -51,7 +51,7 @@ export default function Notifications() {
     if (!userId) { setRows([]); return; }
     const { data, error: failure } = await supabase
       .from('notifications')
-      .select('id, kind, title, body, url, created_at, read_at')
+      .select('id, kind, title, body, title_ar, body_ar, title_en, body_en, url, created_at, read_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -193,7 +193,7 @@ export default function Notifications() {
                 <Animated.View key={n.id} layout={layout} exiting={reduced ? undefined : FadeOut.duration(120)}>
                   <InboxRow
                     n={n}
-                    subtitle={`${n.body} · ${when(n.created_at)}`}
+                    subtitle={`${inboxWords(n, lang).body} · ${when(n.created_at)}`}
                     last={i === items.length - 1}
                     onOpen={() => open(n)}
                     onRead={() => markRead(n)}
@@ -213,9 +213,10 @@ function InboxRow({ n, subtitle, last, onOpen, onRead, onDelete }: {
   n: Notification; subtitle: string; last: boolean;
   onOpen: () => void; onRead: () => void; onDelete: () => void;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { f } = useFont();
   const unread = !n.read_at;
+  const { title } = inboxWords(n, lang);
   return (
     <NotificationSwipe canRead={unread} readLabel={t('notificationRead')} deleteLabel={t('notificationDelete')} onRead={onRead} onDelete={onDelete}>
       {(press) => (
@@ -223,7 +224,7 @@ function InboxRow({ n, subtitle, last, onOpen, onRead, onDelete }: {
         <View
           accessible
           accessibilityRole="button"
-          accessibilityLabel={`${n.title}. ${subtitle}${unread ? `. ${t('unread')}` : ''}`}
+          accessibilityLabel={`${title}. ${subtitle}${unread ? `. ${t('unread')}` : ''}`}
           accessibilityActions={[
             { name: 'activate' },
             ...(unread ? [{ name: 'markRead', label: t('notificationMarkRead') }] : []),
@@ -240,7 +241,7 @@ function InboxRow({ n, subtitle, last, onOpen, onRead, onDelete }: {
             icon={inboxIcon(n.kind)}
             title={
               <Text style={[styles.title, { fontFamily: unread ? f.medium : f.regular }, needsYou(n) && { color: colors.clay }]}>
-                {n.title}
+                {title}
               </Text>
             }
             subtitle={subtitle}

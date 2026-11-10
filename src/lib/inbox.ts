@@ -4,12 +4,25 @@
 export type Notification = {
   id: number;
   kind: string;
+  /** In the reader's language when it was sent (all that older messages have). */
   title: string;
   body: string;
+  /** Both languages, so the inbox follows the app when you switch (newer messages). */
+  title_ar?: string | null;
+  body_ar?: string | null;
+  title_en?: string | null;
+  body_en?: string | null;
   url: string | null;
   created_at: string;
   read_at: string | null;
 };
+
+/** The words to show in the app's current language, falling back to how it was sent. */
+export function inboxWords(n: Notification, lang: 'ar' | 'en'): { title: string; body: string } {
+  const title = lang === 'ar' ? n.title_ar : n.title_en;
+  const body = lang === 'ar' ? n.body_ar : n.body_en;
+  return title && body ? { title, body } : { title: n.title, body: n.body };
+}
 
 export type InboxGroup = 'today' | 'week' | 'earlier';
 
