@@ -64,6 +64,8 @@ type Trip = {
   pickup_label: string | null;
   pickup_lat: number | null;
   pickup_lng: number | null;
+  // The checkpoints the driver goes through (empty on trips posted before Nov 10).
+  checkpoint_ids: string[] | null;
   profiles: { full_name: string; avatar_path: string | null }; // the driver, joined through trips.driver_id
   trip_series: { weekdays: number[]; stopped_at: string | null } | null; // set when the trip repeats weekly
 };
@@ -124,7 +126,7 @@ export function TripDetails({
       supabase
         .from('trips')
         .select(
-          'id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, profiles!trips_driver_id_fkey(full_name, avatar_path), trip_series(weekdays, stopped_at)',
+          'id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, profiles!trips_driver_id_fkey(full_name, avatar_path), trip_series(weekdays, stopped_at)',
         )
         .eq('id', tripId)
         .single(),
@@ -317,6 +319,7 @@ export function TripDetails({
     pickup: trip.pickup_lat !== null && trip.pickup_lng !== null ? { latitude: Number(trip.pickup_lat), longitude: Number(trip.pickup_lng) } : null,
     origin: trip.origin,
     destination: trip.destination,
+    checkpointIds: trip.checkpoint_ids,
     departsAt: trip.departs_at,
     from,
     settled,
@@ -444,7 +447,7 @@ export function TripDetails({
         </Body>
       ) : null}
 
-      {onRoad ? <RouteCheckpoints origin={trip.origin} destination={trip.destination} /> : null}
+      {onRoad ? <RouteCheckpoints origin={trip.origin} destination={trip.destination} start={common.pickup} ids={trip.checkpoint_ids} /> : null}
 
       {(status === 'accepted' || arrived) && contact && !findCar ? (
         <>

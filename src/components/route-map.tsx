@@ -1,12 +1,13 @@
-// The map at the top of trip screens: the road from one city to the other,
-// with every checkpoint on it in its current status colour.
+// The map behind trip screens: the start and destination pins, and the trip's checkpoints
+// in their current status colours. No route line yet: v1 shows pins only (Nov 9 decision),
+// because we can't yet draw a road that is safe for Palestinians to drive.
 // Real map (react-native-maps): Apple Maps on iPhone, Google Maps on Android.
 // Google takes our quiet "graphite" style; Apple Maps can't be restyled, so iPhone
 // gets its muted standard map instead.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polyline, type MapStyleElement } from 'react-native-maps';
+import MapView, { Marker, type MapStyleElement } from 'react-native-maps';
 
 import { STATUS_LOOK } from '@/components/checkpoint-badge';
 import { GlassButton, useFont } from '@/components/ui';
@@ -15,18 +16,20 @@ import { centrePoint, onRamallahNablusRoad, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { tripCheckpoints } from '@/lib/way';
 import { colors, radii, shadows, space } from '@/theme/tokens';
 
 export type MapCheckpoint = LatLng & {
   id: string;
   name: string;
   status: CheckpointStatus | null;
-  order: number;
+  /** Place on the old hand-placed Ramallah - Nablus road (1-4), null for the rest. */
+  order: number | null;
   /** The newest report behind the status (null: none in the last 2 hours). */
   reportedAt: string | null;
 };
 
-/** Checkpoints with their place and current status, in road order (Ramallah first).
+/** Every checkpoint with a place on the map, and its current status.
  *  `refreshMs`: fetch the statuses again this often (drive mode keeps them fresh). */
 export function useMapCheckpoints(refreshMs?: number) {
   const { lang } = useT();
@@ -48,18 +51,16 @@ export function useMapCheckpoints(refreshMs?: number) {
         const list = ((places.data as
           | { id: string; name_ar: string; name_en: string; road_order: number | null; lat: number | null; lng: number | null }[]
           | null) ?? [])
-          // Only the Ramallah - Nablus road for now (the rest of the West Bank has no road_order).
-          .filter((p) => p.lat !== null && p.lng !== null && p.road_order != null)
+          .filter((p) => p.lat !== null && p.lng !== null)
           .map((p) => ({
             id: p.id,
             name: lang === 'ar' ? p.name_ar : p.name_en,
-            order: p.road_order ?? 0,
+            order: p.road_order,
             latitude: Number(p.lat),
             longitude: Number(p.lng),
             status: over.get(p.id)?.status ?? null,
             reportedAt: over.get(p.id)?.status ? (over.get(p.id)?.last_report_at ?? null) : null,
-          }))
-          .sort((a, b) => a.order - b.order);
+          }));
         setRows(list);
       });
     load();
@@ -70,6 +71,37 @@ export function useMapCheckpoints(refreshMs?: number) {
     };
   }, [lang, refreshMs]);
   return rows;
+}
+
+/**
+ * The trip's checkpoints in driving order: the ones its driver confirmed (`ids`), or for
+ * an older trip on the Ramallah - Nablus road the four hand-placed ones (see src/lib/way.ts).
+ */
+export function useWayCheckpoints({
+  origin,
+  destination,
+  start,
+  ids,
+  exact,
+  refreshMs,
+}: {
+  origin: City;
+  destination: City;
+  start?: LatLng | null;
+  ids?: string[] | null;
+  /** `ids` is the whole list even when empty (posting): no fallback to the old road. */
+  exact?: boolean;
+  refreshMs?: number;
+}) {
+  const all = useMapCheckpoints(refreshMs);
+  const from = start ?? centrePoint(origin);
+  const to = centrePoint(destination);
+  const key = ids?.join(',') ?? '';
+  return useMemo(
+    () => tripCheckpoints(from, to, ids, all, !exact && onRamallahNablusRoad(origin, destination) ? all.filter((c) => c.order != null) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [all, key, exact, origin, destination, from.latitude, from.longitude],
+  );
 }
 
 export function RouteMap({
@@ -85,9 +117,15 @@ export function RouteMap({
   car,
   dark,
   checkpoints: given,
+  checkpointIds,
+  checkpointsExact,
 }: {
-  /** Checkpoints already loaded by the screen (drive mode); else the map loads them. */
+  /** Checkpoints already loaded and ordered by the screen (drive mode); else the map loads them. */
   checkpoints?: MapCheckpoint[];
+  /** The trip's own checkpoints (trips.checkpoint_ids). */
+  checkpointIds?: string[] | null;
+  /** `checkpointIds` is the whole list even when empty (posting a trip). */
+  checkpointsExact?: boolean;
   /** Where the car is now (drive mode). */
   car?: LatLng | null;
   /** Night colours (drive mode in dark). */
@@ -111,14 +149,10 @@ export function RouteMap({
   const { t } = useT();
   const { f, rtl } = useFont();
   const ref = useRef<MapView>(null);
-  const loaded = useMapCheckpoints();
-  const checkpoints = given ?? loaded;
+  const loaded = useWayCheckpoints({ origin, destination, start, ids: checkpointIds, exact: checkpointsExact });
+  const onRoad = given ?? loaded;
   const from = start ?? centrePoint(origin);
   const to = centrePoint(destination);
-  // The four hand-placed checkpoints are stored Ramallah-first; flip them when driving the
-  // other way, and leave them off trips that don't use that road.
-  const way = onRamallahNablusRoad(origin, destination);
-  const onRoad = way === 'forward' ? checkpoints : way === 'back' ? [...checkpoints].reverse() : [];
   const line = [from, ...onRoad, to];
 
   const fit = () =>
@@ -132,7 +166,7 @@ export function RouteMap({
     fit();
     // Re-fit once the checkpoints arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkpoints.length, origin, destination, from.latitude, from.longitude]);
+  }, [onRoad.length, origin, destination, from.latitude, from.longitude]);
 
   return (
     <View style={{ height }}>
@@ -153,7 +187,6 @@ export function RouteMap({
         showsBuildings={false}
         showsTraffic={false}
       >
-        <Polyline coordinates={line} strokeColor={dark ? '#E9E7E1' : colors.ink} strokeWidth={4} lineJoin="round" lineCap="round" />
         <Marker coordinate={from} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
           <View style={[styles.end, styles.start]} />
         </Marker>

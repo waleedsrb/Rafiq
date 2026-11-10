@@ -6,6 +6,8 @@
 // - At the pickup: one big button per rider, tapped when they get in (no-show after 10 min).
 //   Start turns on once everyone is accounted for.
 // - Underway: drive mode (src/components/drive-mode.tsx), light or dark, slide to arrive.
+// - Any time until arrival: "Change my way" (the checkpoints the trip goes through). A
+//   closed checkpoint on the way shows a warning with it. Riders are told about a change.
 // - Arrived: the cash reminder and a row of stars per rider, sent once.
 //
 // A rider's profile and the rating are steps inside the same card. The database decides
@@ -18,10 +20,12 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Avatar } from '@/components/avatar';
+import { CheckpointPicker, useWayChoices } from '@/components/checkpoint-picker';
 import { useContact } from '@/components/contact-card';
 import { DriveMode, nightNow } from '@/components/drive-mode';
 import { Icon } from '@/components/icon';
 import { PersonProfile } from '@/components/person-profile';
+import { useWayCheckpoints } from '@/components/route-map';
 import { useRateRiders, type RideToRate } from '@/components/rate-riders';
 import { useRepeatsText } from '@/components/repeats';
 import { Stars } from '@/components/stars';
@@ -62,6 +66,7 @@ type Trip = {
   pickup_label: string | null; // where you meet riders (null: the city square)
   pickup_lat: number | null;
   pickup_lng: number | null;
+  checkpoint_ids: string[] | null; // the checkpoints on the way (empty before Nov 10)
 };
 type Request = {
   id: string;
@@ -75,7 +80,7 @@ type Request = {
   profiles: { full_name: string; avatar_path: string | null }; // the passenger
 };
 
-type Step = 'details' | 'rider' | 'arrived';
+type Step = 'details' | 'rider' | 'arrived' | 'way';
 
 /** Seats that count as taken: said yes to, or ridden. */
 const holdsSeat = (status: string) => status === 'accepted' || status === 'completed';
@@ -104,7 +109,7 @@ export default function DriverTrip() {
       supabase
         .from('trips')
         .select(
-          'id, origin, destination, departs_at, price_ils, seats_total, cancelled_at, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, trip_series(id, weekdays, stopped_at)',
+          'id, origin, destination, departs_at, price_ils, seats_total, cancelled_at, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, trip_series(id, weekdays, stopped_at)',
         )
         .eq('id', id)
         .single(),
@@ -262,6 +267,25 @@ export default function DriverTrip() {
   const pickupLabel = trip ? (trip.pickup_label ?? centreName(trip.origin, lang)) : '';
   const pickup = trip?.pickup_lat != null && trip.pickup_lng != null ? { latitude: Number(trip.pickup_lat), longitude: Number(trip.pickup_lng) } : null;
 
+  // ---------- Checkpoints on the way, and Change my way ----------
+  const origin = trip?.origin ?? '';
+  const destination = trip?.destination ?? '';
+  const onWay = useWayCheckpoints({ origin, destination, start: pickup, ids: trip?.checkpoint_ids, refreshMs: 60_000 });
+  const choices = useWayChoices(origin, destination, pickup);
+  const [draft, setDraft] = useState<string[]>([]);
+  const canChangeWay = !!trip && !trip.cancelled_at && state !== 'finished';
+  const closedOnWay = canChangeWay ? onWay.find((c) => c.status === 'closed') : undefined;
+  const openWay = () => {
+    setDraft(onWay.map((c) => c.id));
+    setStep('way');
+    setWant({ to: 'full', key: Date.now() });
+  };
+  const saveWay = async () => {
+    if (!trip) return;
+    const ok = await act('way', () => supabase.rpc('change_trip_way', { p_trip: trip.id, p_checkpoints: draft }));
+    if (ok) setStep('details');
+  };
+
   const toRate: RideToRate[] = rode.map((r) => ({
     bookingId: r.id,
     passengerId: r.passenger_id,
@@ -282,13 +306,15 @@ export default function DriverTrip() {
   if (!trip) return <View style={styles.page} />;
 
   // ---------- Drive mode ----------
-  if (state === 'underway') {
+  if (state === 'underway' && step !== 'way') {
     return (
       <GestureHandlerRootView style={styles.page}>
         <DriveMode
           origin={trip.origin}
           destination={trip.destination}
           pickup={pickup}
+          checkpoints={onWay}
+          onChangeWay={openWay}
           startedAt={trip.started_at!}
           car={car}
           riders={requests
@@ -356,13 +382,36 @@ export default function DriverTrip() {
           }
         />
       ) : null}
-      <ListRow last icon="mapPin" title={pickupLabel} subtitle={t('pickupRow')} />
+      <ListRow last={!canChangeWay && onWay.length === 0} icon="mapPin" title={pickupLabel} subtitle={t('pickupRow')} />
+      {canChangeWay || onWay.length ? (
+        <ListRow
+          last
+          icon="barricade"
+          title={t('checkpointsOnRoute')}
+          subtitle={onWay.length ? onWay.map((c) => c.name).join(lang === 'ar' ? '، ' : ', ') : t('wayNone')}
+          trailing={canChangeWay ? <TextLink label={t('changeMyWay')} onPress={openWay} /> : undefined}
+        />
+      ) : null}
     </View>
   );
 
   const body = (
     <>
       {trip.cancelled_at ? <Note icon="info" text={t('tripCancelled')} /> : null}
+      {closedOnWay ? (
+        <View style={styles.closed}>
+          <Icon name="warning" size={18} color={colors.statusClosed} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Body small style={{ fontFamily: f.medium, color: colors.statusClosed }}>
+              {t('closedOnYourWay').replace('{name}', closedOnWay.name)}
+            </Body>
+            <Body small muted>
+              {t('closedOnYourWayHint')}
+            </Body>
+          </View>
+          <TextLink label={t('changeMyWay')} onPress={openWay} />
+        </View>
+      ) : null}
 
       {/* Requests: they need your answer, so they come first. */}
       {asking.map((r) => (
@@ -552,6 +601,31 @@ export default function DriverTrip() {
           footer: null,
           mini: { sub: route },
         }
+      : step === 'way'
+        ? {
+            header: <StepHeader title={t('changeMyWay')} kicker={route} onBack={() => setStep('details')} />,
+            body: (
+              <>
+                <CheckpointPicker choices={choices} value={draft} onChange={setDraft} />
+                {error ? (
+                  <Body error small>
+                    {error}
+                  </Body>
+                ) : null}
+              </>
+            ),
+            footer: (
+              <>
+                {requests.some((r) => r.status === 'requested' || r.status === 'accepted') ? (
+                  <Body muted small style={{ textAlign: 'center' }}>
+                    {t('wayRidersTold')}
+                  </Body>
+                ) : null}
+                <Button label={t('saveWay')} onPress={saveWay} loading={busy === 'way'} />
+              </>
+            ),
+            mini: { sub: `${route} · ${t('changeMyWay')}`, action: { label: t('saveWay'), onPress: saveWay, loading: busy === 'way' } },
+          }
       : step === 'arrived'
         ? {
             header: (
@@ -574,6 +648,8 @@ export default function DriverTrip() {
         destination={trip.destination}
         departsAt={trip.departs_at}
         pickup={pickup}
+        checkpointIds={step === 'way' ? draft : onWay.map((c) => c.id)}
+        checkpointsExact
         from={null}
         want={want}
         closing={closing}
@@ -647,6 +723,7 @@ function progressOf(r: Request, now: Date) {
 }
 
 const styles = StyleSheet.create({
+  closed: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: colors.statusClosedSoft, marginBottom: space.sm },
   page: { flex: 1, backgroundColor: colors.surface },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   block: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairline },
