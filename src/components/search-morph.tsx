@@ -86,9 +86,10 @@ const KB_GAP = 8;
 const MOVING_FILL = 'rgba(251,250,248,0.98)';
 // Below this the keyboard counts as gone (iOS reports a few points while it hides).
 const MIN_KB = 40;
-// What iOS's reported keyboard height falls short of the real keyboard (see kbFix), kept
-// between opens.
-let lastKbFix = 0;
+// How much taller the real keyboard is than iOS reports (see kbScale), and its real height,
+// kept between opens.
+let lastKbScale = 1;
+let lastKbReal = 300;
 // Room for the docked "Alert me" (a 56pt capsule and its gap) at the end of the list.
 const ALERT_ROOM = 56 + 12;
 // The days and trips are built this long after the tap: the bar is about 90% of the way by
@@ -147,32 +148,37 @@ export function SearchMorph({
   // what made picking a town feel laggy).
   // iOS 26 reports a keyboard height that is short of where the keyboard is really drawn
   // (the To field ended up under it). Once the keyboard has landed we compare that height
-  // with the keyboard's real top edge on screen and keep the difference in `kbFix`. It is
-  // remembered for the next time, so after the first time the card is right from the start.
+  // with the keyboard's real top edge on screen and keep the RATIO in `kbScale`, remembered
+  // for next time. A ratio, not an offset: an offset made the card jump by ~30pt on the
+  // keyboard's very first frame, which read as a stutter; scaled, it rises in step from zero.
   const keyboard = useAnimatedKeyboard();
-  const kbFix = useSharedValue(lastKbFix);
-  const [kbUp, setKbUp] = useState(false);
+  const kbScale = useSharedValue(lastKbScale);
+  // The landed keyboard's real height (0 = no keyboard).
+  const [kbReal, setKbReal] = useState(0);
+  const kbUp = kbReal > 0;
   useEffect(() => {
     const landed = (e: KeyboardEvent) => {
       const real = Math.max(0, screenH - e.endCoordinates.screenY);
-      const up = real > MIN_KB;
-      setKbUp(up);
-      if (!up) return;
-      lastKbFix = Math.max(0, real - keyboard.height.value);
-      kbFix.value = withTiming(lastKbFix, { duration: 160 });
+      if (real <= MIN_KB) return setKbReal(0);
+      setKbReal(real);
+      lastKbReal = real;
+      const reported = keyboard.height.value;
+      if (reported > MIN_KB) {
+        lastKbScale = Math.max(1, real / reported);
+        kbScale.value = withTiming(lastKbScale, { duration: 160 });
+      }
     };
     const subs = [
       Keyboard.addListener('keyboardDidShow', landed),
       ...(Platform.OS === 'ios' ? [Keyboard.addListener('keyboardDidChangeFrame', landed)] : []),
-      Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbUp(false)),
+      Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbReal(0)),
     ];
     return () => subs.forEach((sub) => sub.remove());
   }, [screenH]); // eslint-disable-line react-hooks/exhaustive-deps
   // How far the keyboard's top edge is from the bottom of the screen, now (0 = none).
   const kbLift = () => {
     'worklet';
-    const h = keyboard.height.value;
-    return h > 1 ? h + kbFix.value : 0;
+    return keyboard.height.value * kbScale.value;
   };
   // At rest the capsule follows the screen corners; grown into the fields it becomes a card
   // that floats 8pt from the sides, like the trip card.
@@ -210,11 +216,13 @@ export function SearchMorph({
     };
     grow.value = withTiming(target ? 1 : 0, reduced ? { duration: 120 } : { duration: GROW_MS, easing: GROW_EASE }, done);
   }, [picking]); // eslint-disable-line react-hooks/exhaustive-deps
-  // The end of the list makes room for the bar as it grows and for the keyboard under it,
-  // so the last rows can always scroll up into view.
-  const endSpace = useAnimatedStyle(() => ({
-    height: grow.value * GROW + Math.max(0, kbLift() + KB_GAP - bottomGap),
-  }));
+  // The end of the list makes room for the grown card and the keyboard under it, so the last
+  // towns can scroll up into view. A plain number set once per pick, not animated: animating
+  // it re-laid out the whole list on every frame of the keyboard's rise (the stutter on grow).
+  const endSpace = picking ? GROW + Math.max(0, (kbReal || lastKbReal) + KB_GAP - bottomGap) : 0;
+  // The trips and the towns are both kept built; picking only cross-fades between them.
+  const tripsFade = useAnimatedStyle(() => ({ opacity: interpolate(grow.value, [0, 0.6], [1, 0], Extrapolation.CLAMP) }));
+  const placesFade = useAnimatedStyle(() => ({ opacity: interpolate(grow.value, [0.2, 1], [0, 1], Extrapolation.CLAMP) }));
   // Swipe down to close. `drag` = the header pulled by a finger (the page follows);
   // `pull` = the list pulled past its top (iOS rubber band; the header follows halfway).
   const drag = useSharedValue(0);
@@ -401,27 +409,30 @@ export function SearchMorph({
             }}
           >
             <Animated.View style={list}>
-              {!ready ? null : picking ? (
-                // The towns take the trips' place while you pick; the trips come back after.
-                <Animated.View key="places" entering={reduced ? undefined : FadeIn.duration(180)}>
-                  <PlaceResults
-                    search={places}
-                    exclude={picking === 'destination' ? s.origin : s.destination}
-                    onPick={(id) => {
-                      if (picking === 'origin') s.setOrigin(id);
-                      else s.setDestination(id);
-                      places.close();
-                    }}
-                  />
-                </Animated.View>
-              ) : (
-                <Animated.View key="trips" entering={reduced ? undefined : FadeIn.duration(220)} style={{ gap: space.md }}>
-                  <DayChips s={s} />
-                  <SearchResults s={s} onOpenTrip={openTrip} dockedAlert />
-                </Animated.View>
+              {!ready ? null : (
+                // Both lists stay built (the towns from the moment the trips are): tapping the
+                // route then only flips which one is shown, so nothing heavy is created or
+                // destroyed in the frame the keyboard starts to rise.
+                <>
+                  <Animated.View style={[{ gap: space.md }, tripsFade, picking ? styles.gone : null]} entering={reduced ? undefined : FadeIn.duration(220)}>
+                    <DayChips s={s} />
+                    <SearchResults s={s} onOpenTrip={openTrip} dockedAlert />
+                  </Animated.View>
+                  <Animated.View style={[placesFade, picking ? null : styles.gone]}>
+                    <PlaceResults
+                      search={places}
+                      exclude={picking === 'origin' ? s.destination : s.origin}
+                      onPick={(id) => {
+                        if (pickingRef.current === 'origin') s.setOrigin(id);
+                        else if (pickingRef.current === 'destination') s.setDestination(id);
+                        places.close();
+                      }}
+                    />
+                  </Animated.View>
+                </>
               )}
             </Animated.View>
-            <Animated.View style={endSpace} />
+            <View style={{ height: endSpace }} />
           </Animated.ScrollView>
         </Animated.View>
 
@@ -566,6 +577,7 @@ export function SearchMorph({
 
 const styles = StyleSheet.create({
   page: { backgroundColor: colors.surface },
+  gone: { display: 'none' },
   clip: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
   unclip: { position: 'absolute', left: 0, right: 0 },
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
