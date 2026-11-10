@@ -37,21 +37,17 @@ export function nightNow(d = new Date()) {
   return h >= 18 || h < 6;
 }
 
-// `veil` is the wash on the glass: lighter than before so the map shows through, still strong
-// enough for big text at a glance while driving.
-type Look = { ink: string; sub: string; veil: string; line: string; button: string };
+type Look = { ink: string; sub: string; line: string; button: string };
 
 const DAY: Look = {
   ink: colors.ink,
   sub: colors.inkSecondary,
-  veil: 'rgba(247,246,243,0.5)',
   line: colors.hairline,
   button: 'rgba(23,25,28,0.06)',
 };
 const NIGHT: Look = {
   ink: '#F4F3EF',
   sub: '#9A9DA2',
-  veil: 'rgba(23,25,28,0.55)',
   line: 'rgba(255,255,255,0.10)',
   button: 'rgba(255,255,255,0.10)',
 };
@@ -152,7 +148,7 @@ export function DriveMode({
       <View style={[styles.top, { top: insets.top + 6, direction }]}>
         <RoundButton icon="x" label={t('leaveDriveMode')} onPress={onLeave} c={c} dark={dark} still={still} />
         <View style={[styles.banner, closed && { backgroundColor: colors.statusClosed }]}>
-          {closed ? null : <Glass radius={24} native={still} dark={dark} veil={c.veil} />}
+          {closed ? null : <Glass radius={24} native={still} dark={dark} />}
           <View style={[styles.bannerIcon, { backgroundColor: closed ? 'rgba(255,255,255,0.2)' : c.button }]}>
             <Icon name={bannerIcon} size={22} color={closed ? '#FFFFFF' : statusTint} />
           </View>
@@ -189,7 +185,7 @@ export function DriveMode({
           },
         ]}
       >
-        <Glass radius={corners.card} native={still} dark={dark} veil={c.veil} blur={50} />
+        <Glass radius={corners.card} native={still} dark={dark} blur={50} />
         <View style={styles.statsRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.eta, { color: c.ink }, align]}>
@@ -227,10 +223,12 @@ function RoundButton({ icon, label, onPress, c, dark, still }: { icon: IconName;
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.roundButton, live && { overflow: 'visible' }, !live && pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.roundButton, !live && pressed && { opacity: 0.7 }]}
     >
-      <Glass radius={24} native={still} dark={dark} veil={c.veil} interactive />
-      <Icon name={icon} size={22} color={c.ink} />
+      <Glass radius={24} native={still} dark={dark} interactive />
+      <View pointerEvents="none">
+        <Icon name={icon} size={22} color={c.ink} />
+      </View>
     </Pressable>
   );
 }
@@ -262,7 +260,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    overflow: 'hidden',
   },
   bannerIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   bannerTitle: { fontSize: 18, lineHeight: 24 },
@@ -274,14 +271,13 @@ const styles = StyleSheet.create({
     paddingTop: space.screen,
     paddingHorizontal: space.screen,
     gap: 14,
-    overflow: 'hidden',
   },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   eta: { fontFamily: fonts.en.bold, fontSize: 40, lineHeight: 46, letterSpacing: -1 },
   etaLabel: { fontSize: 14 },
   faces: { flexDirection: 'row' },
   face: { borderWidth: 2, borderRadius: 20 },
-  roundButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  roundButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   twoButtons: { flexDirection: 'row', gap: space.sm },
   panelButton: {
     flex: 1,

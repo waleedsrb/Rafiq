@@ -157,8 +157,9 @@ export function GlassButton({
       style={({ pressed }) => [styles.glassButton, live && styles.glassButtonLiquid, !live && pressed && { opacity: 0.7 }]}
     >
       <Glass radius={sizes.touch / 2} native={native} interactive />
-      <View style={styles.glassContent}>{icon ? <Icon name={icon} flip={flip} /> : children}</View>
-      {dot ? <View style={styles.glassDot} /> : null}
+      {/* The icon lets touches through to the glass, so the glass itself feels the finger. */}
+      <View pointerEvents="none" style={styles.glassContent}>{icon ? <Icon name={icon} flip={flip} /> : children}</View>
+      {dot ? <View pointerEvents="none" style={styles.glassDot} /> : null}
     </Pressable>
   );
 }
