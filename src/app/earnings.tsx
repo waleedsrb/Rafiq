@@ -12,6 +12,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Body, Label, ListRow, Screen, Title, ltr, useFont } from '@/components/ui';
 import { byWeek, monthRange, totals, type EarningRow } from '@/lib/earnings';
 import { formatDay, shortTime } from '@/lib/format';
+import { routeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { tripsKey } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
@@ -40,7 +41,6 @@ export default function Earnings() {
 
   const month = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', { month: 'long' }).format(new Date());
   const sum = totals(rows ?? []);
-  const arrow = lang === 'ar' ? '←' : '→';
 
   return (
     <Screen back scroll>
@@ -76,7 +76,7 @@ export default function Earnings() {
                   key={r.trip_id}
                   last={i === week.rows.length - 1}
                   icon="car"
-                  title={`${t(r.origin as never)} ${arrow} ${t(r.destination as never)}`}
+                  title={routeName(r.origin, r.destination, lang)}
                   subtitle={`${formatDay(d, lang)} ${ltr(shortTime(d))} · ${who.join(', ')}`}
                   trailing={<Text style={[styles.amount, { fontFamily: f.bold }]}>{ltr(`+${Number(r.earned_ils)}₪`)}</Text>}
                 />
