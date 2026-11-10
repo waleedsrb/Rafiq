@@ -225,10 +225,11 @@ function RoundButton({ icon, label, onPress, c, dark, still }: { icon: IconName;
       hitSlop={6}
       style={({ pressed }) => [styles.roundButton, !live && pressed && { opacity: 0.7 }]}
     >
-      <Glass radius={24} native={still} dark={dark} interactive />
-      <View pointerEvents="none">
-        <Icon name={icon} size={22} color={c.ink} />
-      </View>
+      <Glass radius={24} native={still} dark={dark} interactive style={styles.center}>
+        <View pointerEvents="none">
+          <Icon name={icon} size={22} color={c.ink} />
+        </View>
+      </Glass>
     </Pressable>
   );
 }
@@ -250,6 +251,7 @@ function PanelButton({ icon, label, onPress, c }: { icon: IconName; label: strin
 }
 
 const styles = StyleSheet.create({
+  center: { alignItems: 'center', justifyContent: 'center' },
   top: { position: 'absolute', left: space.md, right: space.md, flexDirection: 'row', alignItems: 'center', gap: space.sm },
   banner: {
     flex: 1,

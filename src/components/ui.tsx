@@ -156,9 +156,11 @@ export function GlassButton({
       onPress={onPress}
       style={({ pressed }) => [styles.glassButton, live && styles.glassButtonLiquid, !live && pressed && { opacity: 0.7 }]}
     >
-      <Glass radius={sizes.touch / 2} native={native} interactive />
-      {/* The icon lets touches through to the glass, so the glass itself feels the finger. */}
-      <View pointerEvents="none" style={styles.glassContent}>{icon ? <Icon name={icon} flip={flip} /> : children}</View>
+      {/* The icon lives inside the glass, so it lifts and stretches with it when pressed or
+          dragged. It lets touches through, so the glass itself feels the finger. */}
+      <Glass radius={sizes.touch / 2} native={native} interactive style={styles.glassContent}>
+        <View pointerEvents="none">{icon ? <Icon name={icon} flip={flip} /> : children}</View>
+      </Glass>
       {dot ? <View pointerEvents="none" style={styles.glassDot} /> : null}
     </Pressable>
   );
@@ -787,7 +789,7 @@ const styles = StyleSheet.create({
   },
   // Liquid Glass draws its own edge and depth: no border or drop shadow on top of it.
   glassButtonLiquid: { borderWidth: 0, shadowOpacity: 0, elevation: 0, overflow: 'visible' },
-  glassContent: { zIndex: 1, alignItems: 'center', justifyContent: 'center' },
+  glassContent: { alignItems: 'center', justifyContent: 'center' },
   glassDot: {
     position: 'absolute',
     top: 10,
