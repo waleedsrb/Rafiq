@@ -13,7 +13,7 @@
 // they've settled: native glass turns into a grey slab while its size animates (see search-morph).
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
 import { RouteMap } from '@/components/route-map';
+import { NativeTripSheet } from '@/components/trip-sheet-native';
 import { GlassButton, useFont } from '@/components/ui';
 import { shortTime } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
@@ -75,26 +76,7 @@ const clamp01 = (v: number) => {
   return Math.min(1, Math.max(0, v));
 };
 
-export function TripSheet({
-  origin,
-  destination,
-  departsAt,
-  header,
-  body,
-  footer,
-  mini,
-  from,
-  settled,
-  start = 'mid',
-  want,
-  closing,
-  onRequestClose,
-  onClosed,
-  onShare,
-  step,
-  map,
-  pickup,
-}: {
+export type TripSheetProps = {
   origin: City;
   destination: City;
   departsAt: string;
@@ -120,7 +102,36 @@ export function TripSheet({
   map?: ReactNode;
   /** Where the driver meets riders: the route line starts there instead of the city square. */
   pickup?: LatLng | null;
-}) {
+};
+
+// iOS 26+: Apple's own sheet, real Liquid Glass while it moves (trip-sheet-native.tsx).
+// Older iOS and Android: our custom card below.
+const NATIVE_SHEET = Platform.OS === 'ios' && LIQUID_GLASS;
+
+export function TripSheet(props: TripSheetProps) {
+  return NATIVE_SHEET ? <NativeTripSheet {...props} /> : <CustomTripSheet {...props} />;
+}
+
+function CustomTripSheet({
+  origin,
+  destination,
+  departsAt,
+  header,
+  body,
+  footer,
+  mini,
+  from,
+  settled,
+  start = 'mid',
+  want,
+  closing,
+  onRequestClose,
+  onClosed,
+  onShare,
+  step,
+  map,
+  pickup,
+}: TripSheetProps) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
