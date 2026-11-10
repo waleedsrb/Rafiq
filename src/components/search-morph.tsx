@@ -41,12 +41,13 @@
 
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Modal, Platform, Pressable, type KeyboardEvent, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Keyboard, Modal, Platform, Pressable, type KeyboardEvent, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
   FadeIn,
   interpolate,
+  KeyboardState,
   runOnJS,
   useAnimatedKeyboard,
   useAnimatedScrollHandler,
@@ -166,22 +167,18 @@ export function SearchMorph({
       if (kbGone.current) clearTimeout(kbGone.current);
       kbOn.value = 1;
     };
-    // The keyboard left while From/To was open (its own dismiss key, Search, a swipe): the
-    // card goes back to the one-line bar. Checked a moment later, because moving between the
-    // From and To fields can report a hide on the way to the next field.
+    // The keyboard left while From/To was open (its own dismiss key, Search, a swipe, a tap
+    // outside the field): the card comes down with it and goes back to the one-line bar.
     const left = (e?: KeyboardEvent) => {
       setKbReal(0);
       if (Platform.OS === 'ios') kbOn.value = withTiming(0, { duration: e?.duration || 250 });
-      if (kbGone.current) clearTimeout(kbGone.current);
-      kbGone.current = setTimeout(() => {
-        if (!Keyboard.isVisible() && pickingRef.current) places.close();
-      }, 180);
+      typingEnded();
     };
     const landed = (e: KeyboardEvent) => {
       const real = Math.max(0, screenH - e.endCoordinates.screenY);
       if (real <= MIN_KB) return setKbReal(0);
       setKbReal(real);
-      lastKbReal = real;
+      lastKbReal = Math.max(lastKbReal, real);
       const reported = keyboard.height.value;
       if (reported > MIN_KB) {
         lastKbScale = Math.max(1, real / reported);
@@ -203,6 +200,8 @@ export function SearchMorph({
   // How far the keyboard's top edge is from the bottom of the screen, now (0 = none).
   const kbLift = () => {
     'worklet';
+    // Once the keyboard reports itself closed, nothing it says about its height counts.
+    if (keyboard.state.value === KeyboardState.CLOSED) return 0;
     return keyboard.height.value * kbScale.value * kbOn.value;
   };
   // At rest the capsule follows the screen corners; grown into the fields it becomes a card
@@ -244,7 +243,9 @@ export function SearchMorph({
   // The end of the list makes room for the grown card and the keyboard under it, so the last
   // towns can scroll up into view. A plain number set once per pick, not animated: animating
   // it re-laid out the whole list on every frame of the keyboard's rise (the stutter on grow).
-  const endSpace = picking ? GROW + Math.max(0, (kbReal || lastKbReal) + KB_GAP - bottomGap) : 0;
+  // Sized for the tallest keyboard seen (it grows a strip of suggestions while you type), and
+  // never shrinks on the way out, so the last town can always be scrolled above the card.
+  const endSpace = picking ? GROW + space.lg + Math.max(0, Math.max(kbReal, lastKbReal) + KB_GAP - bottomGap) : 0;
   // The trips and the towns are both kept built; picking only cross-fades between them.
   const tripsFade = useAnimatedStyle(() => ({ opacity: interpolate(grow.value, [0, 0.6], [1, 0], Extrapolation.CLAMP) }));
   const placesFade = useAnimatedStyle(() => ({ opacity: interpolate(grow.value, [0.2, 1], [0, 1], Extrapolation.CLAMP) }));
@@ -259,6 +260,19 @@ export function SearchMorph({
   const [ready, setReady] = useState(!!reduced);
   const pickingRef = useRef(picking);
   pickingRef.current = picking;
+  /**
+   * Typing stopped (the field lost its caret, or the keyboard left): if no field has the
+   * caret a moment later, From/To closes back to the one-line bar. The moment lets a switch
+   * between the From and To fields land first. Asked about the caret, not the keyboard:
+   * the keyboard still counts as visible until its hide animation ends, which is why a tap
+   * outside the list left the grown card hanging.
+   */
+  const typingEnded = () => {
+    if (kbGone.current) clearTimeout(kbGone.current);
+    kbGone.current = setTimeout(() => {
+      if (pickingRef.current && !TextInput.State.currentlyFocusedInput()) places.close();
+    }, 120);
+  };
   /** From/To back to the one-line bar, keyboard away. */
   const collapse = () => {
     tapFeel();
@@ -532,7 +546,7 @@ export function SearchMorph({
                     <Icon name="arrowsDownUp" size={18} />
                   </Pressable>
                 </View>
-                <PlaceFields search={places} origin={s.origin} destination={s.destination} />
+                <PlaceFields search={places} origin={s.origin} destination={s.destination} onBlur={typingEnded} />
               </Animated.View>
             ) : (
               <Animated.View key="line" entering={reduced || !resizing ? undefined : FadeIn.duration(160)} style={styles.headRow}>
