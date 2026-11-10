@@ -12,3 +12,7 @@ export function useWayCheckpoints(_: { origin: City; destination: City; start?: 
 export function RouteMap({ height = 300 }: { checkpoints?: unknown[]; checkpointIds?: string[] | null; origin: City; destination: City; height?: number; topInset?: number; bottomInset?: number; labels?: boolean; interactive?: boolean; onExpand?: () => void; start?: { latitude: number; longitude: number }; car?: { latitude: number; longitude: number } | null; dark?: boolean }) {
   return <View style={{ height, backgroundColor: colors.sunken }} />;
 }
+
+export function CheckpointsMap({ height }: { height: number; topInset?: number }) {
+  return <View style={{ height, backgroundColor: colors.sunken }} />;
+}

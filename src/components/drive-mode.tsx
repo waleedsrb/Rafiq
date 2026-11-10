@@ -2,7 +2,8 @@
 // Big text, few buttons, light or dark (sun/moon button; it starts dark after sunset).
 //
 // - Top: the next checkpoint, its status and how far it is. A closed one turns the banner
-//   red, the only red on this screen, with "Change my way" under it. Past the last
+//   red, the only red on this screen, with "Going around it" under it (one tap takes it off
+//   the way and tells the riders). Past the last
 //   checkpoint it shows the drop-off.
 // - Bottom: about when you'll arrive, who's on board, the light/dark switch, Share and
 //   Emergency, and "slide when you arrive" (a slide, so a bump in the road can't end the trip).
@@ -62,7 +63,8 @@ export function DriveMode({
   destination,
   pickup,
   checkpoints,
-  onChangeWay,
+  onGoAround,
+  goingAround,
   startedAt,
   car,
   riders,
@@ -79,8 +81,9 @@ export function DriveMode({
   pickup: LatLng | null;
   /** The trip's checkpoints in driving order, kept fresh by the screen. */
   checkpoints: MapCheckpoint[];
-  /** Open "Change my way" (a closed checkpoint ahead). */
-  onChangeWay: () => void;
+  /** Going around a closed checkpoint ahead: take it off the way (riders are told). */
+  onGoAround: (checkpointId: string) => void;
+  goingAround: boolean;
   startedAt: string;
   car: LatLng | null;
   riders: Rider[];
@@ -171,16 +174,17 @@ export function DriveMode({
         </View>
       </View>
       {/* A closed checkpoint ahead: going around it? Change the way, so the riders know. */}
-      {closed ? (
+      {closed && cp ? (
         <View style={[styles.wayRow, { top: insets.top + 6 + 72 + 8, direction }]} pointerEvents="box-none">
           <Pressable
             accessibilityRole="button"
-            onPress={onChangeWay}
+            onPress={() => onGoAround(cp.id)}
+            disabled={goingAround}
             style={({ pressed }) => [styles.wayButton, { backgroundColor: c.panel }, pressed && { opacity: 0.7 }]}
           >
             <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
             <Icon name="barricade" size={18} color={c.ink} />
-            <Text style={[styles.panelButtonText, { fontFamily: f.medium, color: c.ink }]}>{t('changeMyWay')}</Text>
+            <Text style={[styles.panelButtonText, { fontFamily: f.medium, color: c.ink }]}>{t('goingAroundName').replace('{name}', cp.name)}</Text>
           </Pressable>
         </View>
       ) : null}

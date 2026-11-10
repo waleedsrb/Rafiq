@@ -9,7 +9,7 @@ import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/ch
 import { FollowBell } from '@/components/follow-bell';
 import { HoldToReport } from '@/components/hold-to-report';
 import { Body, Label, ListRow, Screen, SectionTitle, Title, ltr, useFont } from '@/components/ui';
-import { STATUSES, confidence, reportsKey, type CheckpointStatus } from '@/lib/checkpoints';
+import { STATUSES, confidence, governorate, reportsKey, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
 import { warnFeel } from '@/lib/haptics';
 import type { StringKey } from '@/i18n/strings';
@@ -117,7 +117,7 @@ export default function CheckpointDetail() {
       }
     >
       <Body muted small>
-        {t('onTheRoad')}
+        {governorate(cp.governorate, lang).name ?? t('checkpointsOtherArea')}
       </Body>
       <Title>{lang === 'ar' ? cp.name_ar : cp.name_en}</Title>
       <View style={styles.statusRow}>

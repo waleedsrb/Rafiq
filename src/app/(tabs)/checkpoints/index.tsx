@@ -1,30 +1,44 @@
-// Checkpoints tab: every checkpoint on the road with its current status.
+// Checkpoints tab: every checkpoint in the West Bank with its current status.
 // The status comes from checkpoint_overview() in the database (weighted majority of the last
 // 30 minutes); a status only one reporter has given is marked "not confirmed yet".
+//
+// The list is long (the whole West Bank), so the useful part comes first:
+// - a search field (either name, vowel marks and spelling forms don't matter),
+// - the ones you follow (bell on a checkpoint's page),
+// - the ones someone reported in the last 2 hours, newest first,
+// - then all of them by governorate, north to south.
 
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { StatusCircle, StatusWord } from '@/components/checkpoint-badge';
-import { Body, GlassButton, ListRow, TabScreen, ltr } from '@/components/ui';
-import { useAgo, type Overview } from '@/components/checkpoint-badge';
-import { confidence, reportsKey } from '@/lib/checkpoints';
-import { useT } from '@/lib/session';
+import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
+import { Icon } from '@/components/icon';
+import { Body, GlassButton, ListRow, SectionTitle, TabScreen, ltr, useFont } from '@/components/ui';
+import { byGovernorate, confidence, matchesQuery, reportsKey } from '@/lib/checkpoints';
+import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme/tokens';
 
 export default function Checkpoints() {
   const { t, lang } = useT();
+  const { session } = useSession();
+  const { f, rtl } = useFont();
   const ago = useAgo();
   const [rows, setRows] = useState<Overview[] | null>(null);
+  const [follows, setFollows] = useState<Set<string>>(new Set());
+  const [q, setQ] = useState('');
   const [now, setNow] = useState(() => new Date());
 
   const load = useCallback(async () => {
-    const { data } = await supabase.rpc('checkpoint_overview');
-    // Only the Ramallah - Nablus road for now; the whole West Bank comes with the new tab.
-    setRows(((data as (Overview & { road_order: number | null })[] | null) ?? []).filter((r) => r.road_order != null));
+    const [overview, followed] = await Promise.all([
+      supabase.rpc('checkpoint_overview'),
+      session ? supabase.from('checkpoint_follows').select('checkpoint_id').eq('user_id', session.user.id) : Promise.resolve({ data: [] }),
+    ]);
+    setRows((overview.data as Overview[] | null) ?? []);
+    setFollows(new Set(((followed.data as { checkpoint_id: string }[] | null) ?? []).map((r) => r.checkpoint_id)));
     setNow(new Date());
-  }, []);
+  }, [session]);
 
   // Fresh on every visit, and every minute while the tab is open.
   useFocusEffect(
@@ -35,7 +49,38 @@ export default function Checkpoints() {
     }, [load]),
   );
 
-  const newest = rows?.map((r) => r.last_report_at).filter(Boolean).sort().pop() ?? null;
+  const all = rows ?? [];
+  const found = useMemo(() => all.filter((r) => matchesQuery(r, q)), [all, q]);
+  const searching = q.trim().length > 0;
+  const followed = found.filter((r) => follows.has(r.id));
+  const recent = found.filter((r) => r.last_report_at && !follows.has(r.id)).sort((a, b) => (b.last_report_at ?? '').localeCompare(a.last_report_at ?? ''));
+  const groups = useMemo(() => byGovernorate(found, lang), [found, lang]);
+  const newest = all.map((r) => r.last_report_at).filter(Boolean).sort().pop() ?? null;
+
+  const row = (r: Overview, last: boolean) => (
+    <ListRow
+      key={r.id}
+      last={last}
+      leading={<StatusCircle status={r.status} />}
+      title={lang === 'ar' ? r.name_ar : r.name_en}
+      subtitle={
+        r.last_report_at
+          ? `${r.reports_30m > 0 ? `${ltr(r.reports_30m)} ${t(reportsKey(r.reports_30m))} · ` : ''}${ago(r.last_report_at, now)}${
+              confidence(r) === 'unconfirmed' ? ` · ${t('statusUnconfirmed')}` : ''
+            }`
+          : t('noRecentReports')
+      }
+      trailing={r.status ? <StatusWord status={r.status} /> : undefined}
+      onPress={() => router.push({ pathname: '/checkpoints/[id]', params: { id: r.id } })}
+    />
+  );
+  const section = (title: string, list: Overview[]) =>
+    list.length ? (
+      <View key={title}>
+        <SectionTitle>{title}</SectionTitle>
+        {list.map((r, i) => row(r, i === list.length - 1))}
+      </View>
+    ) : null;
 
   return (
     <TabScreen
@@ -43,28 +88,50 @@ export default function Checkpoints() {
       action={<GlassButton icon="mapTrifold" label={t('checkpointsMap')} onPress={() => router.push('/checkpoints/map')} />}
     >
       <Body muted small>
-        {t('onTheRoad')}
+        {t('checkpointsAllWestBank').replace('{n}', ltr(all.length))}
         {newest ? ` · ${t('updatedAgo')} ${ago(newest, now)}` : ''}
       </Body>
-      <View>
-        {rows?.map((r, i) => (
-          <ListRow
-            key={r.id}
-            last={i === rows.length - 1}
-            leading={<StatusCircle status={r.status} />}
-            title={lang === 'ar' ? r.name_ar : r.name_en}
-            subtitle={
-              r.last_report_at
-                ? `${r.reports_30m > 0 ? `${ltr(r.reports_30m)} ${t(reportsKey(r.reports_30m))} · ` : ''}${ago(r.last_report_at, now)}${
-                    confidence(r) === 'unconfirmed' ? ` · ${t('statusUnconfirmed')}` : ''
-                  }`
-                : t('noRecentReports')
-            }
-            trailing={r.status ? <StatusWord status={r.status} /> : undefined}
-            onPress={() => router.push({ pathname: '/checkpoints/[id]', params: { id: r.id } })}
-          />
-        ))}
+      <View style={[styles.search, { flexDirection: rtl ? 'row-reverse' : 'row' }]}>
+        <Icon name="search" size={18} color={colors.inkSecondary} />
+        <TextInput
+          value={q}
+          onChangeText={setQ}
+          placeholder={t('searchCheckpoints')}
+          placeholderTextColor={colors.inkSecondary}
+          accessibilityLabel={t('searchCheckpoints')}
+          autoCorrect={false}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+          style={[styles.input, { fontFamily: f.regular, textAlign: rtl ? 'right' : 'left' }]}
+        />
+        {searching ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={t('clear')} onPress={() => setQ('')} hitSlop={8}>
+            <Icon name="x" size={16} color={colors.inkSecondary} />
+          </Pressable>
+        ) : null}
       </View>
+
+      {rows && searching && found.length === 0 ? (
+        <Body muted small style={{ marginTop: 12 }}>
+          {t('noCheckpointFound')}
+        </Body>
+      ) : null}
+      {section(t('checkpointsFollowing'), followed)}
+      {searching ? null : section(t('checkpointsReported'), recent)}
+      {groups.map((g) => section(g.name ?? t('checkpointsOtherArea'), g.rows))}
     </TabScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  search: {
+    alignItems: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(23,25,28,0.05)',
+    marginTop: 12,
+  },
+  input: { flex: 1, fontSize: 16, color: colors.ink, paddingVertical: 0 },
+});

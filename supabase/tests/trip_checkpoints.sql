@@ -97,4 +97,22 @@ do $$ begin
   end if;
 end $$;
 
+-- 6. The drive is remembered as passed, and the next post on the route gets it.
+do $$ begin
+  if (select passed_checkpoint_ids from public.trips where id = '00000000-0000-0000-0000-0000000c0c01') <> '{zaatara}' then
+    raise exception 'FAIL: passed list is %', (select passed_checkpoint_ids from public.trips where id = '00000000-0000-0000-0000-0000000c0c01');
+  end if;
+end $$;
+update public.trips set finished_at = now() where id = '00000000-0000-0000-0000-0000000c0c01';
+set local role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000c0d03');
+do $$ begin
+  if public.learned_checkpoints('osm-n246843686', 'osm-n293546203') <> '{zaatara}' then
+    raise exception 'FAIL: learned %', public.learned_checkpoints('osm-n246843686', 'osm-n293546203');
+  end if;
+  if public.learned_checkpoints('osm-n293546203', 'osm-n246843686') <> '{}' then
+    raise exception 'FAIL: the other direction has no drive yet';
+  end if;
+end $$;
+
 rollback;

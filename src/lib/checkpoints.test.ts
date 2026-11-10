@@ -36,3 +36,34 @@ test('report counts take the right word: 1 report, 2-10 reports, Arabic 11+ form
   assert.equal(reportsKey(10), 'reportsWord');
   assert.equal(reportsKey(11), 'reportsWordMany');
 });
+
+test('governorates: north to south, named in the app language, unknown last', async () => {
+  const { governorate } = await import('./checkpoints.ts');
+  assert.deepEqual(governorate('Jenin Governorate', 'en'), { order: 0, name: 'Jenin' });
+  assert.deepEqual(governorate('Jerusalem Periphery Governorate', 'ar'), { order: 8, name: 'القدس' });
+  assert.equal(governorate(null, 'en').name, null);
+  assert.ok(governorate(null, 'en').order > governorate('Hebron Governorate', 'en').order);
+});
+
+test('search ignores vowel marks, alef and ta marbuta forms, and case', async () => {
+  const { matchesQuery } = await import('./checkpoints.ts');
+  const huwara = { name_ar: 'حوّارة', name_en: 'Huwara' };
+  assert.ok(matchesQuery(huwara, 'حواره'));
+  assert.ok(matchesQuery(huwara, 'HUW'));
+  assert.ok(matchesQuery({ name_ar: 'عين سينيا', name_en: "Ein Siniya" }, 'ein s'));
+  assert.ok(!matchesQuery(huwara, 'زعترة'));
+  assert.ok(matchesQuery(huwara, '  '));
+});
+
+test('groups by governorate, names sorted inside', async () => {
+  const { byGovernorate } = await import('./checkpoints.ts');
+  const rows = [
+    { name_ar: 'ب', name_en: 'Zaatara', governorate: 'Nablus Governorate' },
+    { name_ar: 'أ', name_en: 'Atara', governorate: 'Ramallah and al-Bireh Governorate' },
+    { name_ar: 'ج', name_en: 'Huwara', governorate: 'Nablus Governorate' },
+    { name_ar: 'د', name_en: 'Somewhere', governorate: null },
+  ];
+  const groups = byGovernorate(rows, 'en');
+  assert.deepEqual(groups.map((g) => g.name), ['Nablus', 'Ramallah and al-Bireh', null]);
+  assert.deepEqual(groups[0].rows.map((r) => r.name_en), ['Huwara', 'Zaatara']);
+});
