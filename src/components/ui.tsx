@@ -146,15 +146,18 @@ export function GlassButton({
   label,
   onPress,
   flip,
+  iconColor,
   children,
 }: {
   icon?: IconName;
   label: string;
   onPress?: () => void;
   flip?: boolean;
+  /** Defaults to ink. Clay only when the button signals something (Home's unread bell). */
+  iconColor?: string;
   children?: ReactNode;
 }) {
-  const content = icon ? <Icon name={icon} flip={flip} /> : children;
+  const content = icon ? <Icon name={icon} flip={flip} color={iconColor} /> : children;
   return (
     <Pressable
       accessibilityRole="button"
