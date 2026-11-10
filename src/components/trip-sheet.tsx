@@ -377,18 +377,18 @@ export function TripSheet({
         {onShare ? <GlassButton icon="shareNetwork" label={t('shareTrip')} onPress={onShare} native={mapOn && !closing} /> : <View />}
       </Animated.View>
 
-      <Animated.View style={[styles.card, cardStyle]}>
-        <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
-          {/* Tinted, so the card and the bar still read over a dark or busy map. The card
-              carries more text than the bar, so its porcelain wash is a little stronger. */}
-          <Glass
-            native={glass}
-            tint={colors.glassTint}
-            veil={at === 'mini' ? colors.glassVeil : colors.glassCardVeil}
-            interactive={at === 'mini'}
-            blur={60}
-          />
-          {glass ? null : <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} pointerEvents="none" />}
+      <Animated.View style={[styles.card, glass && styles.cardLiquid, cardStyle]}>
+        {/* Resting: Apple's Liquid Glass, outside the clip below and with no shadow on its
+            parent, because a clipped or shadowed parent makes UIKit draw a plain blur instead.
+            It carries its own corners: the card's, or the bar's capsule. */}
+        {glass ? <Glass radius={at === 'mini' ? BAR_H / 2 : R} interactive={at === 'mini'} /> : null}
+        <Animated.View style={[StyleSheet.absoluteFill, styles.clip, glass && styles.clipLiquid, clipStyle]}>
+          {glass ? null : (
+            <>
+              <Glass native={false} blur={60} />
+              <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} pointerEvents="none" />
+            </>
+          )}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, skin]} pointerEvents="none" />
 
           {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
@@ -516,6 +516,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.8)',
   },
+  // Real glass draws its own edge and shadow.
+  cardLiquid: { shadowOpacity: 0, elevation: 0 },
+  clipLiquid: { borderWidth: 0 },
   full: { position: 'absolute', top: 0, left: 0 },
   cardFill: { backgroundColor: 'rgba(247,246,243,0.28)' }, // the frosted stand-in, close to the glass's look
   head: { paddingHorizontal: 18, paddingBottom: space.sm },

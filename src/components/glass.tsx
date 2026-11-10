@@ -11,7 +11,7 @@
 
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { AccessibilityInfo, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors } from '@/theme/tokens';
@@ -44,55 +44,66 @@ export function useReduceTransparency() {
   return useSyncExternalStore(subscribe, () => reduceTransparency);
 }
 
+/**
+ * The one glass look. Every surface uses the same style and the same tint, so a button, the
+ * search bar, the trip card and drive mode all read as one material at one see-through level.
+ * Tune the look here (GLASS_STYLE) and in tokens.ts (glassTint, glassTintDark), nowhere else.
+ */
+export const GLASS_STYLE = 'clear' as const;
+
 export function Glass({
   radius = 0,
   native = true,
   interactive,
-  tint,
-  veil,
   dark,
   blur = 40,
   style,
+  children,
 }: {
   radius?: number;
   /** false while the surface moves or resizes: the frosted stand-in shows instead. */
   native?: boolean;
-  /** Native glass reacts to the finger (buttons, the collapsed trip bar). */
+  /** Native glass reacts to the finger: it lifts and stretches as you press and drag. */
   interactive?: boolean;
-  /** Colour mixed into the native glass. */
-  tint?: string;
-  /** A thin wash on top of the glass, for surfaces that hold a lot of text over a busy map. */
-  veil?: string;
   dark?: boolean;
   /** Blur strength of the stand-in. */
   blur?: number;
   style?: StyleProp<ViewStyle>;
+  /** Content drawn inside the glass (it then stretches with the glass when touched). */
+  children?: ReactNode;
 }) {
   const solid = useReduceTransparency();
+  // Native glass draws its own corners (borderRadius on the glass itself). It must never sit
+  // inside a clipping (overflow hidden), shadowed or see-through parent: UIKit then quietly
+  // draws a plain blur instead, which is why the trip card looked frosted.
   const shape = [StyleSheet.absoluteFill, { borderRadius: radius }, style];
 
   if (solid) {
-    return <View pointerEvents="none" style={[shape, { backgroundColor: dark ? colors.glassSolidDark : colors.surface }]} />;
+    return (
+      <View pointerEvents="box-none" style={[shape, { backgroundColor: dark ? colors.glassSolidDark : colors.surface }]}>
+        {children}
+      </View>
+    );
   }
   if (LIQUID_GLASS && native) {
     return (
-      <>
-        <GlassView
-          pointerEvents={interactive ? undefined : 'none'}
-          style={shape}
-          glassEffectStyle="regular"
-          tintColor={tint}
-          colorScheme={dark ? 'dark' : 'light'}
-          isInteractive={interactive}
-        />
-        {veil ? <View pointerEvents="none" style={[shape, { backgroundColor: veil }]} /> : null}
-      </>
+      <GlassView
+        pointerEvents={interactive || children ? 'auto' : 'none'}
+        style={shape}
+        glassEffectStyle={GLASS_STYLE}
+        tintColor={dark ? colors.glassTintDark : colors.glassTint}
+        colorScheme={dark ? 'dark' : 'light'}
+        isInteractive={interactive}
+      >
+        {children}
+      </GlassView>
     );
   }
   return (
-    <View pointerEvents="none" style={[shape, { overflow: 'hidden' }]}>
-      <BlurView intensity={blur} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: dark ? colors.glassFillDark : colors.glassFill }]} />
+    <View pointerEvents="box-none" style={[shape, { overflow: 'hidden' }]}>
+      <BlurView pointerEvents="none" intensity={blur} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: dark ? colors.glassFillDark : colors.glassFill }]} />
+      {children}
     </View>
   );
 }

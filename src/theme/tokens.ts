@@ -16,13 +16,13 @@ export const colors = {
   claySoft: '#F0E4DE',
   clayPressed: '#9C4B32',
   veil: 'rgba(23,25,28,0.32)', // behind pop-ups
-  // Glass (src/components/glass.tsx). Kept light so what's behind shows through, but every
-  // wash still leaves graphite text readable over a dark map.
-  glassFill: 'rgba(255,255,255,0.58)', // the frosted stand-in's wash (older iOS, Android, while moving)
+  // Glass (src/components/glass.tsx): one tint for every Liquid Glass surface, so they all
+  // share one see-through level. glassFill is the frosted stand-in's wash (older iOS, Android,
+  // and while a surface moves).
+  glassTint: 'rgba(247,246,243,0.30)',
+  glassTintDark: 'rgba(23,25,28,0.45)',
+  glassFill: 'rgba(255,255,255,0.58)',
   glassFillDark: 'rgba(23,25,28,0.55)',
-  glassTint: 'rgba(247,246,243,0.42)', // Liquid Glass tint for bars over a map
-  glassVeil: 'rgba(247,246,243,0.26)', // porcelain wash on top, so text reads on a dark map
-  glassCardVeil: 'rgba(247,246,243,0.38)', // the same wash on the expanded card, which holds more text
   glassSolidDark: '#202327', // Reduce Transparency, dark surfaces
   glassEdge: 'rgba(255,255,255,0.90)',
   glassLens: 'rgba(23,25,28,0.07)', // the selected tab's pill
