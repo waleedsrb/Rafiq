@@ -146,14 +146,12 @@ export function GlassButton({
   label,
   onPress,
   flip,
-  dot,
   children,
 }: {
   icon?: IconName;
   label: string;
   onPress?: () => void;
   flip?: boolean;
-  dot?: boolean;
   children?: ReactNode;
 }) {
   const content = icon ? <Icon name={icon} flip={flip} /> : children;
@@ -185,7 +183,6 @@ export function GlassButton({
           <View style={styles.glassContent}>{content}</View>
         </>
       )}
-      {dot ? <View style={styles.glassDot} /> : null}
     </Pressable>
   );
 }
@@ -816,17 +813,6 @@ const styles = StyleSheet.create({
   glassInner: { alignItems: 'center', justifyContent: 'center' },
   glassContent: { zIndex: 1, alignItems: 'center', justifyContent: 'center' },
   glassFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.glassFill },
-  glassDot: {
-    position: 'absolute',
-    top: 10,
-    left: 11,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.clay,
-    borderWidth: 2,
-    borderColor: colors.card,
-  },
 
   title: { fontSize: 28, lineHeight: 36, color: colors.ink, letterSpacing: -0.4 },
   display: { fontSize: 34, lineHeight: 42, color: colors.ink, letterSpacing: -0.5 },
