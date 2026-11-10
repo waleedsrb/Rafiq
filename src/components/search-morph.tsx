@@ -33,14 +33,13 @@
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
   FadeIn,
   interpolate,
   runOnJS,
-  useAnimatedKeyboard,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -74,6 +73,8 @@ const HEAD_H = PAD + ROW + PAD;
 const RADIUS = ROW / 2 + PAD;
 // Gap between the bar and the top of the keyboard.
 const KB_GAP = 8;
+// The iOS keyboard's own curve, so the card and the keyboard move as one.
+const KB_EASE = Easing.bezier(0.17, 0.59, 0.4, 0.77);
 // Room for the docked "Alert me" (a 56pt capsule and its gap) at the end of the list.
 const ALERT_ROOM = 56 + 12;
 // Grown for place search: the two From/To fields under the row.
@@ -121,7 +122,24 @@ export function SearchMorph({
   const { width, height: screenH } = useWindowDimensions();
   const reduced = useReducedMotion();
   const corners = useScreenCorners();
-  const keyboard = useAnimatedKeyboard();
+  // How far the keyboard's top edge is from the bottom of the screen (0 = no keyboard).
+  // Read from the keyboard's own frame (its top edge on screen), not a reported height: on
+  // iOS 26 the reported height left the suggestions row out, so the To field ended up under it.
+  const kbLift = useSharedValue(0);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillChangeFrame' : 'keyboardDidShow', (e) => {
+      const lift = Math.max(0, screenH - e.endCoordinates.screenY);
+      kbLift.value = reduced || !e.duration ? lift : withTiming(lift, { duration: e.duration, easing: KB_EASE });
+    });
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', (e) => {
+      kbLift.value = reduced || !e?.duration ? 0 : withTiming(0, { duration: e.duration, easing: KB_EASE });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [screenH, reduced]); // eslint-disable-line react-hooks/exhaustive-deps
   // At rest the capsule follows the screen corners; grown into the fields it becomes a card
   // that floats 8pt from the sides, like the trip card.
   const side = corners.capsuleInset(HEAD_H);
@@ -161,7 +179,7 @@ export function SearchMorph({
   // The end of the list makes room for the bar as it grows and for the keyboard under it,
   // so the last rows can always scroll up into view.
   const endSpace = useAnimatedStyle(() => ({
-    height: grow.value * GROW + Math.max(0, keyboard.height.value + KB_GAP - bottomGap),
+    height: grow.value * GROW + Math.max(0, kbLift.value + KB_GAP - bottomGap),
   }));
   // Swipe down to close. `drag` = the header pulled by a finger (the page follows);
   // `pull` = the list pulled past its top (iOS rubber band; the header follows halfway).
@@ -199,7 +217,7 @@ export function SearchMorph({
   // Where the bar's top is when it has arrived: above the keyboard if it's up, grown upward.
   const landedTop = () => {
     'worklet';
-    const lift = Math.max(bottomGap, keyboard.height.value + KB_GAP);
+    const lift = kbLift.value > 0 ? kbLift.value + KB_GAP : bottomGap;
     return screenH - lift - HEAD_H - grow.value * GROW;
   };
 
