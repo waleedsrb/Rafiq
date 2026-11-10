@@ -146,6 +146,7 @@ export function GlassButton({
   dot?: boolean;
   children?: ReactNode;
 }) {
+  const content = icon ? <Icon name={icon} flip={flip} /> : children;
   return (
     <Pressable
       accessibilityRole="button"
@@ -155,14 +156,24 @@ export function GlassButton({
       style={({ pressed }) => [styles.glassButton, LIQUID_GLASS && styles.glassButtonLiquid, !LIQUID_GLASS && pressed && { opacity: 0.7 }]}
     >
       {LIQUID_GLASS ? (
-        <GlassView style={[StyleSheet.absoluteFill, { borderRadius: sizes.touch / 2 }]} glassEffectStyle="regular" isInteractive />
+        // The same untinted "regular" glass as the system tab bar. The icon lives inside the
+        // glass (and lets touches through to it), so it stretches and morphs with the glass.
+        <GlassView
+          style={[StyleSheet.absoluteFill, styles.glassInner, { borderRadius: sizes.touch / 2 }]}
+          glassEffectStyle="regular"
+          isInteractive
+        >
+          <View pointerEvents="none" style={styles.glassContent}>
+            {content}
+          </View>
+        </GlassView>
       ) : (
         <>
           <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
           <View style={styles.glassFill} />
+          <View style={styles.glassContent}>{content}</View>
         </>
       )}
-      <View style={styles.glassContent}>{icon ? <Icon name={icon} flip={flip} /> : children}</View>
       {dot ? <View style={styles.glassDot} /> : null}
     </Pressable>
   );
@@ -745,7 +756,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: space.screen,
-    paddingTop: space.md,
+    // 8pt under the status bar: the same spot as the pinned button on Home, My trips and Checkpoints.
+    paddingTop: space.sm,
     paddingBottom: space.md,
   },
   topSpacer: { width: sizes.touch, height: sizes.touch },
@@ -790,6 +802,7 @@ const styles = StyleSheet.create({
   },
   // Liquid Glass draws its own edge and depth: no border or drop shadow on top of it.
   glassButtonLiquid: { borderWidth: 0, shadowOpacity: 0, elevation: 0, overflow: 'visible' },
+  glassInner: { alignItems: 'center', justifyContent: 'center' },
   glassContent: { zIndex: 1, alignItems: 'center', justifyContent: 'center' },
   glassFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.glassFill },
   glassDot: {
