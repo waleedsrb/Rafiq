@@ -156,7 +156,27 @@ export function SearchMorph({
   // The landed keyboard's real height (0 = no keyboard).
   const [kbReal, setKbReal] = useState(0);
   const kbUp = kbReal > 0;
+  // 1 while a keyboard is (coming) up, eased to 0 when it leaves. The card's lift is multiplied
+  // by it, so the card always comes down with the keyboard even if the tracked height above
+  // is late or sticks (it left the grown card hanging mid-screen after the keyboard was closed).
+  const kbOn = useSharedValue(1);
+  const kbGone = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    const coming = () => {
+      if (kbGone.current) clearTimeout(kbGone.current);
+      kbOn.value = 1;
+    };
+    // The keyboard left while From/To was open (its own dismiss key, Search, a swipe): the
+    // card goes back to the one-line bar. Checked a moment later, because moving between the
+    // From and To fields can report a hide on the way to the next field.
+    const left = (e?: KeyboardEvent) => {
+      setKbReal(0);
+      if (Platform.OS === 'ios') kbOn.value = withTiming(0, { duration: e?.duration || 250 });
+      if (kbGone.current) clearTimeout(kbGone.current);
+      kbGone.current = setTimeout(() => {
+        if (!Keyboard.isVisible() && pickingRef.current) places.close();
+      }, 180);
+    };
     const landed = (e: KeyboardEvent) => {
       const real = Math.max(0, screenH - e.endCoordinates.screenY);
       if (real <= MIN_KB) return setKbReal(0);
@@ -170,15 +190,20 @@ export function SearchMorph({
     };
     const subs = [
       Keyboard.addListener('keyboardDidShow', landed),
-      ...(Platform.OS === 'ios' ? [Keyboard.addListener('keyboardDidChangeFrame', landed)] : []),
-      Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbReal(0)),
+      ...(Platform.OS === 'ios'
+        ? [Keyboard.addListener('keyboardDidChangeFrame', landed), Keyboard.addListener('keyboardWillShow', coming)]
+        : []),
+      Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', left),
     ];
-    return () => subs.forEach((sub) => sub.remove());
+    return () => {
+      subs.forEach((sub) => sub.remove());
+      if (kbGone.current) clearTimeout(kbGone.current);
+    };
   }, [screenH]); // eslint-disable-line react-hooks/exhaustive-deps
   // How far the keyboard's top edge is from the bottom of the screen, now (0 = none).
   const kbLift = () => {
     'worklet';
-    return keyboard.height.value * kbScale.value;
+    return keyboard.height.value * kbScale.value * kbOn.value;
   };
   // At rest the capsule follows the screen corners; grown into the fields it becomes a card
   // that floats 8pt from the sides, like the trip card.
