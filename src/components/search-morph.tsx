@@ -23,6 +23,15 @@
 // the bar glides back up into Home's grey "Where to?". It is a
 // near-critically damped spring, so it lands in Home's bar without a bounce.
 //
+// Staying smooth (Nov 10 rebuild, the rules this file follows):
+// - Nothing heavy on the tap. The first frame is only this layer and the bar; the days and
+//   trips are built once the bar has nearly landed (CONTENT_AFTER_MS) and fade in.
+// - The bar travels by sliding (a transform), not by changing its frame, so the phone never
+//   re-lays it out on the way. Its background alone is scaled to match Home's bar at the start.
+//   Only growing into From/To changes its real size.
+// - Swiping down on the grown card (or pulling the towns list down) collapses it to the bar;
+//   swiping down on the bar closes the search.
+//
 // Glass is only on the bar, the one thing floating over content that scrolls under it.
 // While it moves and changes size it is a frosted blur (Apple's Liquid Glass view turns
 // into a flat grey block if it moves or is resized every frame). Once it has settled at the
@@ -60,7 +69,7 @@ import { tapFeel } from '@/lib/haptics';
 import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { useScreenCorners } from '@/theme/screen-corners';
-import { colors, motion, radii, space } from '@/theme/tokens';
+import { colors, motion, space } from '@/theme/tokens';
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
@@ -82,6 +91,11 @@ const MIN_KB = 40;
 let lastKbFix = 0;
 // Room for the docked "Alert me" (a 56pt capsule and its gap) at the end of the list.
 const ALERT_ROOM = 56 + 12;
+// The days and trips are built this long after the tap: the bar is about 90% of the way by
+// then, so building them can't hold up the first frame or stutter the glide.
+const CONTENT_AFTER_MS = 260;
+// Swipe the grown card down this far (or flick it) to collapse it back to the bar.
+const PULL_COLLAPSE = 36;
 // Grown for place search: the two From/To fields under the row.
 // A little more air than the one-line bar: 10 between the row and the fields, 12 under them.
 const GAP = 10;
@@ -206,6 +220,20 @@ export function SearchMorph({
   const drag = useSharedValue(0);
   const pull = useSharedValue(0);
   const leaving = useSharedValue(0); // 1 while closing: the list tucks up instead of dropping down
+  // The grown card pulled down by a finger, before it lets go and collapses.
+  const cardDrag = useSharedValue(0);
+  // The page's content waits for the bar to (nearly) land; see CONTENT_AFTER_MS.
+  const [ready, setReady] = useState(!!reduced);
+  const pickingRef = useRef(picking);
+  pickingRef.current = picking;
+  /** From/To back to the one-line bar, keyboard away. */
+  const collapse = () => {
+    tapFeel();
+    places.close();
+    Keyboard.dismiss();
+  };
+  /** The list pulled down past its top: collapses the fields first, then closes the search. */
+  const pulledDown = () => (pickingRef.current ? collapse() : requestClose());
   // Real Liquid Glass only while the bar is still at the bottom (see the note at the top).
   const [settled, setSettled] = useState(false);
 
@@ -217,6 +245,8 @@ export function SearchMorph({
         if (finished) runOnJS(setSettled)(true);
       };
       p.value = reduced ? withTiming(1, { duration: 120 }, arrived) : withSpring(1, OPEN, arrived);
+      const id = setTimeout(() => setReady(true), reduced ? 0 : CONTENT_AFTER_MS);
+      return () => clearTimeout(id);
     } else {
       setSettled(false);
       leaving.value = 1;
@@ -234,15 +264,6 @@ export function SearchMorph({
   const to = { x: side, y: screenH - bottomGap - HEAD_H, width: width - side * 2 };
   // Native glass only there: grown, it rides on the keyboard, and moving glass turns grey.
   const nativeGlass = LIQUID_GLASS && settled && !closing && !resizing && !picking && !restGrown && !kbUp;
-  // Where the bar's top is when it has arrived: above the keyboard if it's up, grown upward.
-  const landedTop = () => {
-    'worklet';
-    // Never lower than its resting spot: a few points of keyboard while it hides used to drop
-    // the bar under it, which showed as a ghost outline with Alert me sitting on it.
-    const lift = Math.max(bottomGap, kbLift() + KB_GAP);
-    return screenH - lift - HEAD_H - grow.value * GROW;
-  };
-
   // Pulling the list down past its top and letting go closes the search.
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
@@ -253,39 +274,63 @@ export function SearchMorph({
       // iOS reports a pull-down flick as negative velocity (in points per millisecond).
       const fast = (e.velocity?.y ?? 0) < -motion.dismissVelocity / 1000;
       if (e.contentOffset.y < -PULL_CLOSE || (e.contentOffset.y < -12 && fast)) {
-        runOnJS(requestClose)();
+        runOnJS(pulledDown)();
       }
     },
   });
 
-  // Dragging the header down works everywhere (Android lists don't rubber-band).
+  // Dragging the bar down works everywhere (Android lists don't rubber-band).
+  // On the one-line bar it closes the search; on the grown card it collapses it to the bar.
   const pan = usePanGesture({
-    enabled: !closing && !picking,
+    enabled: !closing,
     activeOffsetY: [-12, 12],
     failOffsetX: [-24, 24],
     onUpdate: (e) => {
       'worklet';
-      drag.value = e.translationY > 0 ? e.translationY : e.translationY / 8;
+      if (grow.value > 0.5) cardDrag.value = e.translationY > 0 ? e.translationY * 0.5 : 0;
+      else drag.value = e.translationY > 0 ? e.translationY : e.translationY / 8;
     },
     onDeactivate: (e) => {
       'worklet';
+      if (grow.value > 0.5) {
+        if (e.translationY > PULL_COLLAPSE || e.velocityY > 600) runOnJS(collapse)();
+        cardDrag.value = withTiming(0, { duration: 220 });
+        return;
+      }
       if (e.translationY > PULL_CLOSE || e.velocityY > motion.dismissVelocity) {
         runOnJS(requestClose)();
       } else drag.value = withTiming(0, { duration: motion.inMs });
     },
   });
 
+  // The bar is laid out once, at its resting place at the bottom, and SLIDES there from
+  // Home's bar: only a transform changes on the way, so nothing is laid out again per frame.
+  // (Its real size only changes when it grows into the From/To fields.)
+  const dx0 = from.x + from.width / 2 - width / 2;
+  const dy0 = from.y + from.height / 2 - (screenH - bottomGap - HEAD_H / 2);
   const glassStyle = useAnimatedStyle(() => {
     const landedSide = side + (growSide - side) * grow.value;
+    // Never lower than its resting spot: a few points of keyboard while it hides used to drop
+    // the bar under it, which showed as a ghost outline with Alert me sitting on it.
+    const lift = Math.max(bottomGap, kbLift() + KB_GAP);
     return {
-      // Pinned while you swipe: only the page follows the finger (moving Liquid Glass turns grey).
-      top: interpolate(p.value, [0, 1], [from.y, landedTop()], Extrapolation.EXTEND),
-      left: interpolate(p.value, [0, 1], [from.x, landedSide], Extrapolation.EXTEND),
-      width: interpolate(p.value, [0, 1], [from.width, width - landedSide * 2], Extrapolation.EXTEND),
-      height: interpolate(p.value, [0, 1], [from.height, HEAD_H], Extrapolation.EXTEND) + grow.value * GROW,
-      borderRadius: interpolate(p.value, [0, 1], [from.height / 2, RADIUS], Extrapolation.CLAMP),
+      left: landedSide,
+      width: width - landedSide * 2,
+      height: HEAD_H + grow.value * GROW,
+      transform: [
+        { translateX: interpolate(p.value, [0, 1], [dx0, 0], Extrapolation.EXTEND) },
+        { translateY: interpolate(p.value, [0, 1], [dy0, bottomGap - lift], Extrapolation.EXTEND) + cardDrag.value },
+      ],
     };
   });
+  // Its background starts scaled to Home's bar (a little wider and lower) and eases to its own
+  // size. Only the background is scaled, so the text on it is never squashed.
+  const skinStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scaleX: interpolate(p.value, [0, 1], [from.width / to.width, 1], Extrapolation.CLAMP) },
+      { scaleY: interpolate(p.value, [0, 1], [from.height / HEAD_H, 1], Extrapolation.CLAMP) },
+    ],
+  }));
   // The bar's own grey covers the glass at first and melts away as it lifts.
   const barSkin = useAnimatedStyle(() => ({ opacity: interpolate(p.value, [0, 0.45], [1, 0], Extrapolation.CLAMP) }));
   const face = useAnimatedStyle(() => ({ opacity: interpolate(p.value, [0, 0.25], [1, 0], Extrapolation.CLAMP) }));
@@ -356,7 +401,7 @@ export function SearchMorph({
             }}
           >
             <Animated.View style={list}>
-              {picking ? (
+              {!ready ? null : picking ? (
                 // The towns take the trips' place while you pick; the trips come back after.
                 <Animated.View key="places" entering={reduced ? undefined : FadeIn.duration(180)}>
                   <PlaceResults
@@ -370,7 +415,7 @@ export function SearchMorph({
                   />
                 </Animated.View>
               ) : (
-                <Animated.View key="trips" entering={reduced || !resizing ? undefined : FadeIn.duration(220)} style={{ gap: space.md }}>
+                <Animated.View key="trips" entering={reduced ? undefined : FadeIn.duration(220)} style={{ gap: space.md }}>
                   <DayChips s={s} />
                   <SearchResults s={s} onOpenTrip={openTrip} dockedAlert />
                 </Animated.View>
@@ -404,7 +449,7 @@ export function SearchMorph({
           </View>
         ) : null}
 
-        {picking || closing ? null : (
+        {picking || closing || !ready ? null : (
           <Animated.View
             pointerEvents="box-none"
             style={[{ position: 'absolute', left: side, right: side, bottom: bottomGap + HEAD_H + 12, direction }, dock]}
@@ -414,16 +459,24 @@ export function SearchMorph({
         )}
 
         <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.glass, glassStyle]}>
+        <Animated.View style={[styles.glass, { bottom: bottomGap }, glassStyle]}>
+          <Animated.View style={[styles.skin, skinStyle]} pointerEvents="none">
           {/* While it moves or rides the keyboard, a plain porcelain fill. It travels over the
               porcelain page, where a blur shows nothing, and a blur redrawn at a new size every
               frame was the costliest thing on screen (part of the stutter). Real Liquid Glass
               takes over once it's still at the bottom. */}
           {nativeGlass ? null : <View style={[StyleSheet.absoluteFill, { backgroundColor: MOVING_FILL }]} />}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, barSkin]} pointerEvents="none" />
+          </Animated.View>
 
-          {/* The bar's face, so the first frame looks exactly like what you tapped. */}
-          <Animated.View style={[styles.face, { height: from.height, direction }, face]} pointerEvents="none">
+          {/* What's on the bar, clipped to its shape while it grows. */}
+          <View style={styles.inside}>
+          {/* The bar's face, so the first frame looks exactly like what you tapped (the text
+              starts where Home's text is, though this bar is a little narrower). */}
+          <Animated.View
+            style={[styles.face, { height: HEAD_H, paddingHorizontal: Math.max(8, 18 - (to.x - from.x)), direction }, face]}
+            pointerEvents="none"
+          >
             <Icon name="search" />
             <Text style={[styles.faceText, { fontFamily: f.bold }]}>{t('findSeatTitle')}</Text>
           </Animated.View>
@@ -479,6 +532,7 @@ export function SearchMorph({
               </Animated.View>
             )}
           </Animated.View>
+          </View>
         </Animated.View>
         </GestureDetector>
 
@@ -515,13 +569,16 @@ const styles = StyleSheet.create({
   clip: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
   unclip: { position: 'absolute', left: 0, right: 0 },
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
-  glass: {
-    position: 'absolute',
+  // The bar's frame: only slid about. Its look is `skin`, its contents are in `inside`.
+  glass: { position: 'absolute' },
+  skin: {
+    position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
     overflow: 'hidden',
-    borderRadius: radii.capsule,
+    borderRadius: RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.hairline,
   },
+  inside: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden', borderRadius: RADIUS },
   face: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18 },
   faceText: { fontSize: 18, color: colors.ink },
   // Spans the card, so the buttons sit evenly in it at both widths (bar and grown card).
