@@ -120,11 +120,19 @@ export default function Home() {
   const barRef = useRef<HostInstance>(null);
   const [search, setSearch] = useState<{ from: Rect; parked: boolean; closing: boolean } | null>(null);
   const searchState = useTripSearch();
-  const openSearch = () => {
+  // Where the bar is gets measured as the finger lands, so by the time it lifts (the tap)
+  // the search can start at once instead of waiting a frame for the measurement.
+  const barRect = useRef<Rect | null>(null);
+  const measureBar = (then?: (r: Rect) => void) =>
     barRef.current?.measureInWindow((x, y, width, height) => {
-      tapFeel();
-      setSearch({ from: { x, y, width, height }, parked: false, closing: false });
+      barRect.current = { x, y, width, height };
+      then?.(barRect.current);
     });
+  const openSearch = () => {
+    const open = (from: Rect) => setSearch({ from, parked: false, closing: false });
+    tapFeel();
+    if (barRect.current) open(barRect.current);
+    else measureBar(open);
   };
   // Start from your usual direction once we know it. The week loads now, while you're
   // still on Home, so the trips are already there when the bar opens.
@@ -389,6 +397,10 @@ export default function Home() {
       <Pressable
         ref={barRef}
         accessibilityRole="button"
+        onPressIn={() => {
+          barRect.current = null; // never start from an old spot
+          measureBar();
+        }}
         onPress={openSearch}
         style={[styles.whereTo, search && { opacity: 0 }]}
       >
