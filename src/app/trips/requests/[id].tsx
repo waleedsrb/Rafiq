@@ -21,7 +21,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Avatar } from '@/components/avatar';
-import { STATUS_LOOK, StatusCircle } from '@/components/checkpoint-badge';
+import { BarricadeMark, STATUS_LOOK } from '@/components/checkpoint-badge';
 import { CheckpointPicker, useWayChoices } from '@/components/checkpoint-picker';
 import { useContact } from '@/components/contact-card';
 import { DriveMode, nightNow } from '@/components/drive-mode';
@@ -409,7 +409,7 @@ export default function DriverTrip() {
           last
           icon="barricade"
           // Look B: the barricade, with a dot for the worst status on the way.
-          leading={<StatusCircle status={closedOnWay ? 'closed' : onWay.some((c) => c.status === 'crowded') ? 'crowded' : null} />}
+          leading={<BarricadeMark status={closedOnWay ? 'closed' : onWay.some((c) => c.status === 'crowded') ? 'crowded' : null} />}
           title={t('checkpointsOnRoute')}
           subtitle={
             onWay.length ? (

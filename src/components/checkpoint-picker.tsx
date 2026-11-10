@@ -8,7 +8,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { STATUS_LOOK, StatusCircle } from '@/components/checkpoint-badge';
+import { STATUS_LOOK, BarricadeMark } from '@/components/checkpoint-badge';
 import { Icon } from '@/components/icon';
 import { useMapCheckpoints, type MapCheckpoint } from '@/components/route-map';
 import { Body, ListRow, SectionTitle } from '@/components/ui';
@@ -43,7 +43,7 @@ export function CheckpointPicker({ choices, value, onChange }: { choices: WayCho
     <ListRow
       key={c.id}
       last={last}
-      leading={<StatusCircle status={c.status} size={36} />}
+      leading={<BarricadeMark status={c.status} size={36} />}
       title={c.name}
       subtitle={
         c.status ? (
