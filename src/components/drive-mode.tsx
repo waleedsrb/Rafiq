@@ -2,7 +2,8 @@
 // Big text, few buttons, light or dark (sun/moon button; it starts dark after sunset).
 //
 // - Top: the next checkpoint, its status and how far it is. A closed one turns the banner
-//   red, the only red on this screen. Past the last checkpoint it shows the drop-off.
+//   red, the only red on this screen, with "Change my way" under it. Past the last
+//   checkpoint it shows the drop-off.
 // - Bottom: about when you'll arrive, who's on board, the light/dark switch, Share and
 //   Emergency, and "slide when you arrive" (a slide, so a bump in the road can't end the trip).
 //
@@ -17,13 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/avatar';
 import { STATUS_LOOK, useAgo } from '@/components/checkpoint-badge';
 import { Icon, type IconName } from '@/components/icon';
-import { RouteMap, useMapCheckpoints } from '@/components/route-map';
+import { RouteMap, type MapCheckpoint } from '@/components/route-map';
 import { SlideToConfirm } from '@/components/slide-to-confirm';
 import { ltr, useFont } from '@/components/ui';
 import { arrivalAt, distanceParts, nextOnRoad } from '@/lib/drive';
 import { clock } from '@/lib/format';
 import { distanceM } from '@/lib/pickup';
-import { centreName, centrePoint, onRamallahNablusRoad, placeName, type LatLng } from '@/lib/places';
+import { centreName, centrePoint, placeName, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { useScreenCorners } from '@/theme/screen-corners';
@@ -60,6 +61,8 @@ export function DriveMode({
   origin,
   destination,
   pickup,
+  checkpoints,
+  onChangeWay,
   startedAt,
   car,
   riders,
@@ -74,6 +77,10 @@ export function DriveMode({
   origin: City;
   destination: City;
   pickup: LatLng | null;
+  /** The trip's checkpoints in driving order, kept fresh by the screen. */
+  checkpoints: MapCheckpoint[];
+  /** Open "Change my way" (a closed checkpoint ahead). */
+  onChangeWay: () => void;
   startedAt: string;
   car: LatLng | null;
   riders: Rider[];
@@ -99,11 +106,8 @@ export function DriveMode({
     return () => clearInterval(timer);
   }, []);
 
-  // Checkpoints in driving order, kept fresh while you drive.
-  const all = useMapCheckpoints(60_000);
-  // The four hand-placed ones only on the Ramallah - Nablus road, in driving order.
-  const way = onRamallahNablusRoad(origin, destination);
-  const road = way === 'forward' ? all : way === 'back' ? [...all].reverse() : [];
+  // The trip's checkpoints, in driving order.
+  const road = checkpoints;
   const start = pickup ?? centrePoint(origin);
   const dest = centrePoint(destination);
   const next = nextOnRoad(road, car, dest);
@@ -135,7 +139,7 @@ export function DriveMode({
         start={pickup ?? undefined}
         car={car}
         dark={dark}
-        checkpoints={all}
+        checkpoints={road}
         height={H}
         topInset={insets.top + 110}
         bottomInset={panelH}
@@ -166,6 +170,20 @@ export function DriveMode({
           ) : null}
         </View>
       </View>
+      {/* A closed checkpoint ahead: going around it? Change the way, so the riders know. */}
+      {closed ? (
+        <View style={[styles.wayRow, { top: insets.top + 6 + 72 + 8, direction }]} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            onPress={onChangeWay}
+            style={({ pressed }) => [styles.wayButton, { backgroundColor: c.panel }, pressed && { opacity: 0.7 }]}
+          >
+            <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+            <Icon name="barricade" size={18} color={c.ink} />
+            <Text style={[styles.panelButtonText, { fontFamily: f.medium, color: c.ink }]}>{t('changeMyWay')}</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Bottom: arrival, riders, and the few things you can do while driving. */}
       {/* Floats a few points in from the sides and bottom, its corners concentric with the
@@ -246,6 +264,8 @@ function PanelButton({ icon, label, onPress, c }: { icon: IconName; label: strin
 const styles = StyleSheet.create({
   top: { position: 'absolute', left: space.md, right: space.md, flexDirection: 'row', alignItems: 'center', gap: space.sm },
   round: { borderRadius: 24 },
+  wayRow: { position: 'absolute', left: space.md, right: space.md, flexDirection: 'row', justifyContent: 'center' },
+  wayButton: { height: 44, borderRadius: 22, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 8, overflow: 'hidden' },
   banner: {
     flex: 1,
     minHeight: 72,

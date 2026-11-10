@@ -96,6 +96,8 @@ export function TripSheet({
   step,
   map,
   pickup,
+  checkpointIds,
+  checkpointsExact,
 }: {
   origin: City;
   destination: City;
@@ -122,6 +124,10 @@ export function TripSheet({
   map?: ReactNode;
   /** Where the driver meets riders: the route line starts there instead of the city square. */
   pickup?: LatLng | null;
+  /** The trip's checkpoints (trips.checkpoint_ids), shown as pins on the map. */
+  checkpointIds?: string[] | null;
+  /** `checkpointIds` is the whole list even when empty (posting, Change my way). */
+  checkpointsExact?: boolean;
 }) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
@@ -362,6 +368,8 @@ export function TripSheet({
           <Animated.View key="route" style={StyleSheet.absoluteFill} entering={reduced || settled ? undefined : FadeIn.duration(320)}>
             <RouteMap
               start={pickup ?? undefined}
+              checkpointIds={checkpointIds}
+              checkpointsExact={checkpointsExact}
               origin={origin}
               destination={destination}
               height={H}

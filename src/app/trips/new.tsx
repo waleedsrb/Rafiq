@@ -1,5 +1,6 @@
-// Driver posts a trip, as four short steps inside the trip card over the map (Nov 9,
-// driver flow, Option A): where to, where you meet riders, when, then seats and price.
+// Driver posts a trip, as five short steps inside the trip card over the map (Nov 9,
+// driver flow, Option A): where to, where you meet riders, the checkpoints on the way
+// (Nov 10, whole West Bank maps), when, then seats and price.
 // It uses the same card as a passenger's trip (src/components/trip-sheet.tsx), so the
 // tinted glass, the bar, the spacing and the calm motion are the same on both sides.
 //
@@ -15,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { CheckpointPicker, useWayChoices } from '@/components/checkpoint-picker';
 import { PickupMap } from '@/components/pickup-map';
 import { PlaceFields, PlaceResults, usePlaceSearch } from '@/components/place-search';
 import { RouteCard } from '@/components/route-card';
@@ -35,9 +37,9 @@ import { supabase } from '@/lib/supabase';
 import { PRICE_MAX, SEATS_MAX, SEATS_MIN, suggestedPrice, type City } from '@/lib/trip-form';
 import { colors, space } from '@/theme/tokens';
 
-type Step = 'where' | 'pickup' | 'when' | 'seats' | 'posted';
+type Step = 'where' | 'pickup' | 'way' | 'when' | 'seats' | 'posted';
 type FormStep = Exclude<Step, 'posted'>;
-const STEPS: FormStep[] = ['where', 'pickup', 'when', 'seats'];
+const STEPS: FormStep[] = ['where', 'pickup', 'way', 'when', 'seats'];
 const DAYS = 7; // today plus the next 6: drivers post a week ahead at most
 const WEEKLY = DAYS; // the "Weekly" pill sits after the days
 
@@ -206,6 +208,13 @@ export default function NewTrip() {
   };
   const onSpot = pickup ? spotAt(spots, pickup) : null;
 
+  // ─── Checkpoints on the way ───────────────────────────────────────────────────
+  // The ones near the way come ticked until the driver changes the list; a new route starts over.
+  const choices = useWayChoices(origin, destination, pickup);
+  const [wayIds, setWayIds] = useState<string[] | null>(null);
+  useEffect(() => setWayIds(null), [origin, destination]);
+  const way = wayIds ?? choices.suggested.map((c) => c.id);
+
   // ─── When ─────────────────────────────────────────────────────────────────────
   const weekly = day === WEEKLY;
   const departs = useMemo(() => {
@@ -258,6 +267,7 @@ export default function NewTrip() {
       pickup_label: pickup.label.trim(),
       pickup_lat: pickup.latitude,
       pickup_lng: pickup.longitude,
+      checkpoint_ids: way,
     };
     setSaving(true);
     setError(null);
@@ -330,6 +340,7 @@ export default function NewTrip() {
     const titles: Record<FormStep, string> = {
       where: t('postStepWhere'),
       pickup: t('postStepPickup'),
+      way: t('postStepWay'),
       when: t('postStepWhen'),
       seats: t('postStepSeats'),
     };
@@ -412,6 +423,8 @@ export default function NewTrip() {
           />
         </>
       );
+    } else if (form === 'way') {
+      body = <CheckpointPicker choices={choices} value={way} onChange={setWayIds} />;
     } else if (form === 'when') {
       body = (
         <>
@@ -500,6 +513,8 @@ export default function NewTrip() {
         onClosed={goBack}
         step={{ key: step, depth: index }}
         pickup={pickup}
+        checkpointIds={way}
+        checkpointsExact
         want={want}
         map={step === 'pickup' && !pausedUntil ? <PickupMap center={mapAt} onMove={onMapMove} visibleBottom={sheetMidTop(H)} /> : undefined}
       />
