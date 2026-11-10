@@ -214,6 +214,11 @@ export const strings = {
   passengers: { ar_m: 'الركّاب', en: 'Passengers' },
   seatOne: { ar_m: 'مقعد', en: 'seat' },
   declineSorry: { ar_m: 'اعتذر', ar_f: 'اعتذري', en: 'Decline' },
+  declineAskTitle: { ar_m: 'تعتذر من {name}؟', ar_f: 'تعتذرين من {name}؟', en: 'Decline {name}?' },
+  declineAskBody: {
+    ar_m: 'سنخبر الراكب حتى يبحث عن رحلة أخرى.',
+    en: "We'll let them know, so they can look for another ride.",
+  },
   acceptRequest: { ar_m: 'اقبل الطلب', ar_f: 'اقبلي الطلب', en: 'Accept request' },
   unanswered: {
     ar_m: 'إذا لم ترد خلال الوقت، يُلغى الطلب تلقائيًا.',
