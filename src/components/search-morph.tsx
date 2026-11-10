@@ -50,6 +50,7 @@ import Animated, {
   KeyboardState,
   runOnJS,
   useAnimatedKeyboard,
+  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -243,9 +244,10 @@ export function SearchMorph({
   // The end of the list makes room for the grown card and the keyboard under it, so the last
   // towns can scroll up into view. A plain number set once per pick, not animated: animating
   // it re-laid out the whole list on every frame of the keyboard's rise (the stutter on grow).
-  // Sized for the tallest keyboard seen (it grows a strip of suggestions while you type), and
-  // never shrinks on the way out, so the last town can always be scrolled above the card.
-  const endSpace = picking ? GROW + space.lg + Math.max(0, Math.max(kbReal, lastKbReal) + KB_GAP - bottomGap) : 0;
+  // Sized for the tallest keyboard seen (it grows a strip of suggestions while you type).
+  // The list's own bottom padding already holds the bar and Alert me's room, so this only
+  // adds the card's growth and the keyboard: the last town ends just above the card.
+  const endSpace = picking ? Math.max(0, GROW + Math.max(kbReal, lastKbReal) + KB_GAP - bottomGap - ALERT_ROOM) : 0;
   // The trips and the towns are both kept built; picking only cross-fades between them.
   const tripsFade = useAnimatedStyle(() => ({ opacity: interpolate(grow.value, [0, 0.6], [1, 0], Extrapolation.CLAMP) }));
   const placesFade = useAnimatedStyle(() => ({ opacity: interpolate(grow.value, [0.2, 1], [0, 1], Extrapolation.CLAMP) }));
@@ -260,6 +262,12 @@ export function SearchMorph({
   const [ready, setReady] = useState(!!reduced);
   const pickingRef = useRef(picking);
   pickingRef.current = picking;
+  // Each list starts at its top: the towns open at the big cities, and coming back to the
+  // trips doesn't land part-way down them (the towns' scroll used to carry over and jump).
+  const listRef = useAnimatedRef<Animated.ScrollView>();
+  useEffect(() => {
+    listRef.current?.scrollTo({ y: 0, animated: false });
+  }, [!!picking]); // eslint-disable-line react-hooks/exhaustive-deps
   /**
    * Typing stopped (the field lost its caret, or the keyboard left): if no field has the
    * caret a moment later, From/To closes back to the one-line bar. The moment lets a switch
@@ -436,6 +444,7 @@ export function SearchMorph({
         <View style={[styles.unclip, { height: screenH }]} pointerEvents="box-none">
         <Animated.View style={[StyleSheet.absoluteFill, styles.page, page]}>
           <Animated.ScrollView
+            ref={listRef}
             onScroll={onScroll}
             scrollEventThrottle={16}
             keyboardShouldPersistTaps="handled"

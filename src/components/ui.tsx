@@ -161,6 +161,7 @@ export function GlassButton({
         <GlassView
           style={[StyleSheet.absoluteFill, styles.glassInner, { borderRadius: sizes.touch / 2 }]}
           glassEffectStyle="regular"
+          colorScheme="light"
           isInteractive
         >
           <View pointerEvents="none" style={styles.glassContent}>

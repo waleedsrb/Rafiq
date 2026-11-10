@@ -396,6 +396,9 @@ export function TripSheet({
                 style={StyleSheet.absoluteFill}
                 glassEffectStyle="regular"
                 tintColor={colors.glassTint}
+                // Always the light look: the app is light-only, but the phone's dark mode still
+                // reaches native glass and turned the card and the top buttons a dark grey.
+                colorScheme="light"
                 isInteractive={at === 'mini'}
               />
               <View
