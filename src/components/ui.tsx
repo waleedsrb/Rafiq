@@ -202,7 +202,7 @@ export function BackButton() {
  * title starts right under the status bar. The way iOS apps do it:
  * - the page's action (bell, map) is pinned: it never scrolls away;
  * - the large title scrolls with the content, and as it leaves, a frosted bar fades in
- *   behind the action with a small centred title, so you always know where you are;
+ *   behind the action (no small centred title in the bar);
  * - `fixed` keeps a block (e.g. the profile card) still and scrolls only what's below it.
  * Subpages use `Screen back` instead: back button row, title underneath.
  */
@@ -215,7 +215,7 @@ export function TabScreen({
   pinned,
   children,
 }: {
-  /** The page name: the large title, and the small one in the bar once scrolled. */
+  /** The page name, shown as the large title. */
   title: string;
   /** Replaces the large title (Home's greeting). */
   largeTitle?: ReactNode;
@@ -228,10 +228,9 @@ export function TabScreen({
   pinned?: boolean;
   children: ReactNode;
 }) {
-  const { f, direction } = useFont();
+  const { direction } = useFont();
   const insets = useSafeAreaInsets();
   const y = useSharedValue(0);
-  const [headH, setHeadH] = useState<number>(sizes.touch);
   const onScroll = useAnimatedScrollHandler((e) => {
     y.value = e.contentOffset.y;
   });
@@ -239,14 +238,10 @@ export function TabScreen({
 
   // Frost appears as soon as content starts to slide under the bar.
   const frost = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, 16], [0, 1], Extrapolation.CLAMP) }));
-  // The small title arrives as the large one finishes leaving.
-  const small = useAnimatedStyle(() => ({
-    opacity: interpolate(y.value, [headH * 0.6, headH], [0, 1], Extrapolation.CLAMP),
-  }));
   const line = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, 16], [0, 1], Extrapolation.CLAMP) }));
 
   const head = (
-    <View style={styles.tabHeader} onLayout={(e) => setHeadH(e.nativeEvent.layout.height)}>
+    <View style={styles.tabHeader}>
       <View style={styles.tabHeaderText}>
         {kicker}
         {largeTitle ?? <Title>{title}</Title>}
@@ -300,12 +295,6 @@ export function TabScreen({
           <View style={styles.glassFill} />
         </Animated.View>
         <Animated.View pointerEvents="none" style={[styles.tabLine, { bottom: 0 }, line]} />
-        <Animated.Text
-          numberOfLines={1}
-          style={[styles.tabSmallTitle, { top: insets.top, height: TAB_BAR_ROW, fontFamily: f.bold }, small]}
-        >
-          {title}
-        </Animated.Text>
         {action ? <View style={[styles.tabAction, { top: insets.top + space.sm }]}>{action}</View> : null}
       </View>
     </View>
@@ -778,16 +767,6 @@ const styles = StyleSheet.create({
   tabBar: { position: 'absolute', top: 0, left: 0, right: 0 },
   tabAction: { position: 'absolute', end: space.screen },
   tabLine: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: colors.hairline },
-  tabSmallTitle: {
-    position: 'absolute',
-    left: 72,
-    right: 72,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    lineHeight: TAB_BAR_ROW,
-    fontSize: 17,
-    color: colors.ink,
-  },
   sheet: {
     marginTop: -radii.sheet,
     borderTopLeftRadius: radii.sheet,
