@@ -408,11 +408,12 @@ export default function DriverTrip() {
         <ListRow
           last
           icon="barricade"
-          leading={closedOnWay ? <StatusCircle status="closed" /> : undefined}
+          // Look B: the barricade, with a dot for the worst status on the way.
+          leading={<StatusCircle status={closedOnWay ? 'closed' : onWay.some((c) => c.status === 'crowded') ? 'crowded' : null} />}
           title={t('checkpointsOnRoute')}
           subtitle={
             onWay.length ? (
-              // Each name, and the status word right after it when it is crowded or closed.
+              // Each name; a status word only when it is crowded or closed.
               <Text style={[styles.wayText, { fontFamily: f.regular }]}>
                 {onWay.map((c, i) => (
                   <Text key={c.id}>
@@ -421,7 +422,7 @@ export default function DriverTrip() {
                     {c.status === 'closed' || c.status === 'crowded' ? (
                       <Text style={{ fontFamily: f.medium, color: STATUS_LOOK[c.status].color }}>
                         {' '}
-                        ({t(STATUS_LOOK[c.status].word)})
+                        {t(STATUS_LOOK[c.status].word).toLocaleLowerCase()}
                       </Text>
                     ) : null}
                   </Text>

@@ -16,21 +16,26 @@ export const STATUS_LOOK: Record<CheckpointStatus, { color: string; soft: string
   closed: { color: colors.statusClosed, soft: colors.statusClosedSoft, icon: 'x', word: 'statusClosed' },
 };
 
-/** 40pt circle; grey with a dash when there is no recent report. */
-export function StatusCircle({ status, size = 40 }: { status: CheckpointStatus | null; size?: number }) {
-  const look = status ? STATUS_LOOK[status] : null;
+/** The dot's colour for a status (crowded uses the brighter amber, which reads at dot size). */
+export const dotColor = (status: CheckpointStatus) => (status === 'crowded' ? colors.statusCrowdedDot : STATUS_LOOK[status].color);
+
+/**
+ * A checkpoint's mark (look B, Nov 10): the barricade on a sunken circle, and a small status
+ * dot on its corner. No dot when there is no recent report. The word beside it says the rest.
+ */
+export function StatusCircle({ status, size = 40, plain }: { status: CheckpointStatus | null; size?: number; plain?: boolean }) {
+  const dot = Math.round(size * 0.32);
   return (
-    <View
-      style={[
-        styles.circle,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: look ? look.soft : colors.sunken },
-      ]}
-    >
-      {look?.icon ? (
-        <Icon name={look.icon} size={size * 0.38} color={look.color} />
-      ) : (
-        <Text style={[styles.mark, { color: look ? look.color : colors.inkSecondary }]}>{look ? '!' : '–'}</Text>
-      )}
+    <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2, backgroundColor: plain ? colors.card : colors.sunken }]}>
+      <Icon name="barricade" size={Math.round(size * 0.5)} color={colors.ink} />
+      {status ? (
+        <View
+          style={[
+            styles.dot,
+            { width: dot, height: dot, borderRadius: dot / 2, backgroundColor: dotColor(status), borderColor: plain ? colors.card : colors.surface },
+          ]}
+        />
+      ) : null}
     </View>
   );
 }
@@ -75,6 +80,6 @@ export function useAgo() {
 
 const styles = StyleSheet.create({
   circle: { alignItems: 'center', justifyContent: 'center' },
-  mark: { fontSize: 16, fontWeight: '700' },
+  dot: { position: 'absolute', top: -1, end: -1, borderWidth: 2 },
   word: { fontSize: 14 },
 });

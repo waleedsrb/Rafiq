@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type MapStyleElement } from 'react-native-maps';
 
-import { STATUS_LOOK } from '@/components/checkpoint-badge';
+import { STATUS_LOOK, StatusCircle } from '@/components/checkpoint-badge';
 import { GlassButton, useFont } from '@/components/ui';
 import type { CheckpointStatus } from '@/lib/checkpoints';
 import { centrePoint, onRamallahNablusRoad, type LatLng } from '@/lib/places';
@@ -105,6 +105,20 @@ export function useWayCheckpoints({
   );
 }
 
+/**
+ * Markers are snapshots: with tracking off, a pin drawn before its icon finished would stay
+ * blank. Track changes for a moment after the pins (or their statuses) change, then stop.
+ */
+function usePinsDrawn(key: string) {
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => {
+    setDrawn(false);
+    const id = setTimeout(() => setDrawn(true), 800);
+    return () => clearTimeout(id);
+  }, [key]);
+  return drawn;
+}
+
 export function RouteMap({
   origin,
   destination,
@@ -152,6 +166,7 @@ export function RouteMap({
   const ref = useRef<MapView>(null);
   const loaded = useWayCheckpoints({ origin, destination, start, ids: checkpointIds, exact: checkpointsExact });
   const onRoad = given ?? loaded;
+  const pinsDrawn = usePinsDrawn(onRoad.map((c) => `${c.id}${c.status}`).join());
   const from = start ?? centrePoint(origin);
   const to = centrePoint(destination);
   const line = [from, ...onRoad, to];
@@ -200,20 +215,12 @@ export function RouteMap({
           </Marker>
         ) : null}
         {onRoad.map((c) => (
-          <Marker key={c.id} coordinate={c} anchor={{ x: 0.5, y: labels ? 0.2 : 0.5 }} title={c.name} tracksViewChanges={!!labels}>
+          <Marker key={c.id} coordinate={c} anchor={{ x: 0.5, y: labels ? 0.2 : 0.5 }} title={c.name} tracksViewChanges={!!labels || !pinsDrawn}>
             <View style={styles.pin}>
-              <View
-                style={[
-                  styles.checkpoint,
-                  {
-                    backgroundColor: c.status
-                      ? c.status === 'crowded'
-                        ? colors.statusCrowdedDot
-                        : STATUS_LOOK[c.status].color
-                      : colors.lineStrong,
-                  },
-                ]}
-              />
+              {/* Look B: every checkpoint is the same white barricade; the dot carries the status. */}
+              <View style={styles.checkpoint}>
+                <StatusCircle status={c.status} size={28} plain />
+              </View>
               {labels ? (
                 <View style={styles.label}>
                   <Text style={[styles.labelText, { fontFamily: f.medium }]}>
@@ -253,6 +260,7 @@ export function CheckpointsMap({ height, topInset = 0 }: { height: number; topIn
   const { t } = useT();
   const ref = useRef<MapView>(null);
   const all = useMapCheckpoints(60_000);
+  const pinsDrawn = usePinsDrawn(all.map((c) => `${c.id}${c.status}`).join());
   const fit = () => {
     if (all.length === 0) return;
     ref.current?.fitToCoordinates(all, { edgePadding: { top: topInset + 20, bottom: 40, left: 30, right: 30 }, animated: false });
@@ -286,14 +294,11 @@ export function CheckpointsMap({ height, topInset = 0 }: { height: number; topIn
             title={c.name}
             description={c.status ? t(STATUS_LOOK[c.status].word) : t('noRecentReports')}
             onCalloutPress={() => router.push({ pathname: '/checkpoints/[id]', params: { id: c.id } })}
-            tracksViewChanges={false}
+            tracksViewChanges={!pinsDrawn}
           >
-            <View
-              style={[
-                styles.checkpoint,
-                { backgroundColor: c.status ? (c.status === 'crowded' ? colors.statusCrowdedDot : STATUS_LOOK[c.status].color) : colors.lineStrong },
-              ]}
-            />
+            <View style={styles.checkpoint}>
+              <StatusCircle status={c.status} size={24} plain />
+            </View>
           </Marker>
         ))}
       </MapView>
@@ -327,7 +332,7 @@ const styles = StyleSheet.create({
     borderColor: colors.card,
     ...shadows.float,
   },
-  checkpoint: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: colors.card },
+  checkpoint: { borderRadius: 14, ...shadows.float },
 });
 
 // Google Maps style: porcelain land, white roads, grey labels, no shop or transit clutter.
