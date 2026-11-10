@@ -6,8 +6,9 @@
 // - At the pickup: one big button per rider, tapped when they get in (no-show after 10 min).
 //   Start turns on once everyone is accounted for.
 // - Underway: drive mode (src/components/drive-mode.tsx), light or dark, slide to arrive.
-// - Any time until arrival: "Change my way" (the checkpoints the trip goes through). A
-//   closed checkpoint on the way shows a warning with it. Riders are told about a change.
+// - Any time until arrival: the checkpoints on the way fill themselves in (Nov 10), so there
+//   is only Edit for a rare fix. A closed one on the way asks "going around it?": one tap
+//   takes it off the way and tells the riders. Drive mode asks the same.
 // - Arrived: the cash reminder and a row of stars per rider, sent once.
 //
 // A rider's profile and the rating are steps inside the same card. The database decides
@@ -204,12 +205,10 @@ export default function DriverTrip() {
     const bookedSeats = requests.filter((r) => r.status === 'accepted').reduce((n, r) => n + r.seats, 0);
     let reason: 'checkpoint_closed' | null = null;
     if (isLateTripCancel(new Date(), new Date(trip.departs_at), bookedSeats)) {
-      const { data: overview } = await supabase.rpc('checkpoint_overview');
-      const closed = ((overview as { name_ar: string; name_en: string; status: string | null; road_order: number | null }[] | null) ?? []).filter(
-        (c) => c.status === 'closed' && c.road_order != null,
-      );
+      // A closed checkpoint on this trip's own way is a fair excuse.
+      const closed = onWay.filter((c) => c.status === 'closed');
       if (closed.length > 0) {
-        const names = closed.map((c) => (lang === 'ar' ? c.name_ar : c.name_en)).join('، ');
+        const names = closed.map((c) => c.name).join('، ');
         const excused = await confirm({
           title: t('closedCheckpointTitle'),
           body: `${t('closedCheckpointBody')} ${names}\n\n${t('closedCheckpointNote')}`,
@@ -280,6 +279,11 @@ export default function DriverTrip() {
     setStep('way');
     setWant({ to: 'full', key: Date.now() });
   };
+  // One tap: a closed checkpoint comes off the way, and the riders are told.
+  const goAround = async (id: string) => {
+    if (!trip) return;
+    await act('way', () => supabase.rpc('change_trip_way', { p_trip: trip.id, p_checkpoints: onWay.map((c) => c.id).filter((c) => c !== id) }));
+  };
   const saveWay = async () => {
     if (!trip) return;
     const ok = await act('way', () => supabase.rpc('change_trip_way', { p_trip: trip.id, p_checkpoints: draft }));
@@ -314,7 +318,8 @@ export default function DriverTrip() {
           destination={trip.destination}
           pickup={pickup}
           checkpoints={onWay}
-          onChangeWay={openWay}
+          onGoAround={goAround}
+          goingAround={busy === 'way'}
           startedAt={trip.started_at!}
           car={car}
           riders={requests
@@ -389,7 +394,7 @@ export default function DriverTrip() {
           icon="barricade"
           title={t('checkpointsOnRoute')}
           subtitle={onWay.length ? onWay.map((c) => c.name).join(lang === 'ar' ? '، ' : ', ') : t('wayNone')}
-          trailing={canChangeWay ? <TextLink label={t('changeMyWay')} onPress={openWay} /> : undefined}
+          trailing={canChangeWay ? <TextLink label={t('edit')} onPress={openWay} /> : undefined}
         />
       ) : null}
     </View>
@@ -406,10 +411,10 @@ export default function DriverTrip() {
               {t('closedOnYourWay').replace('{name}', closedOnWay.name)}
             </Body>
             <Body small muted>
-              {t('closedOnYourWayHint')}
+              {t('closedGoAroundHint')}
             </Body>
           </View>
-          <TextLink label={t('changeMyWay')} onPress={openWay} />
+          <TextLink label={t('goingAround')} onPress={() => goAround(closedOnWay.id)} disabled={busy === 'way'} />
         </View>
       ) : null}
 
@@ -603,7 +608,7 @@ export default function DriverTrip() {
         }
       : step === 'way'
         ? {
-            header: <StepHeader title={t('changeMyWay')} kicker={route} onBack={() => setStep('details')} />,
+            header: <StepHeader title={t('checkpointsOnRoute')} kicker={route} onBack={() => setStep('details')} />,
             body: (
               <>
                 <CheckpointPicker choices={choices} value={draft} onChange={setDraft} />
@@ -624,7 +629,7 @@ export default function DriverTrip() {
                 <Button label={t('saveWay')} onPress={saveWay} loading={busy === 'way'} />
               </>
             ),
-            mini: { sub: `${route} · ${t('changeMyWay')}`, action: { label: t('saveWay'), onPress: saveWay, loading: busy === 'way' } },
+            mini: { sub: `${route} · ${t('checkpointsOnRoute')}`, action: { label: t('saveWay'), onPress: saveWay, loading: busy === 'way' } },
           }
       : step === 'arrived'
         ? {

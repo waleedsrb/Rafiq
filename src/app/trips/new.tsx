@@ -1,6 +1,9 @@
-// Driver posts a trip, as five short steps inside the trip card over the map (Nov 9,
-// driver flow, Option A): where to, where you meet riders, the checkpoints on the way
-// (Nov 10, whole West Bank maps), when, then seats and price.
+// Driver posts a trip, as four short steps inside the trip card over the map (Nov 9,
+// driver flow, Option A): where to, where you meet riders, when, then seats and price.
+//
+// The checkpoints on the way fill themselves in (Nov 10, Waleed: no extra step): the list
+// from the last real drive on this route (learned_checkpoints), else the ones near the way.
+// The last step shows them in one line with Edit, for the rare fix.
 // It uses the same card as a passenger's trip (src/components/trip-sheet.tsx), so the
 // tinted glass, the bar, the spacing and the calm motion are the same on both sides.
 //
@@ -23,7 +26,7 @@ import { RouteCard } from '@/components/route-card';
 import { TimeWheel } from '@/components/time-wheel';
 import { TripHero } from '@/components/trip-hero';
 import { StepHeader, TripSheet, sheetMidTop, type SheetMini } from '@/components/trip-sheet';
-import { Body, Button, Chip, Field, ListRow, PillChips, Stepper, ltr } from '@/components/ui';
+import { Body, Button, Chip, Field, ListRow, PillChips, Stepper, TextLink, ltr } from '@/components/ui';
 import { photoGate, photoGateText } from '@/lib/avatar';
 import { formatChipDay, formatDay, formatLongDay, shortTime } from '@/lib/format';
 import { successFeel } from '@/lib/haptics';
@@ -35,11 +38,13 @@ import { WEEK, WORK_WEEK, toDbTime, toggleDay, weekdayName } from '@/lib/recurri
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { PRICE_MAX, SEATS_MAX, SEATS_MIN, suggestedPrice, type City } from '@/lib/trip-form';
+import { inDrivingOrder } from '@/lib/way';
 import { colors, space } from '@/theme/tokens';
 
 type Step = 'where' | 'pickup' | 'way' | 'when' | 'seats' | 'posted';
 type FormStep = Exclude<Step, 'posted'>;
-const STEPS: FormStep[] = ['where', 'pickup', 'way', 'when', 'seats'];
+const STEPS: FormStep[] = ['where', 'pickup', 'when', 'seats'];
+// 'way' is not in the row of steps: it opens from Edit on the last step and goes back to it.
 const DAYS = 7; // today plus the next 6: drivers post a week ahead at most
 const WEEKLY = DAYS; // the "Weekly" pill sits after the days
 
@@ -209,11 +214,24 @@ export default function NewTrip() {
   const onSpot = pickup ? spotAt(spots, pickup) : null;
 
   // ─── Checkpoints on the way ───────────────────────────────────────────────────
-  // The ones near the way come ticked until the driver changes the list; a new route starts over.
+  // The last real drive on this route, else the ones near the way, until the driver edits
+  // the list; a new route starts over.
   const choices = useWayChoices(origin, destination, pickup);
   const [wayIds, setWayIds] = useState<string[] | null>(null);
-  useEffect(() => setWayIds(null), [origin, destination]);
-  const way = wayIds ?? choices.suggested.map((c) => c.id);
+  const [learned, setLearned] = useState<string[] | null>(null);
+  useEffect(() => {
+    setWayIds(null);
+    setLearned(null);
+    let gone = false;
+    supabase.rpc('learned_checkpoints', { p_origin: origin, p_destination: destination }).then(({ data }) => {
+      if (!gone) setLearned((data as string[] | null) ?? []);
+    });
+    return () => {
+      gone = true;
+    };
+  }, [origin, destination]);
+  const way = wayIds ?? (learned && learned.length ? learned : choices.suggested.map((c) => c.id));
+  const wayNames = inDrivingOrder(choices.from, choices.to, choices.all.filter((c) => way.includes(c.id))).map((c) => c.name);
 
   // ─── When ─────────────────────────────────────────────────────────────────────
   const weekly = day === WEEKLY;
@@ -238,18 +256,20 @@ export default function NewTrip() {
   const whenText = weekly ? t('weeklyChip') : day === 0 ? t('today') : day === 1 ? t('tomorrow') : formatDay(departs, lang);
 
   // ─── Steps ────────────────────────────────────────────────────────────────────
-  const index = step === 'posted' ? STEPS.length : STEPS.indexOf(step);
+  const index = step === 'posted' || step === 'way' ? STEPS.length : STEPS.indexOf(step);
   const stepOk =
     step === 'pickup' ? !!pickup && labelOk(pickup.label) : step === 'when' ? !timePassed && (!weekly || weekdays.length > 0) : true;
   const close = () => setClosing(true);
   const next = () => {
     setError(null);
     if (step === 'seats') return publish();
+    if (step === 'way') return setStep('seats');
     setStep(STEPS[index + 1]);
   };
   const back = () => {
     setError(null);
     if (picking) return closePlaces();
+    if (step === 'way') return setStep('seats');
     if (index <= 0) close();
     else setStep(STEPS[index - 1]);
   };
@@ -344,7 +364,7 @@ export default function NewTrip() {
       when: t('postStepWhen'),
       seats: t('postStepSeats'),
     };
-    const kicker = `${t('postTripTitle')} · ${ltr(index + 1)} ${t('stepOf')} ${ltr(STEPS.length)}`;
+    const kicker = form === 'way' ? t('postTripTitle') : `${t('postTripTitle')} · ${ltr(index + 1)} ${t('stepOf')} ${ltr(STEPS.length)}`;
     header = <StepHeader title={titles[form]} kicker={kicker} onBack={back} />;
 
     if (form === 'where') {
@@ -456,7 +476,6 @@ export default function NewTrip() {
         <View>
           <ListRow icon="users" title={t('seatsLabel')} trailing={<Stepper value={seats} min={SEATS_MIN} max={SEATS_MAX} onChange={setSeats} />} />
           <ListRow
-            last={!canWomenOnly}
             icon="currency"
             title={`${t('seatPrice')} · ${ltr(`${price}₪`)}`}
             subtitle={
@@ -465,6 +484,14 @@ export default function NewTrip() {
                 : `${t('suggestedPrice')} ${ltr(`${suggestedPrice(km)}₪`)}`
             }
             trailing={<Stepper value={price} min={1} max={PRICE_MAX} onChange={setPrice} />}
+          />
+          <ListRow
+            last={!canWomenOnly}
+            icon="barricade"
+            title={t('checkpointsOnRoute')}
+            subtitle={wayNames.length ? wayNames.join(lang === 'ar' ? '، ' : ', ') : t('wayNone')}
+            trailing={<TextLink label={t('edit')} onPress={() => setStep('way')} />}
+            onPress={() => setStep('way')}
           />
           {canWomenOnly ? (
             <ListRow
@@ -480,7 +507,7 @@ export default function NewTrip() {
     }
 
     // The last button says exactly what goes out: "Publish trip · Tomorrow 7:30".
-    const nextLabel = form === 'seats' ? `${t('publishTrip')} · ${whenText} ${ltr(shortTime(departs))}` : t('nextStep');
+    const nextLabel = form === 'seats' ? `${t('publishTrip')} · ${whenText} ${ltr(shortTime(departs))}` : form === 'way' ? t('done') : t('nextStep');
     footer = picking ? undefined : (
       <>
         {error ? (

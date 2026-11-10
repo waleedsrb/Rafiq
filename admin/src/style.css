@@ -62,3 +62,17 @@ button { font: inherit; cursor: pointer; }
 .actions input { flex: 1 1 240px; }
 .empty { padding: 48px 0; text-align: center; color: var(--ink-2); }
 .grow { flex: 1; }
+
+/* Pages and the checkpoint editor */
+.nav { display: flex; gap: 6px; margin-bottom: 8px; }
+.navlink { padding: 6px 14px; border-radius: 999px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 14px; }
+.navlink.on { background: var(--ink); color: #fff; }
+.toolbar { margin: 18px 0 4px; }
+.toolbar input { width: 100%; max-width: 380px; }
+.cp-add { display: grid; gap: 12px; padding: 18px; border-radius: 16px; background: var(--sunken); margin-top: 12px; }
+.cp-add h2 { font-size: 17px; margin: 0; }
+.cp { padding: 16px 0; border-bottom: 1px solid var(--hairline); display: grid; gap: 10px; }
+.cp.hidden-cp { opacity: 0.5; }
+.cp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cp-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.cp-fields .num { font-variant-numeric: tabular-nums; }

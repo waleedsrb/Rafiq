@@ -1,4 +1,4 @@
-// Rafiq Admin: review ID checks in a browser.
+// Rafiq Admin: review ID checks, and keep the West Bank's checkpoints right, in a browser.
 //
 // This page is safe to host publicly: it only holds the anon key, and the database decides
 // everything. Only people listed in public.admins can read other people's requests, see the
@@ -99,10 +99,19 @@ function codeView(phone: string) {
   code.focus();
 }
 
-// ─── The queue ──────────────────────────────────────────────────────────────
-async function queueView() {
-  show(el('p', { class: 'muted', textContent: 'Loading…' }));
+// ─── Pages: ID checks and checkpoints ───────────────────────────────────────
+type Page = 'checks' | 'checkpoints';
+const page = (): Page => (location.hash === '#checkpoints' ? 'checkpoints' : 'checks');
+window.addEventListener('hashchange', () => currentUser && open());
 
+function nav() {
+  const link = (to: Page, label: string) =>
+    el('a', { href: to === 'checks' ? '#' : '#checkpoints', class: `navlink${page() === to ? ' on' : ''}`, textContent: label });
+  return el('nav', { class: 'nav' }, link('checks', 'ID checks'), link('checkpoints', 'Checkpoints'));
+}
+
+async function open() {
+  show(el('p', { class: 'muted', textContent: 'Loading…' }));
   const { data: isAdmin } = await supabase.rpc('is_admin');
   if (isAdmin !== true) {
     return show(
@@ -114,6 +123,12 @@ async function queueView() {
       ),
     );
   }
+  return page() === 'checkpoints' ? checkpointsView() : queueView();
+}
+
+// ─── The queue ──────────────────────────────────────────────────────────────
+async function queueView() {
+  show(el('p', { class: 'muted', textContent: 'Loading…' }));
 
   const { data, error } = await supabase
     .from('verifications')
@@ -135,6 +150,7 @@ async function queueView() {
   refresh.onclick = () => queueView();
 
   show(
+    nav(),
     el('h1', { textContent: 'Checks to review' }),
     el('p', { class: 'muted small' }, `${rows.length} waiting · oldest first · `, refresh),
     rows.length
@@ -218,10 +234,171 @@ function requestCard(r: Request, urlFor: Map<string, string>) {
   return card;
 }
 
+// ─── Checkpoints ────────────────────────────────────────────────────────────
+// Every checkpoint the app knows: fix a name or a place, add a missing one, hide one that is
+// gone. Hidden ones keep their reports but leave the app's lists, maps and suggestions.
+
+type Checkpoint = {
+  id: string;
+  name_ar: string;
+  name_en: string;
+  kind: string;
+  lat: number | null;
+  lng: number | null;
+  governorate: string | null;
+  source: string;
+  hidden_at: string | null;
+};
+const KINDS = ['checkpoint', 'partial', 'gate', 'roadblock', 'earthmound', 'crossing'];
+const GOVERNORATES = [
+  'Jenin Governorate', 'Tubas Governorate', 'Tulkarm Governorate', 'Nablus Governorate', 'Qalqilya Governorate',
+  'Salfit Governorate', 'Ramallah and al-Bireh Governorate', 'Jericho Governorate', 'Jerusalem Periphery Governorate',
+  'Bethlehem Governorate', 'Hebron Governorate',
+];
+const ERRORS: Record<string, string> = {
+  admins_only: 'Only admins can change checkpoints.',
+  name_needed: 'Give it an Arabic and an English name.',
+  place_outside: 'That place is outside the West Bank. Check the latitude and longitude (lat ≈ 31.3–32.6, lng ≈ 34.9–35.6).',
+  not_found: 'That checkpoint is gone. Refresh the page.',
+};
+const nice = (m: string) => Object.entries(ERRORS).find(([k]) => m.includes(k))?.[1] ?? m;
+
+async function checkpointsView(filter = '') {
+  const { data, error } = await supabase
+    .from('checkpoints')
+    .select('id, name_ar, name_en, kind, lat, lng, governorate, source, hidden_at')
+    .order('name_en');
+  if (error) return show(nav(), el('p', { class: 'error', textContent: error.message }));
+  const rows = (data ?? []) as Checkpoint[];
+
+  const search = el('input', { type: 'search', placeholder: 'Find by name…', value: filter });
+  const list = el('div', {});
+  const draw = () => {
+    const q = search.value.trim().toLowerCase();
+    const shown = rows.filter((r) => !q || r.name_en.toLowerCase().includes(q) || r.name_ar.includes(q));
+    list.replaceChildren(...shown.map((r) => checkpointRow(r)));
+  };
+  search.oninput = draw;
+  draw();
+
+  const hidden = rows.filter((r) => r.hidden_at).length;
+  show(
+    nav(),
+    el('h1', { textContent: 'Checkpoints' }),
+    el('p', { class: 'muted small', textContent: `${rows.length - hidden} shown in the app · ${hidden} hidden · from OpenStreetMap, hand-placed and added here` }),
+    addForm(),
+    el('div', { class: 'toolbar' }, search),
+    list,
+  );
+}
+
+/** The fields one checkpoint needs, filled in from `r` (empty for a new one). */
+function fields(r?: Checkpoint) {
+  const ar = el('input', { value: r?.name_ar ?? '', placeholder: 'الاسم بالعربية', dir: 'rtl', maxLength: 80 });
+  const en = el('input', { value: r?.name_en ?? '', placeholder: 'English name', maxLength: 80 });
+  const kind = el('select', { title: 'Kind' });
+  for (const k of KINDS) kind.append(el('option', { value: k, textContent: k }));
+  kind.value = r?.kind ?? 'checkpoint';
+  const gov = el('select', { title: 'Governorate' });
+  gov.append(el('option', { value: '', textContent: 'Governorate…' }));
+  for (const g of GOVERNORATES) gov.append(el('option', { value: g, textContent: g.replace(/ Governorate$/, '') }));
+  gov.value = r?.governorate ?? '';
+  const lat = el('input', { value: r?.lat != null ? String(r.lat) : '', placeholder: 'Latitude 32.1167', inputMode: 'decimal', class: 'num' });
+  const lng = el('input', { value: r?.lng != null ? String(r.lng) : '', placeholder: 'Longitude 35.2566', inputMode: 'decimal', class: 'num' });
+  // Paste "32.1167, 35.2566" (as a map app copies it) into either box: it fills both.
+  const paste = (e: ClipboardEvent) => {
+    const m = e.clipboardData?.getData('text').match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+    if (!m) return;
+    e.preventDefault();
+    lat.value = m[1];
+    lng.value = m[2];
+  };
+  lat.onpaste = lng.onpaste = paste;
+  const values = () => ({
+    p_name_ar: ar.value.trim(),
+    p_name_en: en.value.trim(),
+    p_kind: kind.value,
+    p_lat: Number(lat.value),
+    p_lng: Number(lng.value),
+    p_governorate: gov.value || null,
+  });
+  return { nodes: [ar, en, kind, gov, lat, lng], values, lat, lng };
+}
+
+function mapLink(lat: number | null, lng: number | null) {
+  if (lat == null || lng == null) return el('span', { class: 'muted small', textContent: 'no place' });
+  return el('a', {
+    class: 'small',
+    href: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`,
+    target: '_blank',
+    rel: 'noopener',
+    textContent: 'See on map',
+  });
+}
+
+function addForm() {
+  const f = fields();
+  const msg = el('p', { class: 'small error' });
+  const add = el('button', { class: 'btn', type: 'submit', textContent: 'Add checkpoint' });
+  const form = el(
+    'form',
+    { class: 'cp-add' },
+    el('h2', { textContent: 'Add a missing checkpoint' }),
+    el('div', { class: 'cp-fields' }, ...f.nodes),
+    el('div', { class: 'actions' }, add, el('span', { class: 'muted small', textContent: 'Tip: paste “lat, lng” into either place box.' })),
+    msg,
+  );
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    add.disabled = true;
+    msg.textContent = '';
+    const { error } = await supabase.rpc('admin_save_checkpoint', { p_id: null, ...f.values() });
+    add.disabled = false;
+    if (error) return (msg.textContent = nice(error.message));
+    checkpointsView();
+  };
+  return form;
+}
+
+function checkpointRow(r: Checkpoint) {
+  const f = fields(r);
+  const msg = el('span', { class: 'small' });
+  const save = el('button', { class: 'btn', textContent: 'Save' });
+  const hide = el('button', { class: 'btn secondary', textContent: r.hidden_at ? 'Show in app' : 'Hide' });
+  save.onclick = async () => {
+    save.disabled = true;
+    msg.className = 'small';
+    msg.textContent = 'Saving…';
+    const { error } = await supabase.rpc('admin_save_checkpoint', { p_id: r.id, ...f.values() });
+    save.disabled = false;
+    msg.className = error ? 'small error' : 'small muted';
+    msg.textContent = error ? nice(error.message) : 'Saved';
+  };
+  hide.onclick = async () => {
+    const hiding = !r.hidden_at;
+    if (hiding && !confirm(`Hide ${r.name_en}? It leaves the app's lists and maps. Its reports are kept.`)) return;
+    hide.disabled = true;
+    const { error } = await supabase.rpc('admin_hide_checkpoint', { p_id: r.id, p_hidden: hiding });
+    hide.disabled = false;
+    if (error) return (msg.textContent = nice(error.message));
+    r.hidden_at = hiding ? new Date().toISOString() : null;
+    card.classList.toggle('hidden-cp', hiding);
+    hide.textContent = hiding ? 'Show in app' : 'Hide';
+  };
+  const card = el(
+    'section',
+    { class: `cp${r.hidden_at ? ' hidden-cp' : ''}` },
+    el('div', { class: 'cp-head' }, el('span', { class: 'tag', textContent: r.source }), el('code', { class: 'muted small', textContent: r.id }), mapLink(r.lat, r.lng)),
+    el('div', { class: 'cp-fields' }, ...f.nodes),
+    el('div', { class: 'actions' }, save, hide, msg),
+  );
+  return card;
+}
+
 // ─── Start ──────────────────────────────────────────────────────────────────
 function render(session: Session | null) {
   signOutButton.hidden = !session;
-  if (session) queueView();
+  if (session) open();
   else signInView(!url || !anonKey ? 'Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (copy .env.example to .env.local).' : undefined);
 }
 

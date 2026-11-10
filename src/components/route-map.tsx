@@ -5,6 +5,7 @@
 // Google takes our quiet "graphite" style; Apple Maps can't be restyled, so iPhone
 // gets its muted standard map instead.
 
+import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type MapStyleElement } from 'react-native-maps';
@@ -38,7 +39,7 @@ export function useMapCheckpoints(refreshMs?: number) {
     let alive = true;
     const load = () =>
       Promise.all([
-        supabase.from('checkpoints').select('id, name_ar, name_en, road_order, lat, lng'),
+        supabase.from('checkpoints').select('id, name_ar, name_en, road_order, lat, lng').is('hidden_at', null),
         supabase.rpc('checkpoint_overview'),
       ]).then(([places, overview]) => {
         if (!alive) return;
@@ -240,6 +241,62 @@ export function RouteMap({
           </View>
         </>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Every checkpoint in the West Bank, in its status colour (the Checkpoints tab's map).
+ * Tap one for its name and status; tap that to open its page.
+ */
+export function CheckpointsMap({ height, topInset = 0 }: { height: number; topInset?: number }) {
+  const { t } = useT();
+  const ref = useRef<MapView>(null);
+  const all = useMapCheckpoints(60_000);
+  const fit = () => {
+    if (all.length === 0) return;
+    ref.current?.fitToCoordinates(all, { edgePadding: { top: topInset + 20, bottom: 40, left: 30, right: 30 }, animated: false });
+  };
+  useEffect(() => {
+    fit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [all.length]);
+  return (
+    <View style={{ height }}>
+      <MapView
+        ref={ref}
+        style={StyleSheet.absoluteFill}
+        onMapReady={fit}
+        // The whole West Bank before the checkpoints load.
+        initialRegion={{ latitude: 31.95, longitude: 35.25, latitudeDelta: 1.6, longitudeDelta: 1.0 }}
+        customMapStyle={Platform.OS === 'android' ? GRAPHITE : undefined}
+        mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
+        rotateEnabled={false}
+        pitchEnabled={false}
+        toolbarEnabled={false}
+        showsPointsOfInterests={false}
+        showsBuildings={false}
+        showsTraffic={false}
+      >
+        {all.map((c) => (
+          <Marker
+            key={c.id}
+            coordinate={c}
+            anchor={{ x: 0.5, y: 0.5 }}
+            title={c.name}
+            description={c.status ? t(STATUS_LOOK[c.status].word) : t('noRecentReports')}
+            onCalloutPress={() => router.push({ pathname: '/checkpoints/[id]', params: { id: c.id } })}
+            tracksViewChanges={false}
+          >
+            <View
+              style={[
+                styles.checkpoint,
+                { backgroundColor: c.status ? (c.status === 'crowded' ? colors.statusCrowdedDot : STATUS_LOOK[c.status].color) : colors.lineStrong },
+              ]}
+            />
+          </Marker>
+        ))}
+      </MapView>
     </View>
   );
 }
