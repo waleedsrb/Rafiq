@@ -21,6 +21,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Avatar } from '@/components/avatar';
+import { STATUS_LOOK, StatusCircle } from '@/components/checkpoint-badge';
 import { CheckpointPicker, useWayChoices } from '@/components/checkpoint-picker';
 import { useContact } from '@/components/contact-card';
 import { DriveMode, nightNow } from '@/components/drive-mode';
@@ -287,6 +288,8 @@ export default function DriverTrip() {
   const [draft, setDraft] = useState<string[]>([]);
   const canChangeWay = !!trip && !trip.cancelled_at && state !== 'finished';
   const closedOnWay = canChangeWay ? onWay.find((c) => c.status === 'closed') : undefined;
+  // Trip day: from 3 hours before leaving, a closed checkpoint also shows at the top of the card.
+  const closedSoon = state === 'scheduled' && departs.getTime() - now.getTime() < 3 * 3600_000;
   const openWay = () => {
     setDraft(onWay.map((c) => c.id));
     setStep('way');
@@ -405,8 +408,29 @@ export default function DriverTrip() {
         <ListRow
           last
           icon="barricade"
+          leading={closedOnWay ? <StatusCircle status="closed" /> : undefined}
           title={t('checkpointsOnRoute')}
-          subtitle={onWay.length ? onWay.map((c) => c.name).join(lang === 'ar' ? '، ' : ', ') : t('wayNone')}
+          subtitle={
+            onWay.length ? (
+              // Each name, and the status word right after it when it is crowded or closed.
+              <Text style={[styles.wayText, { fontFamily: f.regular }]}>
+                {onWay.map((c, i) => (
+                  <Text key={c.id}>
+                    {i > 0 ? (lang === 'ar' ? '، ' : ', ') : ''}
+                    {c.name}
+                    {c.status === 'closed' || c.status === 'crowded' ? (
+                      <Text style={{ fontFamily: f.medium, color: STATUS_LOOK[c.status].color }}>
+                        {' '}
+                        ({t(STATUS_LOOK[c.status].word)})
+                      </Text>
+                    ) : null}
+                  </Text>
+                ))}
+              </Text>
+            ) : (
+              t('wayNone')
+            )
+          }
           trailing={canChangeWay ? <TextLink label={t('edit')} onPress={openWay} /> : undefined}
         />
       ) : null}
@@ -416,18 +440,14 @@ export default function DriverTrip() {
   const body = (
     <>
       {trip.cancelled_at ? <Note icon="info" text={t('tripCancelled')} /> : null}
-      {closedOnWay ? (
+      {/* A closed checkpoint lives in the checkpoints row. Only in the last hours before
+          leaving, when it really changes the drive, does it also get a line up here. */}
+      {closedOnWay && closedSoon ? (
         <View style={styles.closed}>
-          <Icon name="warning" size={18} color={colors.statusClosed} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Body small style={{ fontFamily: f.medium, color: colors.statusClosed }}>
-              {t('closedOnYourWay').replace('{name}', closedOnWay.name)}
-            </Body>
-            <Body small muted>
-              {t('closedGoAroundHint')}
-            </Body>
-          </View>
-          <TextLink label={t('goingAround')} onPress={() => goAround(closedOnWay.id)} disabled={busy === 'way'} />
+          <Icon name="warning" size={16} color={colors.statusClosed} />
+          <Body small style={{ flex: 1, fontFamily: f.medium, color: colors.statusClosed }}>
+            {t('closedOnYourWay').replace('{name}', closedOnWay.name)}
+          </Body>
         </View>
       ) : null}
 
@@ -725,7 +745,8 @@ function progressOf(r: Request, now: Date) {
 }
 
 const styles = StyleSheet.create({
-  closed: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: colors.statusClosedSoft, marginBottom: space.sm },
+  closed: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.statusClosedSoft },
+  wayText: { fontSize: 14, color: colors.inkSecondary },
   page: { flex: 1, backgroundColor: colors.surface },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   ask: { paddingVertical: space.sm },
