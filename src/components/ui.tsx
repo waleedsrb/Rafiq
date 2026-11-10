@@ -4,6 +4,8 @@
 // Layout rules from the mockups: 20pt side margins, glass buttons on top,
 // content from the top, the main action pinned at the bottom.
 
+import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import {
@@ -37,7 +39,6 @@ import { useT } from '@/lib/session';
 import { selectFeel, tapFeel } from '@/lib/haptics';
 import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
-import { Glass, LIQUID_GLASS, useReduceTransparency } from './glass';
 import { Icon, type IconName } from './icon';
 
 export function useFont() {
@@ -126,6 +127,8 @@ export function TopBar({ start, end }: { start?: ReactNode; end?: ReactNode }) {
   );
 }
 
+// iOS 26+: Apple's own Liquid Glass. Older iOS and Android: a frosted blur that imitates it.
+const LIQUID_GLASS = isLiquidGlassAvailable();
 
 /** Frosted circle button for the navigation layer (the only place glass is used). */
 export function GlassButton({
@@ -134,7 +137,6 @@ export function GlassButton({
   onPress,
   flip,
   dot,
-  native = true,
   children,
 }: {
   icon?: IconName;
@@ -142,26 +144,26 @@ export function GlassButton({
   onPress?: () => void;
   flip?: boolean;
   dot?: boolean;
-  /** false while the button fades or moves in with its layer: native glass would grey out. */
-  native?: boolean;
   children?: ReactNode;
 }) {
-  // Real glass draws its own edge and reacts to the press; frosted or solid keep a border and dim.
-  const solid = useReduceTransparency();
-  const live = LIQUID_GLASS && native && !solid;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [styles.glassButton, live && styles.glassButtonLiquid, !live && pressed && { opacity: 0.7 }]}
+      // Real glass reacts to the touch itself; the blur fallback dims instead.
+      style={({ pressed }) => [styles.glassButton, LIQUID_GLASS && styles.glassButtonLiquid, !LIQUID_GLASS && pressed && { opacity: 0.7 }]}
     >
-      {/* The icon lives inside the glass, so it lifts and stretches with it when pressed or
-          dragged. It lets touches through, so the glass itself feels the finger. */}
-      <Glass radius={sizes.touch / 2} native={native} interactive style={styles.glassContent}>
-        <View pointerEvents="none">{icon ? <Icon name={icon} flip={flip} /> : children}</View>
-      </Glass>
-      {dot ? <View pointerEvents="none" style={styles.glassDot} /> : null}
+      {LIQUID_GLASS ? (
+        <GlassView style={[StyleSheet.absoluteFill, { borderRadius: sizes.touch / 2 }]} glassEffectStyle="regular" isInteractive />
+      ) : (
+        <>
+          <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.glassFill} />
+        </>
+      )}
+      <View style={styles.glassContent}>{icon ? <Icon name={icon} flip={flip} /> : children}</View>
+      {dot ? <View style={styles.glassDot} /> : null}
     </Pressable>
   );
 }
@@ -271,10 +273,9 @@ export function TabScreen({
       </Animated.ScrollView>
 
       <View pointerEvents="box-none" style={[styles.tabBar, { height: barH }]}>
-        {/* Like iOS's own scroll edge: a soft frost that fades in, not a slab of glass. It fades by
-            opacity, which native glass can't do, so this is always the frosted material. */}
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, frost]}>
-          <Glass native={false} />
+          <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.glassFill} />
         </Animated.View>
         <Animated.View pointerEvents="none" style={[styles.tabLine, { bottom: 0 }, line]} />
         <Animated.Text
@@ -789,7 +790,8 @@ const styles = StyleSheet.create({
   },
   // Liquid Glass draws its own edge and depth: no border or drop shadow on top of it.
   glassButtonLiquid: { borderWidth: 0, shadowOpacity: 0, elevation: 0, overflow: 'visible' },
-  glassContent: { alignItems: 'center', justifyContent: 'center' },
+  glassContent: { zIndex: 1, alignItems: 'center', justifyContent: 'center' },
+  glassFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.glassFill },
   glassDot: {
     position: 'absolute',
     top: 10,

@@ -12,8 +12,10 @@
 // out from both every frame. Apple's Liquid Glass (tinted) goes on the card and the bar once
 // they've settled: native glass turns into a grey slab while its size animates (see search-morph).
 
+import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -32,7 +34,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
 import { RouteMap } from '@/components/route-map';
-import { NativeTripSheet } from '@/components/trip-sheet-native';
 import { GlassButton, useFont } from '@/components/ui';
 import { shortTime } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
@@ -40,7 +41,6 @@ import { useT } from '@/lib/session';
 import type { LatLng } from '@/lib/places';
 import type { Rect } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
-import { Glass, LIQUID_GLASS } from '@/components/glass';
 import { useScreenCorners } from '@/theme/screen-corners';
 import { colors, fonts, shadows, sizes, space } from '@/theme/tokens';
 
@@ -48,6 +48,7 @@ export type Detent = 'mini' | 'mid' | 'full';
 export type SheetAction = { label: string; onPress: () => void; secondary?: boolean; loading?: boolean };
 export type SheetMini = { sub: string; tone?: 'clay' | 'ok'; action?: SheetAction | null };
 
+const LIQUID_GLASS = isLiquidGlassAvailable();
 const BAR_H = 64;
 // How far the card floats from the screen edges, and its corners, come from the phone itself
 // (useScreenCorners): the corners are concentric with the display's, like Find My's sheet.
@@ -76,7 +77,26 @@ const clamp01 = (v: number) => {
   return Math.min(1, Math.max(0, v));
 };
 
-export type TripSheetProps = {
+export function TripSheet({
+  origin,
+  destination,
+  departsAt,
+  header,
+  body,
+  footer,
+  mini,
+  from,
+  settled,
+  start = 'mid',
+  want,
+  closing,
+  onRequestClose,
+  onClosed,
+  onShare,
+  step,
+  map,
+  pickup,
+}: {
   origin: City;
   destination: City;
   departsAt: string;
@@ -102,36 +122,7 @@ export type TripSheetProps = {
   map?: ReactNode;
   /** Where the driver meets riders: the route line starts there instead of the city square. */
   pickup?: LatLng | null;
-};
-
-// iOS 26+: Apple's own sheet, real Liquid Glass while it moves (trip-sheet-native.tsx).
-// Older iOS and Android: our custom card below.
-const NATIVE_SHEET = Platform.OS === 'ios' && LIQUID_GLASS;
-
-export function TripSheet(props: TripSheetProps) {
-  return NATIVE_SHEET ? <NativeTripSheet {...props} /> : <CustomTripSheet {...props} />;
-}
-
-function CustomTripSheet({
-  origin,
-  destination,
-  departsAt,
-  header,
-  body,
-  footer,
-  mini,
-  from,
-  settled,
-  start = 'mid',
-  want,
-  closing,
-  onRequestClose,
-  onClosed,
-  onShare,
-  step,
-  map,
-  pickup,
-}: TripSheetProps) {
+}) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
@@ -275,30 +266,14 @@ function CustomTripSheet({
   const panBar = usePanGesture(panConfig);
 
   // Pull the details down past their top (iOS rubber band) to drop one height.
-  // Like Find My: the header and the buttons stay put and the details slide under them, cut at a
-  // hairline that only shows while something is actually tucked under it. No solid bar.
-  const under = useSharedValue(0); // how far the details have scrolled under the header
-  const below = useSharedValue(0); // how much is still hidden under the buttons
-  const track = (e: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } }) => {
-    'worklet';
-    under.value = e.contentOffset.y;
-    below.value = e.contentSize.height - e.layoutMeasurement.height - e.contentOffset.y;
-  };
   const onScroll = useAnimatedScrollHandler({
-    onScroll: track,
-    onMomentumEnd: track,
     onEndDrag: (e) => {
-      track(e);
       if (e.contentOffset.y < -70) {
         runOnJS(startMove)();
         goTo(pos.value > 1.5 ? 'mid' : 'mini');
       }
     },
   });
-
-  const solid = useAnimatedStyle(() => ({ opacity: clamp01((pos.value - 1.25) / 0.7) }));
-  const headLine = useAnimatedStyle(() => ({ opacity: clamp01(under.value / 8) }));
-  const footLine = useAnimatedStyle(() => ({ opacity: clamp01(below.value / 8) }));
 
   const cardStyle = useAnimatedStyle(() => {
     const g = frameAt(pos.value);
@@ -331,6 +306,8 @@ function CustomTripSheet({
   const barStyle = useAnimatedStyle(() => ({
     opacity: clamp01((p.value - 0.35) / 0.45) * clamp01((0.4 - pos.value) / 0.4),
   }));
+  // The card is porcelain glass; the bar is lighter, clearer glass.
+  const cardFill = useAnimatedStyle(() => ({ opacity: clamp01(pos.value) }));
   // The tapped row's own porcelain covers the card at first, so the first frame matches it.
   const skin = useAnimatedStyle(() => ({ opacity: 1 - clamp01(p.value / 0.5) }));
   const mapStyle = useAnimatedStyle(() => ({ opacity: clamp01(p.value / 0.6) }));
@@ -397,23 +374,34 @@ function CustomTripSheet({
       </Animated.View>
 
       <Animated.View style={[styles.top, { top: insets.top + 6, direction }, topStyle]} pointerEvents="box-none">
-        {/* These fade in with the open morph and out on close: frosted until they're fully there. */}
-        <GlassButton icon="x" label={t('closeTrip')} onPress={onRequestClose} native={mapOn && !closing} />
-        {onShare ? <GlassButton icon="shareNetwork" label={t('shareTrip')} onPress={onShare} native={mapOn && !closing} /> : <View />}
+        <GlassButton icon="x" label={t('closeTrip')} onPress={onRequestClose} />
+        {onShare ? <GlassButton icon="shareNetwork" label={t('shareTrip')} onPress={onShare} /> : <View />}
       </Animated.View>
 
-      <Animated.View style={[styles.card, glass && styles.cardLiquid, cardStyle]}>
-        {/* Resting: Apple's Liquid Glass, outside the clip below and with no shadow on its
-            parent, because a clipped or shadowed parent makes UIKit draw a plain blur instead.
-            It carries its own corners: the card's, or the bar's capsule. */}
-        {glass ? <Glass radius={at === 'mini' ? BAR_H / 2 : R} interactive={at === 'mini'} /> : null}
-        <Animated.View style={[StyleSheet.absoluteFill, styles.clip, glass && styles.clipLiquid, clipStyle]}>
-          {/* Moving: the frosted stand-in, the same look as everywhere else. It stays glass at
-              every height, all the way to full: never a solid sheet. */}
-          {glass ? null : <Glass native={false} />}
-          {/* Like Find My: glass at the middle height, then a smooth fade to solid porcelain as
-              the card rises to full, so long details read like a page. It follows the finger. */}
-          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, solid]} pointerEvents="none" />
+      <Animated.View style={[styles.card, cardStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
+          {glass ? (
+            <>
+              {/* Tinted, so the card and the bar still read over a dark or busy map. The card
+                  carries more text than the bar, so its porcelain wash is a little stronger. */}
+              <GlassView
+                style={StyleSheet.absoluteFill}
+                glassEffectStyle="regular"
+                tintColor={colors.glassTint}
+                isInteractive={at === 'mini'}
+              />
+              <View
+                style={[StyleSheet.absoluteFill, { backgroundColor: at === 'mini' ? colors.glassVeil : colors.glassCardVeil }]}
+                pointerEvents="none"
+              />
+            </>
+          ) : (
+            <>
+              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
+              <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} />
+            </>
+          )}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, skin]} pointerEvents="none" />
 
           {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
@@ -434,25 +422,21 @@ function CustomTripSheet({
                 </Animated.View>
               </View>
             </GestureDetector>
-            <View style={{ flex: 1 }}>
-              <Animated.ScrollView
-                ref={scrollRef}
-                onScroll={onScroll}
-                scrollEventThrottle={16}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                style={{ flex: 1 }}
-                contentContainerStyle={[styles.body, { direction }]}
-              >
-                <Animated.View key={stepKey} entering={enter} style={{ gap: space.md }}>
-                  {body}
-                </Animated.View>
-              </Animated.ScrollView>
-              <Animated.View pointerEvents="none" style={[styles.line, { top: 0 }, headLine]} />
-            </View>
+            <Animated.ScrollView
+              ref={scrollRef}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
+              contentContainerStyle={[styles.body, { direction }]}
+            >
+              <Animated.View key={stepKey} entering={enter} style={{ gap: space.md }}>
+                {body}
+              </Animated.View>
+            </Animated.ScrollView>
             {footer ? (
               <View style={[styles.footer, { paddingBottom: footerBottom, direction }]}>
-                <Animated.View pointerEvents="none" style={[styles.line, { top: 0 }, footLine]} />
                 <Animated.View key={stepKey} entering={enter} style={{ gap: space.sm }}>
                   {footer}
                 </Animated.View>
@@ -545,16 +529,13 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.8)',
   },
-  // Real glass draws its own edge and shadow.
-  cardLiquid: { shadowOpacity: 0, elevation: 0 },
-  clipLiquid: { borderWidth: 0 },
   full: { position: 'absolute', top: 0, left: 0 },
+  cardFill: { backgroundColor: 'rgba(247,246,243,0.35)' }, // the frosted stand-in, close to the glass's look
   head: { paddingHorizontal: 18, paddingBottom: space.sm },
   grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
   grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },
   body: { paddingHorizontal: 18, paddingBottom: space.md, gap: space.md },
   footer: { paddingHorizontal: 18, paddingTop: space.sm, gap: space.sm },
-  line: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(23,25,28,0.12)' },
   bar: {
     position: 'absolute',
     top: 0,
