@@ -73,7 +73,18 @@ export type PlaceSearch = ReturnType<typeof usePlaceSearch>;
  * The route as two fields: start (ring) over end (square). The active end is a text field
  * with the caret in it; the other shows its town and switches to it when tapped.
  */
-export function PlaceFields({ search, origin, destination }: { search: PlaceSearch; origin: City; destination: City }) {
+export function PlaceFields({
+  search,
+  origin,
+  destination,
+  onBlur,
+}: {
+  search: PlaceSearch;
+  origin: City;
+  destination: City;
+  /** The field lost its caret (a tap outside it, the keyboard's own dismiss). */
+  onBlur?: () => void;
+}) {
   const { t, lang } = useT();
   const { f, rtl, direction } = useFont();
   const align = rtl ? ('right' as const) : ('left' as const);
@@ -93,6 +104,7 @@ export function PlaceFields({ search, origin, destination }: { search: PlaceSear
             accessibilityLabel={`${label}: ${t('searchTownPlaceholder')}`}
             autoCorrect={false}
             returnKeyType="search"
+            onBlur={onBlur}
             style={[styles.input, { fontFamily: f.medium, textAlign: align, writingDirection: direction }]}
           />
           {search.loading ? <ActivityIndicator size="small" color={colors.inkSecondary} /> : null}
