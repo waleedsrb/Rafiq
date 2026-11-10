@@ -83,31 +83,45 @@ const SHEEN = (pre: string, a: number, b: number) =>
 
 /** West Bank private plate, 2018+ format #-####-L (green on white). */
 export function palestinePlate(reg: string): string | null {
-  const [a, b, c] = reg.split('-');
-  const H = 72, top = 19, s = 9, cw = 38, gap = 10;
+  const groups = reg.split('-');
+  const H = 72, top = 19, s = 9;
   const ink = '#1F6B45';
   const pre = `ps${++uid}-`;
-  let x = 36, n = 0, ok = true;
+  // The standard #-####-L uses the asset's exact spacing. Any other number (older or test
+  // plates, "7-930-849") is laid out the same way, narrowed to fit before the ف/P panel.
+  const standard = groups.length === 3 && groups[0].length === 1 && groups[1].length === 4 && groups[2].length === 1;
+  const chars = groups.join('').length;
+  const natural = chars * 38 + (chars - groups.length) * 10 + (groups.length - 1) * 40;
+  const k = standard ? 1 : Math.min(1, 354 / natural);
+  const cw = 38 * k, gap = 10 * k, pad = 14 * k;
+  let x = standard ? 36 : 36 + (354 - natural * k) / 2, n = 0, ok = true;
   const put = (str: string) =>
     [...str].map((ch, i, arr) => {
-      const g = charGroup(`${pre}c${++n}`, ch, x, top, cw, H, s, ink);
+      const g = charGroup(`${pre}c${++n}`, ch, x, top, cw, H, s * Math.max(k, 0.8), ink);
       if (!g) ok = false;
       x += cw + (i < arr.length - 1 ? gap : 0);
       return g ?? '';
     }).join('');
   const midY = top + H / 2 - s / 2 + 1;
-  const g1 = put(a); x += 14;
-  const sep1 = `<rect x="${f(x)}" y="${f(midY)}" width="12" height="${s}"/>`; x += 12 + 14;
-  const g2 = put(b); x += 18;
-  const sep2 = `<rect x="${f(x)}" y="${f(midY)}" width="22" height="${s}"/>`; x += 22 + 16;
-  const g3 = put(c);
+  let body = '';
+  const seps: string[] = [];
+  groups.forEach((grp, gi) => {
+    body += put(grp);
+    if (gi === groups.length - 1) return;
+    // The asset: a short bar after the first group, a long one before the governorate letter.
+    const long = standard && gi === 1;
+    const w = (long ? 22 : 12) * k;
+    x += long ? 18 : pad;
+    seps.push(`<rect x="${f(x)}" y="${f(midY)}" width="${f(w)}" height="${s}"/>`);
+    x += w + (long ? 16 : pad);
+  });
   if (!ok) return null;
-  const ruleX = x + 20, cx = (ruleX + 3 + 508) / 2;
+  const ruleX = standard ? x + 20 : 410, cx = (ruleX + 3 + 508) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 110">${SHEEN(pre, 0.22, 0.05)}` +
     `<rect x="0" y="0" width="520" height="110" rx="6" fill="#FBFBF8"/>` +
     `<rect x=".4" y=".4" width="519.2" height="109.2" rx="5.6" fill="none" stroke="#D9D9D2" stroke-width=".8"/>` +
     `<rect x="4.75" y="4.75" width="510.5" height="100.5" rx="7" fill="none" stroke="${ink}" stroke-width="3.5"/>` +
-    g1 + `<g fill="${ink}">${sep1}${sep2}</g>` + g2 + g3 +
+    body + `<g fill="${ink}">${seps.join('')}</g>` +
     `<g fill="${ink}"><rect x="${f(ruleX)}" y="${top + 3}" width="3" height="${H - 6}"/>` +
     `<path transform="translate(${f(cx)} 47) scale(1.12)" d="${TEXT.fa.d}"/>` +
     `<rect x="${f(cx - 17)}" y="52.5" width="34" height="2.6"/></g>` +
@@ -168,5 +182,6 @@ export function plateSvg(reg: string): string | null {
   const kind = plateKind(reg);
   if (kind === 'ps') return palestinePlate(reg);
   if (kind === 'il') return israelPlate(reg);
-  return null;
+  // Anything else still gets the real plate (the West Bank one), not a plain text box.
+  return palestinePlate(reg);
 }

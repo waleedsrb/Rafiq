@@ -359,24 +359,27 @@ export function TripDetails({
     countdown = <Countdown label={t('waitingForDriver')} remaining={formatCountdown(left)} progress={end > start ? left / (end - start) : 0} />;
   }
 
+  const driverLine = (last: boolean) => (
+    <ListRow
+      leading={<Avatar path={trip.profiles.avatar_path} name={driverName} seed={trip.driver_id} />}
+      title={driverName}
+      onPress={() => {
+        setStep('driver');
+        moveTo('full');
+      }}
+      subtitle={
+        <View style={{ gap: 2 }}>
+          {driverVerified ? <VerifiedLine founding={!!driverStats?.founding_driver} /> : <Body muted small>{t('driverLabel')}</Body>}
+          {/* The founding badge rides on the verified line: at the end of the stats it got cut off. */}
+          <StatsLine stats={driverStats} showBadge={!driverVerified} />
+        </View>
+      }
+      last={last}
+    />
+  );
   const driverRow = (
     <View>
-      <ListRow
-        leading={<Avatar path={trip.profiles.avatar_path} name={driverName} seed={trip.driver_id} />}
-        title={driverName}
-        onPress={() => {
-          setStep('driver');
-          moveTo('full');
-        }}
-        subtitle={
-          <View style={{ gap: 2 }}>
-            {driverVerified ? <VerifiedLine founding={!!driverStats?.founding_driver} /> : <Body muted small>{t('driverLabel')}</Body>}
-            {/* The founding badge rides on the verified line: at the end of the stats it got cut off. */}
-            <StatsLine stats={driverStats} showBadge={!driverVerified} />
-          </View>
-        }
-        last={!!endedNote || driverCancelled || status === 'requested'}
-      />
+      {driverLine(!!endedNote || driverCancelled || status === 'requested')}
       {endedNote || status === 'requested' ? null : (
         <>
           {trip.trip_series && !trip.trip_series.stopped_at ? <ListRow icon="calendar" title={repeatsText(trip.trip_series.weekdays)} /> : null}
@@ -422,16 +425,20 @@ export function TripDetails({
         </View>
       ) : null}
 
-      {findCar && contact?.plate ? (
-        <View style={styles.findCar}>
-          <Body muted small>
-            {t('lookForPlate')}
-          </Body>
-          <PlateArt plate={contact.plate} width={250} />
-          {contact.car_model ? <Body>{[contact.car_model, contact.car_color].filter(Boolean).join(' · ')}</Body> : null}
-          <Body muted small>
-            {t('pickupFrom')} · {pickupLabel}
-          </Body>
+      {/* Find the car: who you're meeting, the plate to look for, the car and where. */}
+      {findCar ? (
+        <View>
+          {driverLine(false)}
+          {contact?.plate ? (
+            <View style={styles.findCar}>
+              <Body muted small>
+                {t('lookForPlate')}
+              </Body>
+              <PlateArt plate={contact.plate} width={250} />
+            </View>
+          ) : null}
+          {contact?.car_model ? <ListRow icon="carProfile" title={contact.car_model} subtitle={contact.car_color ?? undefined} /> : null}
+          <ListRow last icon="mapPin" title={pickupLabel} subtitle={t('pickupRow')} />
         </View>
       ) : null}
       {findCar && hereAt ? <Note tone="ok" icon="check" text={t('driverKnowsHere')} /> : null}
@@ -610,6 +617,6 @@ export function Note({ text, icon, tone }: { text: string; icon?: IconName; tone
 
 const styles = StyleSheet.create({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  findCar: { gap: 10, paddingVertical: space.sm, alignItems: 'center' },
+  findCar: { gap: 10, paddingVertical: space.md, alignItems: 'flex-start', borderBottomWidth: 1, borderBottomColor: colors.hairline },
   note: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: radii.md },
 });

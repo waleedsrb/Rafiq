@@ -23,3 +23,10 @@ test('gives up on letters it has no glyph for, so the app can fall back to text'
   assert.equal(plateSvg('7-1234-Q'), null);
   assert.equal(plateSvg('hello'), null);
 });
+
+test('draws other numbers on the West Bank plate too, fitted before the panel', () => {
+  const svg = plateSvg('7-930-849');
+  assert.ok(svg?.includes('#1F6B45'));
+  assert.equal(svg?.match(/<clipPath/g)?.length, 8);
+  assert.ok(plateSvg('12345678901'));
+});
