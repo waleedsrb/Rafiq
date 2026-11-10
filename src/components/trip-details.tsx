@@ -448,7 +448,7 @@ export function TripDetails({
         </Body>
       ) : null}
 
-      {onRoad ? <RouteCheckpoints origin={trip.origin} destination={trip.destination} start={common.pickup} ids={trip.checkpoint_ids} /> : null}
+      {onRoad ? <RouteCheckpoints origin={trip.origin} destination={trip.destination} start={common.pickup} ids={trip.checkpoint_ids} inCard /> : null}
 
       {(status === 'accepted' || arrived) && contact && !findCar ? (
         <>

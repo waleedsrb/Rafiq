@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type MapStyleElement } from 'react-native-maps';
 
-import { STATUS_LOOK, StatusCircle } from '@/components/checkpoint-badge';
+import { BarricadeMark, STATUS_LOOK } from '@/components/checkpoint-badge';
 import { GlassButton, useFont } from '@/components/ui';
 import type { CheckpointStatus } from '@/lib/checkpoints';
 import { centrePoint, onRamallahNablusRoad, type LatLng } from '@/lib/places';
@@ -126,6 +126,7 @@ export function RouteMap({
   topInset = 0,
   bottomInset = 0,
   labels,
+  barricades,
   interactive,
   onExpand,
   start,
@@ -151,6 +152,8 @@ export function RouteMap({
   interactive?: boolean;
   /** Tap the map (or its expand button) to open it full screen. */
   onExpand?: () => void;
+  /** Checkpoints as the cards' barricade mark (look B) instead of plain status dots. */
+  barricades?: boolean;
   /** Show each checkpoint's name and status under its dot (the full-screen map). */
   labels?: boolean;
   origin: City;
@@ -215,12 +218,21 @@ export function RouteMap({
           </Marker>
         ) : null}
         {onRoad.map((c) => (
-          <Marker key={c.id} coordinate={c} anchor={{ x: 0.5, y: labels ? 0.2 : 0.5 }} title={c.name} tracksViewChanges={!!labels || !pinsDrawn}>
+          <Marker key={c.id} coordinate={c} anchor={{ x: 0.5, y: labels ? 0.2 : 0.5 }} title={c.name} tracksViewChanges={!!labels || (barricades && !pinsDrawn)}>
             <View style={styles.pin}>
               {/* Look B: every checkpoint is the same white barricade; the dot carries the status. */}
-              <View style={styles.checkpoint}>
-                <StatusCircle status={c.status} size={28} plain />
-              </View>
+              {barricades ? (
+                <View style={styles.checkpoint}>
+                  <BarricadeMark status={c.status} size={28} plain />
+                </View>
+              ) : (
+                <View
+                  style={[
+                    styles.dot,
+                    { backgroundColor: c.status ? (c.status === 'crowded' ? colors.statusCrowdedDot : STATUS_LOOK[c.status].color) : colors.lineStrong },
+                  ]}
+                />
+              )}
               {labels ? (
                 <View style={styles.label}>
                   <Text style={[styles.labelText, { fontFamily: f.medium }]}>
@@ -260,7 +272,6 @@ export function CheckpointsMap({ height, topInset = 0 }: { height: number; topIn
   const { t } = useT();
   const ref = useRef<MapView>(null);
   const all = useMapCheckpoints(60_000);
-  const pinsDrawn = usePinsDrawn(all.map((c) => `${c.id}${c.status}`).join());
   const fit = () => {
     if (all.length === 0) return;
     ref.current?.fitToCoordinates(all, { edgePadding: { top: topInset + 20, bottom: 40, left: 30, right: 30 }, animated: false });
@@ -294,11 +305,14 @@ export function CheckpointsMap({ height, topInset = 0 }: { height: number; topIn
             title={c.name}
             description={c.status ? t(STATUS_LOOK[c.status].word) : t('noRecentReports')}
             onCalloutPress={() => router.push({ pathname: '/checkpoints/[id]', params: { id: c.id } })}
-            tracksViewChanges={!pinsDrawn}
+            tracksViewChanges={false}
           >
-            <View style={styles.checkpoint}>
-              <StatusCircle status={c.status} size={24} plain />
-            </View>
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: c.status ? (c.status === 'crowded' ? colors.statusCrowdedDot : STATUS_LOOK[c.status].color) : colors.lineStrong },
+              ]}
+            />
           </Marker>
         ))}
       </MapView>
@@ -333,6 +347,7 @@ const styles = StyleSheet.create({
     ...shadows.float,
   },
   checkpoint: { borderRadius: 14, ...shadows.float },
+  dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: colors.card },
 });
 
 // Google Maps style: porcelain land, white roads, grey labels, no shop or transit clutter.

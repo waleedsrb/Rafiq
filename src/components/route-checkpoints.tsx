@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { StatusCircle, StatusWord, useAgo } from '@/components/checkpoint-badge';
+import { BarricadeMark, StatusCircle, StatusWord, useAgo } from '@/components/checkpoint-badge';
 import { useWayCheckpoints } from '@/components/route-map';
 import { ListRow, SectionTitle } from '@/components/ui';
 import type { LatLng } from '@/lib/places';
@@ -24,6 +24,7 @@ export function RouteCheckpoints({
   ids,
   reportedOnly,
   limit,
+  inCard,
 }: {
   origin: City;
   destination: City;
@@ -32,6 +33,8 @@ export function RouteCheckpoints({
   ids?: string[] | null;
   reportedOnly?: boolean;
   limit?: number;
+  /** In a trip card: the cards' barricade mark (look B). Home keeps the status circle. */
+  inCard?: boolean;
 }) {
   const { t } = useT();
   const ago = useAgo();
@@ -49,7 +52,7 @@ export function RouteCheckpoints({
         <ListRow
           key={c.id}
           last={i === rows.length - 1}
-          leading={<StatusCircle status={c.status} size={36} />}
+          leading={inCard ? <BarricadeMark status={c.status} size={36} /> : <StatusCircle status={c.status} size={36} />}
           title={c.name}
           subtitle={c.reportedAt ? ago(c.reportedAt, now) : t('noRecentReports')}
           trailing={c.status ? <StatusWord status={c.status} /> : undefined}

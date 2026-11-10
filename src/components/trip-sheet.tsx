@@ -386,6 +386,7 @@ export function TripSheet({
               topInset={insets.top + 60}
               bottomInset={H - midTop}
               interactive
+              barricades
             />
           </Animated.View>
         ) : null}
