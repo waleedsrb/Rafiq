@@ -22,6 +22,8 @@
 // top, real Liquid Glass (iOS 26) takes over, and the bar stays pinned while you swipe down
 // (only the page under it follows your finger), so the glass never moves.
 
+import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -41,7 +43,6 @@ import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-na
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DialogLayer } from '@/components/dialog-host';
-import { Glass, LIQUID_GLASS } from '@/components/glass';
 import { Icon } from '@/components/icon';
 import { PlaceFields, PlaceResults, PLACE_FIELDS_H, usePlaceSearch } from '@/components/place-search';
 import { TripDetails } from '@/components/trip-details';
@@ -74,6 +75,7 @@ const PULL_CLOSE = 90;
 const CLOSE = { damping: 30, stiffness: 260, mass: 1, overshootClamping: true };
 // How far the list slides up into the bar as it folds away.
 const TUCK = 220;
+const LIQUID_GLASS = isLiquidGlassAvailable();
 
 export function SearchMorph({
   from,
@@ -327,7 +329,7 @@ export function SearchMorph({
             pointerEvents="none"
             style={{ position: 'absolute', top: to.y, left: to.x, width: to.width, height: HEAD_H + (restGrown ? GROW : 0) }}
           >
-            <Glass radius={26} />
+            <GlassView pointerEvents="none" glassEffectStyle="regular" style={[StyleSheet.absoluteFill, { borderRadius: 26 }]} />
           </View>
         ) : null}
 
@@ -336,7 +338,12 @@ export function SearchMorph({
           {/* Frosted glass that stays light and readable. Apple's native Liquid Glass view turned
               into a flat grey slab here (it doesn't survive being resized every frame), so the
               moving header uses the blur that the app's glass buttons fall back to. */}
-          {nativeGlass ? null : <Glass native={false} />}
+          {nativeGlass ? null : (
+            <>
+              <BlurView intensity={40} tint="extraLight" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
+            </>
+          )}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, barSkin]} pointerEvents="none" />
 
           {/* The bar's face, so the first frame looks exactly like what you tapped. */}
