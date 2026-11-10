@@ -264,14 +264,29 @@ export function TripSheet({
   const panBar = usePanGesture(panConfig);
 
   // Pull the details down past their top (iOS rubber band) to drop one height.
+  // Like Find My: the header and the buttons stay put and the details slide under them, cut at a
+  // hairline that only shows while something is actually tucked under it. No solid bar.
+  const under = useSharedValue(0); // how far the details have scrolled under the header
+  const below = useSharedValue(0); // how much is still hidden under the buttons
+  const track = (e: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } }) => {
+    'worklet';
+    under.value = e.contentOffset.y;
+    below.value = e.contentSize.height - e.layoutMeasurement.height - e.contentOffset.y;
+  };
   const onScroll = useAnimatedScrollHandler({
+    onScroll: track,
+    onMomentumEnd: track,
     onEndDrag: (e) => {
+      track(e);
       if (e.contentOffset.y < -70) {
         runOnJS(startMove)();
         goTo(pos.value > 1.5 ? 'mid' : 'mini');
       }
     },
   });
+
+  const headLine = useAnimatedStyle(() => ({ opacity: clamp01(under.value / 8) }));
+  const footLine = useAnimatedStyle(() => ({ opacity: clamp01(below.value / 8) }));
 
   const cardStyle = useAnimatedStyle(() => {
     const g = frameAt(pos.value);
@@ -404,21 +419,25 @@ export function TripSheet({
                 </Animated.View>
               </View>
             </GestureDetector>
-            <Animated.ScrollView
-              ref={scrollRef}
-              onScroll={onScroll}
-              scrollEventThrottle={16}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              style={{ flex: 1 }}
-              contentContainerStyle={[styles.body, { direction }]}
-            >
-              <Animated.View key={stepKey} entering={enter} style={{ gap: space.md }}>
-                {body}
-              </Animated.View>
-            </Animated.ScrollView>
+            <View style={{ flex: 1 }}>
+              <Animated.ScrollView
+                ref={scrollRef}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                style={{ flex: 1 }}
+                contentContainerStyle={[styles.body, { direction }]}
+              >
+                <Animated.View key={stepKey} entering={enter} style={{ gap: space.md }}>
+                  {body}
+                </Animated.View>
+              </Animated.ScrollView>
+              <Animated.View pointerEvents="none" style={[styles.line, { top: 0 }, headLine]} />
+            </View>
             {footer ? (
               <View style={[styles.footer, { paddingBottom: footerBottom, direction }]}>
+                <Animated.View pointerEvents="none" style={[styles.line, { top: 0 }, footLine]} />
                 <Animated.View key={stepKey} entering={enter} style={{ gap: space.sm }}>
                   {footer}
                 </Animated.View>
@@ -520,6 +539,7 @@ const styles = StyleSheet.create({
   grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },
   body: { paddingHorizontal: 18, paddingBottom: space.md, gap: space.md },
   footer: { paddingHorizontal: 18, paddingTop: space.sm, gap: space.sm },
+  line: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(23,25,28,0.12)' },
   bar: {
     position: 'absolute',
     top: 0,
