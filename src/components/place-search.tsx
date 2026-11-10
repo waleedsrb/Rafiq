@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { useFont } from '@/components/ui';
+import { inputAlign, useFont } from '@/components/ui';
 import { notify } from '@/lib/dialog';
 import { selectFeel, tapFeel } from '@/lib/haptics';
 import { place, placeName } from '@/lib/places';
@@ -87,7 +87,6 @@ export function PlaceFields({
 }) {
   const { t, lang } = useT();
   const { f, rtl, direction } = useFont();
-  const align = rtl ? ('right' as const) : ('left' as const);
   const field = (end: End) => {
     const value = end === 'origin' ? origin : destination;
     const label = t(end === 'origin' ? 'fromLabel' : 'toLabel');
@@ -105,7 +104,7 @@ export function PlaceFields({
             autoCorrect={false}
             returnKeyType="search"
             onBlur={onBlur}
-            style={[styles.input, { fontFamily: f.medium, textAlign: align, writingDirection: direction }]}
+            style={[styles.input, { fontFamily: f.medium, textAlign: inputAlign(rtl), writingDirection: direction }]}
           />
           {search.loading ? <ActivityIndicator size="small" color={colors.inkSecondary} /> : null}
         </View>
@@ -122,7 +121,7 @@ export function PlaceFields({
         }}
         style={({ pressed }) => [styles.field, { direction }, pressed && { opacity: 0.6 }]}
       >
-        <Text style={[styles.fieldText, { fontFamily: f.medium, textAlign: align }]} numberOfLines={1}>
+        <Text style={[styles.fieldText, { fontFamily: f.medium }]} numberOfLines={1}>
           {placeName(value, lang)}
         </Text>
       </Pressable>
@@ -149,8 +148,7 @@ export function PlaceFields({
  */
 export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch; exclude?: City; onPick: (id: City) => void }) {
   const { t, lang } = useT();
-  const { f, rtl, direction } = useFont();
-  const align = rtl ? ('right' as const) : ('left' as const);
+  const { f, direction } = useFont();
   const hits = search.hits?.filter((h) => h.id !== exclude) ?? null;
   const name = (h: Hit) => (lang === 'ar' ? h.name_ar : h.name_en);
   const governorate = (h: Hit) => (lang === 'ar' ? (place(h.id)?.governorate ?? '') : (h.governorate ?? '').replace(/ Governorate$/, ''));
@@ -177,11 +175,11 @@ export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch;
         <Icon name="mapPin" size={18} color={faded ? colors.inkSecondary : colors.ink} />
       </View>
       <View style={{ flex: 1, gap: 1 }}>
-        <Text style={[styles.rowTitle, { fontFamily: f.medium, textAlign: align }, faded ? { color: colors.inkSecondary } : null]} numberOfLines={1}>
+        <Text style={[styles.rowTitle, { fontFamily: f.medium }, faded ? { color: colors.inkSecondary } : null]} numberOfLines={1}>
           {label}
         </Text>
         {sub ? (
-          <Text style={[styles.rowSub, { fontFamily: f.regular, textAlign: align }]} numberOfLines={1}>
+          <Text style={[styles.rowSub, { fontFamily: f.regular }]} numberOfLines={1}>
             {sub}
           </Text>
         ) : null}
@@ -193,7 +191,7 @@ export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch;
       ) : null}
     </Pressable>
   );
-  const group = (label: string) => <Text style={[styles.group, { fontFamily: f.medium, textAlign: align }]}>{label}</Text>;
+  const group = (label: string) => <Text style={[styles.group, { fontFamily: f.medium }]}>{label}</Text>;
 
   if (hits === null) {
     return (
@@ -212,7 +210,7 @@ export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch;
       {flagged.length ? group(t('outsideWestBank')) : null}
       {flagged.map((h) => row(h.id, name(h), '', () => blocked(h), flag[h.region]))}
       {!search.loading && hits.length === 0 ? (
-        <Text style={[styles.rowSub, { fontFamily: f.regular, textAlign: align, marginTop: space.md }]}>{t('noPlaceFound')}</Text>
+        <Text style={[styles.rowSub, { fontFamily: f.regular, marginTop: space.md }]}>{t('noPlaceFound')}</Text>
       ) : null}
     </View>
   );

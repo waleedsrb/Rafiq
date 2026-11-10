@@ -22,7 +22,7 @@ export default function Verify() {
   const params = useLocalSearchParams<{ kind?: string }>();
   const kind: CheckKind = params.kind === 'driver' ? 'driver' : 'passenger';
   const { t } = useT();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const { session, refreshProfile } = useSession();
   const { status, reload } = useCheckStatus(session?.user.id, kind);
   const [photos, setPhotos] = useState<Partial<Record<PhotoSlot, Picked>>>({});
@@ -134,7 +134,7 @@ export default function Verify() {
                   </View>
                 )}
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.slotTitle, { fontFamily: f.medium, textAlign: rtl ? 'right' : 'left' }]}>
+                  <Text style={[styles.slotTitle, { fontFamily: f.medium }]}>
                     {t(`slot_${slot}` as StringKey)}
                   </Text>
                   <View style={[styles.slotAction, { flexDirection: 'row' }]}>

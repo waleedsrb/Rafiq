@@ -14,7 +14,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { Icon } from '@/components/icon';
-import { Body, GlassButton, ListRow, SectionTitle, TabScreen, ltr, useFont } from '@/components/ui';
+import { Body, GlassButton, ListRow, SectionTitle, TabScreen, inputAlign, ltr, useFont } from '@/components/ui';
 import { byGovernorate, confidence, matchesQuery, reportsKey } from '@/lib/checkpoints';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -91,7 +91,7 @@ export default function Checkpoints() {
         {t('checkpointsAllWestBank').replace('{n}', ltr(all.length))}
         {newest ? ` · ${t('updatedAgo')} ${ago(newest, now)}` : ''}
       </Body>
-      <View style={[styles.search, { flexDirection: rtl ? 'row-reverse' : 'row' }]}>
+      <View style={[styles.search, { flexDirection: 'row' }]}>
         <Icon name="search" size={18} color={colors.inkSecondary} />
         <TextInput
           value={q}
@@ -102,7 +102,7 @@ export default function Checkpoints() {
           autoCorrect={false}
           returnKeyType="search"
           clearButtonMode="while-editing"
-          style={[styles.input, { fontFamily: f.regular, textAlign: rtl ? 'right' : 'left' }]}
+          style={[styles.input, { fontFamily: f.regular, textAlign: inputAlign(rtl) }]}
         />
         {searching ? (
           <Pressable accessibilityRole="button" accessibilityLabel={t('clear')} onPress={() => setQ('')} hitSlop={8}>

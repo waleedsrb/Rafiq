@@ -355,7 +355,6 @@ export function TripSheet({
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const time = shortTime(new Date(departsAt));
-  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={closing ? 'none' : 'box-none'}>
@@ -473,13 +472,12 @@ export function TripSheet({
                 }}
                 style={styles.barText}
               >
-                <Text style={[styles.barTime, align]}>{time}</Text>
+                <Text style={styles.barTime}>{time}</Text>
                 <Text
                   numberOfLines={1}
                   style={[
                     styles.barSub,
                     { fontFamily: f.regular },
-                    align,
                     mini.tone === 'clay' && { color: colors.clay, fontFamily: f.medium },
                     mini.tone === 'ok' && { color: colors.statusOpen, fontFamily: f.medium },
                   ]}
@@ -515,15 +513,14 @@ export function TripSheet({
 export function StepHeader({ title, kicker, onBack }: { title: string; kicker?: string; onBack: () => void }) {
   const { t } = useT();
   const { f, rtl } = useFont();
-  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
   return (
     <View style={styles.step}>
       <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} hitSlop={8} style={styles.stepBack}>
         <Icon name={rtl ? 'caretRight' : 'caretLeft'} size={18} />
       </Pressable>
       <View style={{ flex: 1 }}>
-        {kicker ? <Text style={[styles.kicker, { fontFamily: f.regular }, align]}>{kicker}</Text> : null}
-        <Text style={[styles.stepTitle, { fontFamily: f.bold }, align]}>{title}</Text>
+        {kicker ? <Text style={[styles.kicker, { fontFamily: f.regular }]}>{kicker}</Text> : null}
+        <Text style={[styles.stepTitle, { fontFamily: f.bold }]}>{title}</Text>
       </View>
     </View>
   );

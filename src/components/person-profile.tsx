@@ -43,7 +43,7 @@ type Review = {
 /** Someone's page as a block: on its own screen (/people/[id]) or inside the trip card. */
 export function PersonProfile({ id }: { id: string }) {
   const { t, lang } = useT();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const [person, setPerson] = useState<PublicProfile | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [reviews, setReviews] = useState<Review[] | null>(null);
@@ -82,7 +82,6 @@ export function PersonProfile({ id }: { id: string }) {
     isDriver && person.driving_since
       ? `${t('drivingSince')} ${month(person.driving_since)}`
       : `${t('onRafiqSince')} ${month(person.member_since)}`;
-  const align = { textAlign: rtl ? ('right' as const) : ('left' as const) };
 
   const badges: [IconName, StringKey][] = [];
   if (person.founding_driver) badges.push(['steeringWheel', 'foundingDriver']);
@@ -95,10 +94,10 @@ export function PersonProfile({ id }: { id: string }) {
         <Avatar path={person.deleted ? null : avatarPath} name={name} seed={person.deleted ? null : id} size={72} />
         <View style={{ flex: 1, gap: 2 }}>
           <View style={styles.nameLine}>
-            <Text style={[styles.name, { fontFamily: f.bold }, align]}>{name}</Text>
+            <Text style={[styles.name, { fontFamily: f.bold }]}>{name}</Text>
             {person.id_verified ? <Icon name="sealCheck" size={20} color={colors.statusOpen} /> : null}
           </View>
-          {person.deleted ? null : <Text style={[styles.meta, { fontFamily: f.regular }, align]}>{since}</Text>}
+          {person.deleted ? null : <Text style={[styles.meta, { fontFamily: f.regular }]}>{since}</Text>}
         </View>
       </View>
 
@@ -145,7 +144,7 @@ export function PersonProfile({ id }: { id: string }) {
 
 function ReviewRow({ review, last }: { review: Review; last: boolean }) {
   const { t, lang } = useT();
-  const { f, rtl } = useFont();
+  const { f } = useFont();
   const when = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', { day: 'numeric', month: 'short' }).format(
     new Date(review.created_at),
   );
@@ -162,7 +161,7 @@ function ReviewRow({ review, last }: { review: Review; last: boolean }) {
         </View>
         <Stars value={review.stars} size={12} />
         {words.length > 0 ? (
-          <Text style={[styles.reviewText, { fontFamily: f.regular, textAlign: rtl ? 'right' : 'left' }]}>{words.join(' · ')}</Text>
+          <Text style={[styles.reviewText, { fontFamily: f.regular }]}>{words.join(' · ')}</Text>
         ) : null}
       </View>
     </View>
