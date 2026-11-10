@@ -15,8 +15,8 @@
 // page on screen at once, which a jump between two screens can't give.
 //
 // Motion: one spring value `p` (0 = the bar, 1 = the header) drives everything, on the UI
-// thread. Opening is slightly under-damped, so the glass settles with one soft give; while
-// it travels it stretches a little along the way it moves, like a drop.
+// thread. Opening settles without a bounce; while
+// it travels it keeps its shape (no stretch: it read as wobbly on the phone).
 // With "Reduce motion" on, it just appears and disappears.
 //
 // Closing: the list slides down into the bar, so the page looks swallowed by the bar while
@@ -30,16 +30,16 @@
 // (only the page under it follows your finger), so the glass never moves. With the keyboard
 // up (choosing a town) the bar moves with it, so it stays frosted then.
 
-import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Keyboard, Modal, Platform, Pressable, type KeyboardEvent, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
   FadeIn,
   interpolate,
   runOnJS,
+  useAnimatedKeyboard,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -73,8 +73,13 @@ const HEAD_H = PAD + ROW + PAD;
 const RADIUS = ROW / 2 + PAD;
 // Gap between the bar and the top of the keyboard.
 const KB_GAP = 8;
-// The iOS keyboard's own curve, so the card and the keyboard move as one.
-const KB_EASE = Easing.bezier(0.17, 0.59, 0.4, 0.77);
+// The moving bar's fill: the porcelain page colour, a touch lighter so its edge reads.
+const MOVING_FILL = 'rgba(251,250,248,0.98)';
+// Below this the keyboard counts as gone (iOS reports a few points while it hides).
+const MIN_KB = 40;
+// What iOS's reported keyboard height falls short of the real keyboard (see kbFix), kept
+// between opens.
+let lastKbFix = 0;
 // Room for the docked "Alert me" (a 56pt capsule and its gap) at the end of the list.
 const ALERT_ROOM = 56 + 12;
 // Grown for place search: the two From/To fields under the row.
@@ -85,7 +90,8 @@ const GROW = GAP + PLACE_FIELDS_H + 4;
 const GROW_MS = 380;
 const GROW_EASE = Easing.bezier(0.32, 0.72, 0, 1);
 
-const OPEN = { damping: 19, stiffness: 190, mass: 1 };
+// Critically damped: it lands on its spot without overshooting past it (the bounce looked wobbly).
+const OPEN = { damping: 28, stiffness: 200, mass: 1 };
 // Swipe down to close: past this far, or flicked fast (same feel as the app's sheets).
 const PULL_CLOSE = 90;
 // Closing: a near-critically damped spring (no bounce near the bar).
@@ -122,24 +128,38 @@ export function SearchMorph({
   const { width, height: screenH } = useWindowDimensions();
   const reduced = useReducedMotion();
   const corners = useScreenCorners();
-  // How far the keyboard's top edge is from the bottom of the screen (0 = no keyboard).
-  // Read from the keyboard's own frame (its top edge on screen), not a reported height: on
-  // iOS 26 the reported height left the suggestions row out, so the To field ended up under it.
-  const kbLift = useSharedValue(0);
+  // The keyboard, frame by frame on the UI thread, so the card rides it without waiting on
+  // JavaScript (the old JS-driven chase started late whenever the app was busy, which is
+  // what made picking a town feel laggy).
+  // iOS 26 reports a keyboard height that is short of where the keyboard is really drawn
+  // (the To field ended up under it). Once the keyboard has landed we compare that height
+  // with the keyboard's real top edge on screen and keep the difference in `kbFix`. It is
+  // remembered for the next time, so after the first time the card is right from the start.
+  const keyboard = useAnimatedKeyboard();
+  const kbFix = useSharedValue(lastKbFix);
+  const [kbUp, setKbUp] = useState(false);
   useEffect(() => {
-    const ios = Platform.OS === 'ios';
-    const show = Keyboard.addListener(ios ? 'keyboardWillChangeFrame' : 'keyboardDidShow', (e) => {
-      const lift = Math.max(0, screenH - e.endCoordinates.screenY);
-      kbLift.value = reduced || !e.duration ? lift : withTiming(lift, { duration: e.duration, easing: KB_EASE });
-    });
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', (e) => {
-      kbLift.value = reduced || !e?.duration ? 0 : withTiming(0, { duration: e.duration, easing: KB_EASE });
-    });
-    return () => {
-      show.remove();
-      hide.remove();
+    const landed = (e: KeyboardEvent) => {
+      const real = Math.max(0, screenH - e.endCoordinates.screenY);
+      const up = real > MIN_KB;
+      setKbUp(up);
+      if (!up) return;
+      lastKbFix = Math.max(0, real - keyboard.height.value);
+      kbFix.value = withTiming(lastKbFix, { duration: 160 });
     };
-  }, [screenH, reduced]); // eslint-disable-line react-hooks/exhaustive-deps
+    const subs = [
+      Keyboard.addListener('keyboardDidShow', landed),
+      ...(Platform.OS === 'ios' ? [Keyboard.addListener('keyboardDidChangeFrame', landed)] : []),
+      Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbUp(false)),
+    ];
+    return () => subs.forEach((sub) => sub.remove());
+  }, [screenH]); // eslint-disable-line react-hooks/exhaustive-deps
+  // How far the keyboard's top edge is from the bottom of the screen, now (0 = none).
+  const kbLift = () => {
+    'worklet';
+    const h = keyboard.height.value;
+    return h > 1 ? h + kbFix.value : 0;
+  };
   // At rest the capsule follows the screen corners; grown into the fields it becomes a card
   // that floats 8pt from the sides, like the trip card.
   const side = corners.capsuleInset(HEAD_H);
@@ -179,7 +199,7 @@ export function SearchMorph({
   // The end of the list makes room for the bar as it grows and for the keyboard under it,
   // so the last rows can always scroll up into view.
   const endSpace = useAnimatedStyle(() => ({
-    height: grow.value * GROW + Math.max(0, kbLift.value + KB_GAP - bottomGap),
+    height: grow.value * GROW + Math.max(0, kbLift() + KB_GAP - bottomGap),
   }));
   // Swipe down to close. `drag` = the header pulled by a finger (the page follows);
   // `pull` = the list pulled past its top (iOS rubber band; the header follows halfway).
@@ -213,11 +233,13 @@ export function SearchMorph({
   // Settled, one line, keyboard down: the tab bar's place.
   const to = { x: side, y: screenH - bottomGap - HEAD_H, width: width - side * 2 };
   // Native glass only there: grown, it rides on the keyboard, and moving glass turns grey.
-  const nativeGlass = LIQUID_GLASS && settled && !closing && !resizing && !picking && !restGrown;
+  const nativeGlass = LIQUID_GLASS && settled && !closing && !resizing && !picking && !restGrown && !kbUp;
   // Where the bar's top is when it has arrived: above the keyboard if it's up, grown upward.
   const landedTop = () => {
     'worklet';
-    const lift = kbLift.value > 0 ? kbLift.value + KB_GAP : bottomGap;
+    // Never lower than its resting spot: a few points of keyboard while it hides used to drop
+    // the bar under it, which showed as a ghost outline with Alert me sitting on it.
+    const lift = Math.max(bottomGap, kbLift() + KB_GAP);
     return screenH - lift - HEAD_H - grow.value * GROW;
   };
 
@@ -254,9 +276,6 @@ export function SearchMorph({
   });
 
   const glassStyle = useAnimatedStyle(() => {
-    // A drop stretches along the way it travels: most in the middle of the trip, none at rest.
-    const k = Math.sin(Math.PI * Math.min(1, Math.max(0, p.value)));
-    const stretch = reduced ? 0 : 0.05 * k;
     const landedSide = side + (growSide - side) * grow.value;
     return {
       // Pinned while you swipe: only the page follows the finger (moving Liquid Glass turns grey).
@@ -265,7 +284,6 @@ export function SearchMorph({
       width: interpolate(p.value, [0, 1], [from.width, width - landedSide * 2], Extrapolation.EXTEND),
       height: interpolate(p.value, [0, 1], [from.height, HEAD_H], Extrapolation.EXTEND) + grow.value * GROW,
       borderRadius: interpolate(p.value, [0, 1], [from.height / 2, RADIUS], Extrapolation.CLAMP),
-      transform: [{ scaleX: 1 - stretch * 0.5 }, { scaleY: 1 + stretch }],
     };
   });
   // The bar's own grey covers the glass at first and melts away as it lifts.
@@ -397,15 +415,11 @@ export function SearchMorph({
 
         <GestureDetector gesture={pan}>
         <Animated.View style={[styles.glass, glassStyle]}>
-          {/* Frosted glass that stays light and readable. Apple's native Liquid Glass view turned
-              into a flat grey slab here (it doesn't survive being resized every frame), so the
-              moving header uses the blur that the app's glass buttons fall back to. */}
-          {nativeGlass ? null : (
-            <>
-              <BlurView intensity={40} tint="extraLight" style={StyleSheet.absoluteFill} />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
-            </>
-          )}
+          {/* While it moves or rides the keyboard, a plain porcelain fill. It travels over the
+              porcelain page, where a blur shows nothing, and a blur redrawn at a new size every
+              frame was the costliest thing on screen (part of the stutter). Real Liquid Glass
+              takes over once it's still at the bottom. */}
+          {nativeGlass ? null : <View style={[StyleSheet.absoluteFill, { backgroundColor: MOVING_FILL }]} />}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, barSkin]} pointerEvents="none" />
 
           {/* The bar's face, so the first frame looks exactly like what you tapped. */}
@@ -414,7 +428,7 @@ export function SearchMorph({
             <Text style={[styles.faceText, { fontFamily: f.bold }]}>{t('findSeatTitle')}</Text>
           </Animated.View>
 
-          <Animated.View style={[styles.head, { width: to.width, direction }, head]}>
+          <Animated.View style={[styles.head, { direction }, head]}>
             {picking ? (
               // Grown: back, which end you're choosing, swap; then the two fields.
               <Animated.View key="fields" entering={reduced ? undefined : FadeIn.duration(160)} style={{ gap: GAP }}>
@@ -510,7 +524,8 @@ const styles = StyleSheet.create({
   },
   face: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18 },
   faceText: { fontSize: 18, color: colors.ink },
-  head: { position: 'absolute', top: 0, left: 0, padding: PAD },
+  // Spans the card, so the buttons sit evenly in it at both widths (bar and grown card).
+  head: { position: 'absolute', top: 0, left: 0, right: 0, padding: PAD },
   headRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: ROW },
   round: {
     width: ROW,
