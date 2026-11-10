@@ -304,8 +304,6 @@ export function TripSheet({
   const barStyle = useAnimatedStyle(() => ({
     opacity: clamp01((p.value - 0.35) / 0.45) * clamp01((0.4 - pos.value) / 0.4),
   }));
-  // The card is porcelain glass; the bar is lighter, clearer glass.
-  const cardFill = useAnimatedStyle(() => ({ opacity: clamp01(pos.value) }));
   // The tapped row's own porcelain covers the card at first, so the first frame matches it.
   const skin = useAnimatedStyle(() => ({ opacity: 1 - clamp01(p.value / 0.5) }));
   const mapStyle = useAnimatedStyle(() => ({ opacity: clamp01(p.value / 0.6) }));
@@ -383,12 +381,9 @@ export function TripSheet({
             It carries its own corners: the card's, or the bar's capsule. */}
         {glass ? <Glass radius={at === 'mini' ? BAR_H / 2 : R} interactive={at === 'mini'} /> : null}
         <Animated.View style={[StyleSheet.absoluteFill, styles.clip, glass && styles.clipLiquid, clipStyle]}>
-          {glass ? null : (
-            <>
-              <Glass native={false} blur={60} />
-              <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} pointerEvents="none" />
-            </>
-          )}
+          {/* Moving: the frosted stand-in, the same look as everywhere else. It stays glass at
+              every height, all the way to full: never a solid sheet. */}
+          {glass ? null : <Glass native={false} />}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }, skin]} pointerEvents="none" />
 
           {/* Middle and full: grab, header, scrolling details, pinned buttons. */}
@@ -520,7 +515,6 @@ const styles = StyleSheet.create({
   cardLiquid: { shadowOpacity: 0, elevation: 0 },
   clipLiquid: { borderWidth: 0 },
   full: { position: 'absolute', top: 0, left: 0 },
-  cardFill: { backgroundColor: 'rgba(247,246,243,0.28)' }, // the frosted stand-in, close to the glass's look
   head: { paddingHorizontal: 18, paddingBottom: space.sm },
   grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
   grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },

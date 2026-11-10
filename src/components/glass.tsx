@@ -49,14 +49,16 @@ export function useReduceTransparency() {
  * search bar, the trip card and drive mode all read as one material at one see-through level.
  * Tune the look here (GLASS_STYLE) and in tokens.ts (glassTint, glassTintDark), nowhere else.
  */
-export const GLASS_STYLE = 'clear' as const;
+// 'regular', like Find My's sheet: frosted enough that text reads, yet the colours behind
+// still come through. ('clear' looked like a sheet of plastic, with little frost.)
+export const GLASS_STYLE = 'regular' as const;
 
 export function Glass({
   radius = 0,
   native = true,
   interactive,
   dark,
-  blur = 40,
+  blur = 60,
   style,
   children,
 }: {
