@@ -329,7 +329,15 @@ export function SearchMorph({
             pointerEvents="none"
             style={{ position: 'absolute', top: to.y, left: to.x, width: to.width, height: HEAD_H + (restGrown ? GROW : 0) }}
           >
-            <GlassView pointerEvents="none" glassEffectStyle="regular" style={[StyleSheet.absoluteFill, { borderRadius: 26 }]} />
+            {/* The porcelain tint and a fixed light look keep it from turning grey over the white
+                page (untinted glass adapts to what's behind it and reads as a grey slab here). */}
+            <GlassView
+              pointerEvents="none"
+              glassEffectStyle="regular"
+              tintColor={colors.glassTint}
+              colorScheme="light"
+              style={[StyleSheet.absoluteFill, { borderRadius: 26 }]}
+            />
           </View>
         ) : null}
 
