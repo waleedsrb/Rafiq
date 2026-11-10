@@ -36,7 +36,9 @@ export default function PhoneStep() {
     const { error: err } = await supabase.auth.signInWithOtp({ phone });
     setSending(false);
     if (err) {
-      setError(t('somethingWrong'));
+      // No SMS provider during the cash pilot: only the Supabase test
+      // numbers get a code. Say so instead of a vague error.
+      setError(err.code === 'sms_send_failed' ? t('smsUnavailable') : t('somethingWrong'));
       return;
     }
     track('signup_phone_submitted'); // note: never log the number itself

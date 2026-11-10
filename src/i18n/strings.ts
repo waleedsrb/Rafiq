@@ -89,6 +89,11 @@ export const strings = {
     ar_m: 'أدخل رقم جوال يبدأ بـ 59 أو 56',
     en: 'Enter a mobile number starting with 59 or 56',
   },
+  smsUnavailable: {
+    ar_m: 'لا نرسل رسائل نصية بعد. سجّل الدخول بالبريد الإلكتروني أو Google أو Apple.',
+    ar_f: 'لا نرسل رسائل نصية بعد. سجّلي الدخول بالبريد الإلكتروني أو Google أو Apple.',
+    en: "We can't send text messages yet. Sign in with email, Google or Apple instead.",
+  },
 
   // Sign up: email
   emailTitle: { ar_m: 'أدخل بريدك الإلكتروني', en: 'Enter your email' },
