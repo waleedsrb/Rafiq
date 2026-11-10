@@ -54,7 +54,7 @@ export default function CodeStep() {
     const { error: err } = email
       ? await supabase.auth.signInWithOtp({ email })
       : await supabase.auth.signInWithOtp({ phone: phone! });
-    if (err) setError(t('somethingWrong'));
+    if (err) setError(err.code === 'sms_send_failed' ? t('smsUnavailable') : t('somethingWrong'));
   }
 
   const timeLeft = `0:${String(wait).padStart(2, '0')}`;
