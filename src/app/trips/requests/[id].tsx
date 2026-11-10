@@ -29,12 +29,13 @@ import { PersonProfile } from '@/components/person-profile';
 import { useWayCheckpoints } from '@/components/route-map';
 import { useRateRiders, type RideToRate } from '@/components/rate-riders';
 import { useRepeatsText } from '@/components/repeats';
+import { RequestRow } from '@/components/request-row';
 import { Stars } from '@/components/stars';
 import { StatsLine, usePeopleStats } from '@/components/stats-line';
 import { Note } from '@/components/trip-details';
 import { TripHero } from '@/components/trip-hero';
 import { StepHeader, TripSheet, type Detent, type SheetMini } from '@/components/trip-sheet';
-import { Body, Button, Countdown, ListRow, TextLink, ltr, useFont } from '@/components/ui';
+import { Body, Button, ListRow, TextLink, ltr, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatTime } from '@/lib/format';
@@ -180,6 +181,18 @@ export default function DriverTrip() {
   }
   const decide = (r: Request, status: 'accepted' | 'declined') =>
     act(r.id, () => supabase.from('bookings').update({ status }).eq('id', r.id));
+  // Decline is a small ✕ now, easy to tap by accident, so it asks first.
+  async function declineAsk(r: Request) {
+    const name = shortName(r.profiles.full_name).split(' ')[0];
+    const ok = await confirm({
+      title: t('declineAskTitle').replace('{name}', name),
+      body: t('declineAskBody'),
+      yes: t('declineSorry'),
+      no: t('keep'),
+      tone: 'warning',
+    });
+    if (ok) await decide(r, 'declined');
+  }
   const board = (r: Request) => {
     tapFeel();
     return act(r.id, () => supabase.rpc('mark_boarded', { p_booking_id: r.id, p_boarded: !r.boarded_at }));
@@ -419,44 +432,28 @@ export default function DriverTrip() {
       ) : null}
 
       {/* Requests: they need your answer, so they come first. */}
-      {asking.map((r) => (
-        <View key={r.id} style={styles.block}>
-          <ListRow
-            last
-            leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} />}
-            title={shortName(r.profiles.full_name)}
-            onPress={() => openRider(r.passenger_id)}
-            subtitle={
-              <View style={{ gap: 2 }}>
-                <Body muted small>
-                  {ltr(r.seats)} {t('seatOne')}
-                </Body>
-                <StatsLine stats={passengerStats[r.passenger_id]} />
-              </View>
-            }
-          />
-          {r.respond_by ? (
-            <Countdown
-              label={t('answerWithin')}
-              remaining={formatCountdown(new Date(r.respond_by).getTime() - now.getTime())}
-              progress={progressOf(r, now)}
-            />
-          ) : null}
-          <View style={styles.actions}>
-            <View style={styles.action}>
-              <Button variant="secondary" label={t('declineSorry')} onPress={() => decide(r, 'declined')} disabled={busy !== null} />
-            </View>
-            <View style={styles.action}>
-              <Button
-                label={t('acceptName').replace('{name}', shortName(r.profiles.full_name).split(' ')[0])}
-                onPress={() => decide(r, 'accepted')}
-                loading={busy === r.id}
-                disabled={busy !== null && busy !== r.id}
+      {asking.length > 0 ? (
+        <View>
+          {asking.map((r, i) => (
+            <View key={r.id} style={[styles.ask, i > 0 && styles.askLine]}>
+              <RequestRow
+                name={shortName(r.profiles.full_name)}
+                seats={r.seats}
+                avatarPath={r.profiles.avatar_path}
+                seed={r.passenger_id}
+                stats={passengerStats[r.passenger_id]}
+                remaining={r.respond_by ? formatCountdown(new Date(r.respond_by).getTime() - now.getTime()) : null}
+                progress={progressOf(r, now)}
+                onOpen={() => openRider(r.passenger_id)}
+                onAccept={() => decide(r, 'accepted')}
+                onDecline={() => declineAsk(r)}
+                accepting={busy === r.id}
+                disabled={busy !== null}
               />
             </View>
-          </View>
+          ))}
         </View>
-      ))}
+      ) : null}
       {asking.length > 0 ? (
         <Body muted small>
           {t('unanswered')}
@@ -731,9 +728,8 @@ const styles = StyleSheet.create({
   closed: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: colors.statusClosedSoft, marginBottom: space.sm },
   page: { flex: 1, backgroundColor: colors.surface },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  block: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairline },
-  actions: { flexDirection: 'row', gap: space.sm },
-  action: { flex: 1 },
+  ask: { paddingVertical: space.sm },
+  askLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   rider: { paddingBottom: space.sm },
   riderLine: { borderBottomWidth: 1, borderBottomColor: colors.hairline },
   checkIn: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingBottom: space.sm },

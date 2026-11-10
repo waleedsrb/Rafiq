@@ -39,7 +39,16 @@ export function useTripDriverStats(tripIds: string[]) {
   return stats;
 }
 
-export function StatsLine({ stats, showReliability = true }: { stats?: Stats; showReliability?: boolean }) {
+export function StatsLine({
+  stats,
+  showReliability = true,
+  showBadge = true,
+}: {
+  stats?: Stats;
+  showReliability?: boolean;
+  /** "Founding driver" helps a rider pick a driver; it means nothing to a driver choosing riders. */
+  showBadge?: boolean;
+}) {
   const { t } = useT();
   const { f } = useFont();
   if (!stats) return null;
@@ -50,15 +59,16 @@ export function StatsLine({ stats, showReliability = true }: { stats?: Stats; sh
     const rel = reliabilityText(stats);
     if (showReliability && rel) parts.push(`${ltr(rel)} ${t('showUpWord')}`);
   }
-  if (stats.founding_driver) parts.push(t('foundingDriver'));
+  if (showBadge && stats.founding_driver) parts.push(t('foundingDriver'));
   const rating = ratingText(stats);
   return (
     <View style={styles.row}>
       {rating ? (
         <>
           <Icon name="starFill" size={13} />
-          <Text style={[styles.text, { fontFamily: f.medium, color: colors.ink }]}>{ltr(rating)}</Text>
-          <Text style={[styles.text, { fontFamily: f.regular }]}>·</Text>
+          {/* The rating never shrinks: squeezed, "4.0" broke onto two lines. The rest of the line gives way. */}
+          <Text style={[styles.text, styles.fixed, { fontFamily: f.medium, color: colors.ink }]}>{ltr(rating)}</Text>
+          <Text style={[styles.text, styles.fixed, { fontFamily: f.regular }]}>·</Text>
         </>
       ) : null}
       <Text style={[styles.text, { fontFamily: f.regular }]} numberOfLines={1}>
@@ -71,4 +81,5 @@ export function StatsLine({ stats, showReliability = true }: { stats?: Stats; sh
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   text: { fontSize: 14, color: colors.inkSecondary, flexShrink: 1 },
+  fixed: { flexShrink: 0 },
 });
