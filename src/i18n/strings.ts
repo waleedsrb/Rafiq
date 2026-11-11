@@ -969,8 +969,6 @@ export const strings = {
   pickDate: { ar_m: 'اختر تاريخاً', ar_f: 'اختاري تاريخاً', en: 'Pick a date' },
   prevMonth: { ar_m: 'الشهر السابق', en: 'Previous month' },
   nextMonth: { ar_m: 'الشهر التالي', en: 'Next month' },
-  calendarHint: { ar_m: 'حتى 30 يوماً من اليوم', en: 'Up to 30 days ahead' },
-  calendarHintTrips: { ar_m: 'حتى 30 يوماً من اليوم · النقطة = رحلات في ذلك اليوم', en: 'Up to 30 days ahead · dot = trips that day' },
   ridersLooking: { ar_m: 'ركاب يبحثون', en: 'Riders looking' },
   busiestAt: { ar_m: 'الأكثر طلباً {t}', en: 'Busiest {t}' },
   leaveTime: { ar_m: 'وقت الانطلاق', en: 'Leaving time' },

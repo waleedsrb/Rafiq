@@ -474,33 +474,35 @@ export default function NewTrip() {
     } else if (form === 'when') {
       body = (
         <>
-          <DayPills day={day} onDay={setDay} extra={{ label: t('weeklyChip'), onPick: () => setDay(WEEKLY) }} />
-          {weekly ? (
-            <View style={styles.weekdays}>
-              {WEEK.map((d) => (
-                <Chip key={d} label={weekdayName(d, lang)} selected={weekdays.includes(d)} onPress={() => setWeekdays((cur) => toggleDay(cur, d))} />
-              ))}
-            </View>
-          ) : null}
-          {day === 0 && firstToday === null ? (
-            <Body muted style={{ textAlign: 'center' }}>
-              {t('noTimeToday')}
-            </Body>
-          ) : (
-            <>
-              <TimeRuler minutes={leaveMin} min={minToday} onChange={(m) => setTime({ h: Math.floor(m / 60), m: m % 60 })} bars={bars} />
-              {!weekly ? (
-                <Body muted small style={{ textAlign: 'center' }}>
-                  {day === 0 ? t('leaveIn').replace('{t}', ltr(untilWords(Math.max(0, leaveMin - nowMin), lang === 'ar'))) : formatDay(departs, lang)}
-                </Body>
-              ) : null}
-            </>
-          )}
-          {weekly ? (
-            <Body muted small>
-              {t('repeatHint')}
-            </Body>
-          ) : null}
+          {/* The calendar takes the ruler's place while it is open; the card keeps its height. */}
+          <DayPills day={day} onDay={setDay} extra={{ label: t('weeklyChip'), onPick: () => setDay(WEEKLY) }}>
+            {weekly ? (
+              <View style={styles.weekdays}>
+                {WEEK.map((d) => (
+                  <Chip key={d} label={weekdayName(d, lang)} selected={weekdays.includes(d)} onPress={() => setWeekdays((cur) => toggleDay(cur, d))} />
+                ))}
+              </View>
+            ) : null}
+            {day === 0 && firstToday === null ? (
+              <Body muted style={{ textAlign: 'center' }}>
+                {t('noTimeToday')}
+              </Body>
+            ) : (
+              <View style={{ gap: space.sm }}>
+                <TimeRuler minutes={leaveMin} min={minToday} onChange={(m) => setTime({ h: Math.floor(m / 60), m: m % 60 })} bars={bars} />
+                {!weekly ? (
+                  <Body muted small style={{ textAlign: 'center' }}>
+                    {day === 0 ? t('leaveIn').replace('{t}', ltr(untilWords(Math.max(0, leaveMin - nowMin), lang === 'ar'))) : formatDay(departs, lang)}
+                  </Body>
+                ) : null}
+              </View>
+            )}
+            {weekly ? (
+              <Body muted small>
+                {t('repeatHint')}
+              </Body>
+            ) : null}
+          </DayPills>
         </>
       );
     } else {
