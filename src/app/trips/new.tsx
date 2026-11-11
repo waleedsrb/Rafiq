@@ -24,7 +24,7 @@ import { PickupMap } from '@/components/pickup-map';
 import { PlaceFields, PlaceResults, usePlaceSearch } from '@/components/place-search';
 import { RouteCard } from '@/components/route-card';
 import { DayPills } from '@/components/day-pills';
-import { DemandChart, DemandLine, TimeWheels } from '@/components/time-wheels';
+import { DemandLine, TimeWheels } from '@/components/time-wheels';
 import { TripHero } from '@/components/trip-hero';
 import { StepHeader, TripSheet, sheetMidTop, type SheetMini } from '@/components/trip-sheet';
 import { Body, Button, Chip, Field, ListRow, Stepper, TextLink, ltr } from '@/components/ui';
@@ -491,16 +491,6 @@ export default function NewTrip() {
               </Body>
             ) : (
               <View style={{ gap: space.sm }}>
-                {/* Who wants to go when: shown once there is anyone to show; weekly has no one day. */}
-                {!weekly && slots ? (
-                  hasDemand ? (
-                    <DemandChart slots={slots} minutes={leaveMin} min={minToday} onPick={pickTime} />
-                  ) : (
-                    <Body muted small style={{ textAlign: 'center' }}>
-                      {t('noDemandYet')}
-                    </Body>
-                  )
-                ) : null}
                 <TimeWheels minutes={leaveMin} min={minToday} onChange={pickTime} />
                 {!weekly && slots && hasDemand ? <DemandLine slots={slots} minutes={leaveMin} /> : null}
                 {!weekly ? (
