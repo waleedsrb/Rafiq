@@ -167,17 +167,18 @@ select pg_temp.check((select count(*) from public.ratings) = 2, 'driver sees bot
 select pg_temp.check((select ratee_role = 'driver' and note = 'Thank you!' from public.ratings
                        where rater_id = '00000000-0000-0000-0000-0000000000a1'), 'note is trimmed, roles right');
 
--- 9. Nobody tapped Start on c2: the cron finishes it 4 hours after departure.
+-- 9. Nobody tapped Start on c2: the 4-hour job leaves it alone now. Trips that never
+-- start are settled by settle_unstarted_trips() (tests in unstarted_trips.sql).
 reset role;
 select pg_temp.as_user(null);
-update public.trips set departs_at = now() - interval '3 hours' where id = '00000000-0000-0000-0000-0000000000c2';
-select pg_temp.check(public.finish_due_trips() = 0, 'not due yet at 3 hours');
 update public.trips set departs_at = now() - interval '5 hours' where id = '00000000-0000-0000-0000-0000000000c2';
-select pg_temp.check(public.finish_due_trips() = 1, 'due at 5 hours');
-select pg_temp.check(pg_temp.st('a1c2') = 'completed', 'auto-finish completes the seat');
-select pg_temp.check((select finished_at is not null and started_at is null from public.trips
-                       where id = '00000000-0000-0000-0000-0000000000c2'), 'trip finished, never started');
-select pg_temp.check(public.finish_due_trips() = 0, 'finishing is done once');
+select pg_temp.check(public.finish_due_trips() = 0, 'never-started trips are not auto-finished');
+select pg_temp.check(pg_temp.st('a1c2') = 'accepted', 'seat untouched by finish_due_trips');
+select pg_temp.check(public.settle_unstarted_trips() = 1, 'settled instead');
+select pg_temp.check(pg_temp.st('a1c2') = 'not_confirmed', 'silence counts for nobody');
+select pg_temp.check((select finished_at is not null and started_at is null and cancelled_at is null
+                        from public.trips where id = '00000000-0000-0000-0000-0000000000c2'), 'closed quietly');
+select pg_temp.check(public.settle_unstarted_trips() = 0, 'settling is done once');
 
 select 'All trip day checks passed' as result;
 rollback;

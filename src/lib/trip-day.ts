@@ -10,8 +10,16 @@ export const PICKUP_OPENS_MIN = 60;
 export const START_OPENS_MIN = 30;
 /** A passenger can be marked as a no-show from 10 minutes after departure. */
 export const NO_SHOW_AFTER_MIN = 10;
-/** Trips nobody finishes are finished automatically this long after start (or departure). */
+/** Trips nobody finishes are finished automatically this long after Start. */
 export const AUTO_FINISH_HOURS = 4;
+/**
+ * Trips nobody started (supabase/migrations/20261111150000_unstarted_trips.sql):
+ * the driver's card turns "overdue" (and gets a push) 15 min after departure, riders are
+ * asked "Did you ride?" at 45 min, and the trip is settled 3 hours after departure.
+ */
+export const OVERDUE_AFTER_MIN = 15;
+export const ASK_RIDE_AFTER_MIN = 45;
+export const SETTLE_AFTER_HOURS = 3;
 /** Ratings stay open this many days after the trip. */
 export const RATING_DAYS = 7;
 

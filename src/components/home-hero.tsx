@@ -5,38 +5,74 @@
 
 import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
+import { Avatar } from '@/components/avatar';
+import { ActionRow, CallCircle, Capsule, DoneLine, UndoRow, useUndoable } from '@/components/hero-actions';
 import { Icon } from '@/components/icon';
 import { SeatDots } from '@/components/seat-dots';
 import { Body, Button, Countdown, ltr, useFont } from '@/components/ui';
 import { alertWindow } from '@/lib/alerts';
 import { clock, formatCountdown, formatLongDay, shortTime } from '@/lib/format';
-import { usualDay } from '@/lib/home-state';
+import type { StringKey } from '@/i18n/strings';
+import { confirm } from '@/lib/dialog';
+import { usualDay, type DrivePhase, type SeatPhase } from '@/lib/home-state';
 import { shortName } from '@/lib/names';
+import { telLink } from '@/lib/phone';
 import { NABLUS, RAMALLAH, routeName } from '@/lib/places';
 import { useSession, useT } from '@/lib/session';
 import { openTrip } from '@/lib/trip-layer';
 import { reliabilityText, type Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { SETTLE_AFTER_HOURS, START_OPENS_MIN } from '@/lib/trip-day';
 import { colors, fonts, space } from '@/theme/tokens';
 
 export type Route = { origin: City; destination: City };
 
-/** Caption line, then the big number with its small word beside it. */
-function Big({ caption, value, unit, captionSignal }: { caption: ReactNode; value: string; unit?: string; captionSignal?: boolean }) {
+/** Caption line (with an optional Back at its end), then the big number with its small word beside it. */
+function Big({
+  caption,
+  value,
+  unit,
+  captionSignal,
+  captionEnd,
+}: {
+  caption: ReactNode;
+  value: string;
+  unit?: string;
+  captionSignal?: boolean;
+  captionEnd?: ReactNode;
+}) {
   const { f } = useFont();
   return (
     <View style={{ gap: space.xs }}>
-      <Text style={[styles.caption, { fontFamily: captionSignal ? f.medium : f.regular }, captionSignal && { color: colors.clay }]}>
-        {caption}
-      </Text>
+      <View style={styles.captionRow}>
+        <Text
+          numberOfLines={1}
+          style={[styles.caption, styles.captionText, { fontFamily: captionSignal ? f.medium : f.regular }, captionSignal && { color: colors.clay }]}
+        >
+          {caption}
+        </Text>
+        {captionEnd}
+      </View>
       <View style={styles.timeRow}>
         <Text style={styles.heroNumber}>{value}</Text>
         {unit ? <Text style={[styles.unit, { fontFamily: f.regular }]}>{unit}</Text> : null}
       </View>
     </View>
+  );
+}
+
+/** "Back" at the end of the caption line, for the second step of a question. */
+function BackLink({ onPress }: { onPress: () => void }) {
+  const { t } = useT();
+  const { f } = useFont();
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={12}>
+      <Text style={[styles.back, { fontFamily: f.medium }]}>{t('heroBack')}</Text>
+    </Pressable>
   );
 }
 
@@ -54,7 +90,7 @@ function Heading({ caption, title, signal }: { caption: string; title: string; s
 function RouteLine({ origin, destination, extra }: { origin: City; destination: City; extra?: string }) {
   const { lang } = useT();
   return (
-    <Body>
+    <Body numberOfLines={1}>
       {routeName(origin, destination, lang)}
       {extra ? ` · ${extra}` : ''}
     </Body>
@@ -73,6 +109,7 @@ function timeParts(iso: string) {
 // ---------------------------------------------------------------- passenger
 
 export type SeatInfo = {
+  bookingId: string;
   status: 'requested' | 'accepted';
   departsAt: string;
   startedAt: string | null;
@@ -81,25 +118,70 @@ export type SeatInfo = {
   origin: City;
   destination: City;
   driver: string | null;
+  hereAt: string | null;
+  boardedAt: string | null;
 };
 
-/** P4 waiting, P5 confirmed, P6 leaving soon, and on the road. */
-export function SeatBlock({ seat, phase, now }: { seat: SeatInfo; phase: 'waiting' | 'confirmed' | 'soon' | 'onTheRoad'; now: Date }) {
+/** Call the driver: the number comes from trip_contact(), which opens an hour before. */
+async function callDriver(bookingId: string) {
+  const { data } = await supabase.rpc('trip_contact', { p_booking_id: bookingId });
+  const phone = ((data as { phone: string | null }[] | null) ?? [])[0]?.phone;
+  if (phone) Linking.openURL(telLink(phone)).catch(() => {});
+}
+
+/**
+ * P4 waiting, P5 confirmed, P6 leaving soon (I'm here), late (I'm in the car),
+ * askRide (Did you ride?), and on the road.
+ */
+export function SeatBlock({
+  seat,
+  phase,
+  now,
+  onChanged,
+}: {
+  seat: SeatInfo;
+  phase: SeatPhase;
+  now: Date;
+  onChanged: () => void;
+}) {
   const { t, lang } = useT();
   const { f } = useFont();
   const { time, pm } = timeParts(seat.departsAt);
   const driver = seat.driver ? shortName(seat.driver) : undefined;
   const minutes = Math.max(0, Math.round((new Date(seat.departsAt).getTime() - now.getTime()) / 60_000));
+  const late = Math.max(0, Math.round((now.getTime() - new Date(seat.departsAt).getTime()) / 60_000));
+  const [step, setStep] = useState<'ask' | 'why'>('ask');
+  const [failed, setFailed] = useState(false);
+  const { pending, run, undo } = useUndoable((ok) => {
+    setFailed(!ok);
+    setStep('ask');
+    onChanged();
+  });
+  const answer = (a: 'in_car' | 'rode' | 'driver_absent' | 'didnt_go', saved: StringKey) =>
+    run(t(saved), () => supabase.rpc('answer_ride', { p_booking_id: seat.bookingId, p_answer: a }));
+  const closes = shortTime(new Date(new Date(seat.departsAt).getTime() + SETTLE_AFTER_HOURS * 3600_000));
+  const name = driver?.split(' ')[0] ?? '';
 
-  const caption =
+  let caption: string =
     phase === 'onTheRoad'
       ? `${t('homeOnTheRoad')} · ${t('homeLeftAt')} ${ltr(shortTime(new Date(seat.startedAt!)))}`
       : phase === 'soon'
         ? `${t('homeLeavesIn')} ${ltr(minutes)} ${t('homeMinutes')}`
-        : `${t('yourNextTrip')} · ${formatLongDay(new Date(seat.departsAt), lang)}`;
+        : phase === 'late'
+          ? t('heroNotStarted').replace('{min}', ltr(late))
+          : phase === 'askRide'
+            ? step === 'why'
+              ? t('heroWhatHappened')
+              : t('heroDidYouRide').replace('{name}', name)
+            : `${t('yourNextTrip')} · ${formatLongDay(new Date(seat.departsAt), lang)}`;
+  if (failed) caption = t('somethingWrong');
+  const signal = failed || phase === 'late' || phase === 'askRide';
+  const routeExtra = phase === 'askRide' ? t('heroClosesAt').replace('{time}', ltr(closes)) : driver;
 
   let footer: ReactNode = null;
-  if (phase === 'waiting' && seat.respondBy) {
+  if (pending) {
+    footer = <UndoRow label={pending.label} left={pending.left} onUndo={undo} />;
+  } else if (phase === 'waiting' && seat.respondBy) {
     const start = new Date(seat.createdAt).getTime();
     const end = new Date(seat.respondBy).getTime();
     const left = end - now.getTime();
@@ -111,12 +193,54 @@ export function SeatBlock({ seat, phase, now }: { seat: SeatInfo; phase: 'waitin
         <Text style={[styles.confirmedText, { fontFamily: f.medium }]}>{t('seatConfirmed')}</Text>
       </View>
     );
+  } else if (phase === 'soon') {
+    // "I'm here" opens 30 minutes before departure, like inside the trip.
+    footer = seat.hereAt ? (
+      <DoneLine label={t('heroHereDone')} />
+    ) : minutes <= START_OPENS_MIN ? (
+      <ActionRow>
+        <CallCircle label={t('heroCallDriver')} onPress={() => callDriver(seat.bookingId)} />
+        <Capsule
+          variant="solid"
+          label={t('heroImHere')}
+          onPress={() => run(t('heroSavedHere'), () => supabase.rpc('im_here', { p_booking_id: seat.bookingId }))}
+        />
+      </ActionRow>
+    ) : null;
+  } else if (phase === 'late') {
+    footer = seat.boardedAt ? (
+      <DoneLine label={t('heroInCarDone')} />
+    ) : (
+      <ActionRow>
+        <CallCircle label={t('heroCallDriver')} onPress={() => callDriver(seat.bookingId)} />
+        <Capsule variant="solid" label={t('heroInCar')} a11y={t('heroInCarA11y')} onPress={() => answer('in_car', 'heroSavedInCar')} />
+      </ActionRow>
+    );
+  } else if (phase === 'askRide') {
+    footer =
+      step === 'ask' ? (
+        <ActionRow>
+          <Capsule variant="solid" label={t('heroYesRode')} onPress={() => answer('rode', 'heroSavedRode')} />
+          <Capsule label={t('heroNo')} a11y={t('heroNoA11y')} onPress={() => setStep('why')} />
+        </ActionRow>
+      ) : (
+        <ActionRow>
+          <Capsule label={t('heroDriverAbsent')} a11y={t('heroDriverAbsentA11y')} onPress={() => answer('driver_absent', 'heroSavedAbsent')} />
+          <Capsule label={t('heroDidntGo')} onPress={() => answer('didnt_go', 'heroSavedDidntGo')} />
+        </ActionRow>
+      );
   }
 
   return (
     <View style={{ gap: space.sm }}>
-      <Big caption={caption} value={time} unit={pm ? t('pm') : t('am')} />
-      <RouteLine origin={seat.origin} destination={seat.destination} extra={driver} />
+      <Big
+        caption={caption}
+        captionSignal={signal}
+        value={time}
+        unit={pm ? t('pm') : t('am')}
+        captionEnd={phase === 'askRide' && step === 'why' && !pending ? <BackLink onPress={() => setStep('ask')} /> : null}
+      />
+      <RouteLine origin={seat.origin} destination={seat.destination} extra={routeExtra} />
       {footer}
     </View>
   );
@@ -310,6 +434,7 @@ export function IdlePassenger({ route, verified }: { route: Route | null; verifi
 // ---------------------------------------------------------------- driver
 
 export type DriveInfo = {
+  tripId: string;
   departsAt: string;
   startedAt: string | null;
   origin: City;
@@ -318,51 +443,219 @@ export type DriveInfo = {
   booked: number;
   asked: number;
   riders: number;
-  firstPending: { name: string | null; createdAt: string; respondBy: string } | null;
+  /** People with a confirmed seat, and how many of them are ticked as in the car. */
+  people: number;
+  inCar: number;
 };
 
-/** D2 request waiting, D3 ready, D4 on the road. Answering happens on the trip's own screen. */
-export function DriveBlock({ drive, phase, now }: { drive: DriveInfo; phase: 'requests' | 'ready' | 'onTheRoad'; now: Date }) {
+/** D3 ready, overdue (Start or Didn't happen, right here), D4 on the road. */
+export function DriveBlock({
+  drive,
+  phase,
+  now,
+  onChanged,
+}: {
+  drive: DriveInfo;
+  phase: DrivePhase;
+  now: Date;
+  onChanged: () => void;
+}) {
   const { t, lang } = useT();
   const { time, pm } = timeParts(drive.startedAt ?? drive.departsAt);
   const full = drive.booked >= drive.seatsTotal;
-  const caption =
+  const late = Math.max(0, Math.round((now.getTime() - new Date(drive.departsAt).getTime()) / 60_000));
+  const [step, setStep] = useState<'ask' | 'why'>('ask');
+  const [failed, setFailed] = useState(false);
+  const { pending, run, undo } = useUndoable((ok) => {
+    setFailed(!ok);
+    setStep('ask');
+    onChanged();
+  });
+  const noGo = (reason: 'checkpoint_closed' | 'nobody_came' | 'couldnt_go') =>
+    run(t('heroSavedNoGo'), () => supabase.rpc('trip_did_not_happen', { p_trip_id: drive.tripId, p_reason: reason }));
+
+  let caption =
     phase === 'onTheRoad'
       ? `${t('homeOnTheRoad')} · ${t('homeLeftAt')}`
-      : `${t('yourNextDrive')} · ${formatLongDay(new Date(drive.departsAt), lang)}`;
-  const first = drive.firstPending;
+      : phase === 'overdue'
+        ? step === 'why'
+          ? t('heroWhyNot')
+          : t('heroDueAgo').replace('{min}', ltr(late)).replace('{n}', ltr(drive.inCar)).replace('{m}', ltr(drive.people))
+        : `${t('yourNextDrive')} · ${formatLongDay(new Date(drive.departsAt), lang)}`;
+  if (failed) caption = t('somethingWrong');
+
+  let footer: ReactNode = null;
+  if (pending) {
+    footer = <UndoRow label={pending.label} left={pending.left} onUndo={undo} />;
+  } else if (phase === 'overdue') {
+    footer =
+      step === 'ask' ? (
+        <ActionRow>
+          <Capsule
+            variant="solid"
+            label={t('heroAllInStart')}
+            a11y={t('heroAllInStartA11y')}
+            onPress={() => run(t('heroSavedStart'), () => supabase.rpc('start_trip_all_in', { p_trip_id: drive.tripId }))}
+          />
+          <Capsule label={t('heroDidntHappen')} a11y={t('heroDidntHappenA11y')} onPress={() => setStep('why')} />
+        </ActionRow>
+      ) : (
+        <ActionRow>
+          <Capsule label={t('heroReasonCheckpoint')} a11y={t('heroReasonCheckpointA11y')} onPress={() => noGo('checkpoint_closed')} />
+          <Capsule label={t('heroReasonNobody')} a11y={t('heroReasonNobodyA11y')} onPress={() => noGo('nobody_came')} />
+          <Capsule label={t('heroReasonCouldnt')} a11y={t('heroReasonCouldntA11y')} onPress={() => noGo('couldnt_go')} />
+        </ActionRow>
+      );
+  } else if (phase === 'ready') {
+    footer = (
+      <Body muted small numberOfLines={1}>
+        {full ? `${t('homeCarFull')} · ` : ''}
+        {t('homeNothingNeeded')}
+      </Body>
+    );
+  }
 
   return (
     <View style={{ gap: space.sm }}>
-      <Big caption={caption} value={time} unit={pm ? t('pm') : t('am')} />
+      <Big
+        caption={caption}
+        captionSignal={failed || phase === 'overdue'}
+        value={time}
+        unit={pm ? t('pm') : t('am')}
+        captionEnd={phase === 'overdue' && step === 'why' && !pending ? <BackLink onPress={() => setStep('ask')} /> : null}
+      />
       <RouteLine
         origin={drive.origin}
         destination={drive.destination}
         extra={phase === 'onTheRoad' ? `${ltr(drive.riders)} ${t('homeOnBoard')}` : undefined}
       />
-      {phase !== 'onTheRoad' ? (
+      {phase !== 'onTheRoad' && phase !== 'overdue' ? (
         <SeatDots total={drive.seatsTotal} booked={drive.booked} pending={Math.min(drive.asked, drive.seatsTotal - drive.booked)} />
       ) : null}
-      {phase === 'requests' && first ? (
-        <Countdown
-          label={`${t('newRequestFrom')} ${first.name ? shortName(first.name) : ''} · ${t('answerWithin')}`}
-          remaining={formatCountdown(new Date(first.respondBy).getTime() - now.getTime())}
-          progress={(() => {
-            const start = new Date(first.createdAt).getTime();
-            const end = new Date(first.respondBy).getTime();
-            return end > start ? (end - now.getTime()) / (end - start) : 0;
-          })()}
-        />
-      ) : null}
-      {phase === 'ready' ? (
-        <Body muted small>
-          {full ? `${t('homeCarFull')} · ` : ''}
-          {t('homeNothingNeeded')}
-        </Body>
-      ) : null}
+      {footer}
     </View>
   );
 }
+
+export type RequestInfo = {
+  bookingId: string;
+  name: string;
+  avatarPath: string | null;
+  seed: string;
+  seats: number;
+  createdAt: string;
+  respondBy: string;
+  fits: boolean;
+};
+
+/** D2: a seat request, answered right here. The one whose deadline comes first. */
+export function RequestBlock({
+  request,
+  drive,
+  count,
+  now,
+  onChanged,
+}: {
+  request: RequestInfo;
+  drive: DriveInfo;
+  count: number;
+  now: Date;
+  onChanged: () => void;
+}) {
+  const { t, lang } = useT();
+  const { f } = useFont();
+  const { time, pm } = timeParts(drive.departsAt);
+  const first = shortName(request.name).split(' ')[0];
+  const left = new Date(request.respondBy).getTime() - now.getTime();
+  const start = new Date(request.createdAt).getTime();
+  const end = new Date(request.respondBy).getTime();
+  const progress = end > start ? Math.max(0, Math.min(1, left / (end - start))) : 0;
+  const [failed, setFailed] = useState(false);
+  const { pending, run, undo } = useUndoable((ok) => {
+    setFailed(!ok);
+    onChanged();
+  });
+  const decide = (status: 'accepted' | 'declined') => supabase.from('bookings').update({ status }).eq('id', request.bookingId);
+  async function decline() {
+    const ok = await confirm({
+      title: t('declineAskTitle').replace('{name}', first),
+      body: t('declineAskBody'),
+      yes: t('declineSorry'),
+      no: t('keep'),
+      tone: 'warning',
+    });
+    if (!ok) return;
+    const { error } = await decide('declined');
+    setFailed(!!error);
+    onChanged();
+  }
+
+  const remaining = formatCountdown(left);
+  const caption = failed
+    ? t('somethingWrong')
+    : !request.fits
+      ? t('heroRequestFull')
+      : (count > 1 ? t('heroRequestMany').replace('{n}', ltr(count)) : t('heroRequestOne')).replace('{time}', ltr(remaining));
+
+  return (
+    <View style={{ gap: space.sm }}>
+      <Big caption={caption} captionSignal={failed} value={time} unit={pm ? t('pm') : t('am')} />
+      <RouteLine origin={drive.origin} destination={drive.destination} extra={formatLongDay(new Date(drive.departsAt), lang)} />
+      {pending ? (
+        <UndoRow label={pending.label} left={pending.left} onUndo={undo} />
+      ) : (
+        <ActionRow>
+          <View style={styles.ring}>
+            <Svg width={40} height={40} style={[StyleSheet.absoluteFill, { transform: [{ rotate: '-90deg' }] }]}>
+              <Circle cx={20} cy={20} r={18.5} stroke={colors.claySoft} strokeWidth={3} fill="none" />
+              {request.fits ? (
+                <Circle
+                  cx={20}
+                  cy={20}
+                  r={18.5}
+                  stroke={colors.clay}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeDasharray={`${RING_C} ${RING_C}`}
+                  strokeDashoffset={RING_C * (1 - progress)}
+                />
+              ) : null}
+            </Svg>
+            <Avatar path={request.avatarPath} name={request.name} seed={request.seed} size={30} />
+          </View>
+          <Text numberOfLines={1} style={[styles.requestName, { fontFamily: f.medium }]}>
+            {shortName(request.name)}
+          </Text>
+          {request.fits ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('declineSorry')} ${first}`}
+                onPress={decline}
+                hitSlop={4}
+                style={({ pressed }) => [styles.decline, pressed && { opacity: 0.5 }]}
+              >
+                <Icon name="x" size={16} color={colors.ink} />
+              </Pressable>
+              <Capsule
+                hug
+                variant="solid"
+                label={t('accept')}
+                a11y={t('acceptName').replace('{name}', first)}
+                onPress={() => run(t('heroSavedAccept').replace('{name}', first), () => decide('accepted'))}
+              />
+            </>
+          ) : (
+            <Capsule hug label={t('declineSorry')} a11y={`${t('declineSorry')} ${first}`} onPress={decline} />
+          )}
+        </ActionRow>
+      )}
+    </View>
+  );
+}
+
+const RING_C = 2 * Math.PI * 18.5;
 
 /**
  * D1: you drive but have nothing posted. The big number is demand on your route
@@ -433,6 +726,21 @@ export function IdleDriver({ route, time, stats }: { route: Route; time: string;
 
 const styles = StyleSheet.create({
   caption: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
+  // Room at the end for the small round arrow Home puts on a hero that opens a screen.
+  captionRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.md, paddingEnd: 36 },
+  captionText: { flex: 1, minWidth: 0 },
+  back: { fontSize: 13, lineHeight: 18, color: colors.ink, textDecorationLine: 'underline' },
+  ring: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  requestName: { flex: 1, minWidth: 0, fontSize: 15, color: colors.ink },
+  decline: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm, flexWrap: 'wrap' },
   heroNumber: { fontFamily: fonts.en.bold, fontSize: 56, lineHeight: 62, color: colors.ink, letterSpacing: -1.6 },
   unit: { fontSize: 16, color: colors.inkSecondary },
