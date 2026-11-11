@@ -16,13 +16,15 @@
 // as it does while the month is open (the month itself sits on the page, solid: it is
 // content to read, not a floating control).
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import MaskedViewClass, { type MaskedViewProps } from '@react-native-masked-view/masked-view';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
-import { PillChips, useFont } from '@/components/ui';
+import { GlassButton, PillChips, useFont } from '@/components/ui';
 import { formatChipDay, formatDay, formatMonth, weekdayLetters } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
 import { monthCells } from '@/lib/leave-time';
@@ -120,6 +122,7 @@ export function DayPills({
               }}
             />
           </ScrollView>
+          <EdgeFade width={inset + CIRCLE + FADE} />
           <View style={[styles.pin, { end: Math.max(0, inset - 2) }]}>
             {solid ? (
               <Pressable
@@ -137,7 +140,7 @@ export function DayPills({
                 )}
               </Pressable>
             ) : (
-              <FrostedCircle size={CIRCLE} label={t('pickDate')} expanded={open} onPress={toggle} />
+              <GlassButton icon="calendar" label={t('pickDate')} onPress={toggle} />
             )}
           </View>
         </View>
@@ -171,6 +174,7 @@ export function DayPills({
             }}
           />
         </ScrollView>
+        <EdgeFade width={CAL + FADE} />
         <View style={[styles.pin, { end: 0 }]}>
           {open ? (
             <Pressable
@@ -339,7 +343,35 @@ function FrostedCircle({ size, label, expanded, onPress }: { size: number; label
   );
 }
 
+/**
+ * The scroll-edge effect at the row's end (the way iOS fades content under its floating
+ * controls): a blur that grows from nothing to full strength toward the calendar, with a
+ * soft porcelain wash, so the pills soften and fade away as they slide under the button
+ * instead of being cut off by it. The blur is masked by a gradient (a "progressive blur").
+ */
+function EdgeFade({ width }: { width: number }) {
+  const { rtl } = useFont();
+  // Clear at the start side of the zone, solid at the end (the screen edge, under the button).
+  const from = { x: rtl ? 1 : 0, y: 0.5 };
+  const to = { x: rtl ? 0 : 1, y: 0.5 };
+  return (
+    <MaskedView
+      pointerEvents="none"
+      style={[styles.fade, { width, end: 0 }]}
+      maskElement={<LinearGradient colors={['transparent', 'black', 'black']} locations={[0, 0.55, 1]} start={from} end={to} style={StyleSheet.absoluteFill} />}
+    >
+      <BlurView intensity={24} tint="light" style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, styles.fadeWash]} />
+    </MaskedView>
+  );
+}
+
+// Its class typings predate React 19's; it is a plain view with a mask.
+const MaskedView = MaskedViewClass as unknown as ComponentType<MaskedViewProps>;
+
 const CELL = `${100 / 7}%` as const;
+/** How far the fade reaches past the button toward the pills. */
+const FADE = 28;
 /** The pinned calendar circle: the touch size, like the glass buttons on the tab pages. */
 const CIRCLE = 44;
 /** Post a trip's pinned calendar button. */
@@ -360,6 +392,9 @@ const styles = StyleSheet.create({
   },
   calOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   pin: { position: 'absolute' },
+  // A little taller than the pills, so their outlines fade too.
+  fade: { position: 'absolute', top: -6, bottom: -6 },
+  fadeWash: { backgroundColor: 'rgba(247,246,243,0.7)' },
   // The shadow sits on an outer view: the inner one clips the blur to the circle.
   frostLift: { backgroundColor: 'transparent', shadowColor: colors.ink, shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
   frost: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong },

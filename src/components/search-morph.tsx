@@ -331,11 +331,8 @@ export function SearchMorph({
     return () => clearTimeout(id);
   }, [ready, picking, tripsBuilt]);
 
-  // Opening the search puts the caret in From right away: the bar heads straight for the
-  // keyboard as it rises, so you can type without a second tap (Waleed, Nov 11).
-  useEffect(() => {
-    places.open('origin');
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The search opens on the trips, not in From: you tap the bar to change the route
+  // (Waleed, Nov 11 22:17, undoing the auto-focus from earlier that day).
 
   useEffect(() => {
     if (!closing) {
