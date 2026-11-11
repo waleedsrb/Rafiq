@@ -4,14 +4,15 @@
 // The roll runs on the UI thread, with a light tick for every row that passes the middle, and
 // the card only hears the new time when the wheels come to rest.
 //
-// Above the wheels (DemandChart) a small chart shows, per half hour of the day, riders looking
-// (bars up, clay) and other drivers already going (bars down, graphite). Tap a bar to jump.
+// Under the wheels (DemandLine) one line says, for the picked half hour, how many riders are
+// looking and how many other drivers are already going. (A day chart above the wheels was
+// tried and dropped, Nov 11.)
 //
 // Earlier times today can't be kept: the wheels roll back up to `min` (now + 30, on the half
-// hour). Digits and the chart always run left to right, also in Arabic.
+// hour). Digits always run left to right, also in Arabic.
 
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   runOnJS,
   scrollTo,
@@ -26,7 +27,7 @@ import { Body, ltr, useFont } from '@/components/ui';
 import { selectFeel } from '@/lib/haptics';
 import { LAST, STEP, type SlotDemand } from '@/lib/leave-time';
 import { useT } from '@/lib/session';
-import { colors, fonts, space } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 const ROW = 44;
 const VISIBLE = 4; // rows of height in view: the middle one plus 1.5 above and below
@@ -178,81 +179,7 @@ function Row({ i, y, label, small, font }: { i: number; y: SharedValue<number>; 
   );
 }
 
-// ─── The chart ──────────────────────────────────────────────────────────────────
-
-const FIRST = 12; // 6:00 AM
-const END = 44; // up to 10:00 PM
-const UP = 36; // tallest riders bar
-const DOWN = 18; // tallest drivers bar
-
-/** Riders looking (up) and other drivers going (down), per half hour from 6 AM to 10 PM. */
-export function DemandChart({ slots, minutes, min = 0, onPick }: { slots: SlotDemand[]; minutes: number; min?: number; onPick: (m: number) => void }) {
-  const { t } = useT();
-  const { f } = useFont();
-  // Widen the window when someone wants to go earlier or later than usual.
-  const used = slots.map((s, i) => (s.riders || s.drivers ? i : -1)).filter((i) => i >= 0);
-  const from = Math.min(FIRST, ...used);
-  const to = Math.max(END, ...used.map((i) => i + 1));
-  const topR = Math.max(1, ...slots.map((s) => s.riders));
-  const topD = Math.max(1, ...slots.map((s) => s.drivers));
-  const picked = Math.floor(minutes / 30);
-  // Four hour marks under the bars: both ends and two in between.
-  const marks = [0, 1, 2, 3].map((k) => from + Math.round(((to - from) * k) / 6) * 2).map((s) => {
-    const h = Math.floor(s / 2) % 24;
-    return { s, label: `${h % 12 === 0 ? 12 : h % 12} ${h >= 12 ? t('pm') : t('am')}` };
-  });
-
-  return (
-    <View style={styles.chart}>
-      <View style={styles.legend}>
-        <View style={styles.key}>
-          <View style={[styles.swatch, { backgroundColor: colors.clay }]} />
-          <Text style={[styles.keyText, { fontFamily: f.regular }]}>{t('ridersLooking')}</Text>
-        </View>
-        <View style={styles.key}>
-          <View style={[styles.swatch, { backgroundColor: colors.ink }]} />
-          <Text style={[styles.keyText, { fontFamily: f.regular }]}>{t('driversGoing')}</Text>
-        </View>
-      </View>
-      <View style={styles.bars}>
-        {Array.from({ length: to - from }, (_, k) => {
-          const s = from + k;
-          const d = slots[s] ?? { riders: 0, drivers: 0 };
-          const past = (s + 1) * 30 <= min;
-          const on = s === picked;
-          return (
-            <Pressable
-              key={s}
-              disabled={past}
-              accessibilityRole="button"
-              accessibilityLabel={`${clockLabel(s * 30, t('am'), t('pm'))}, ${demandWords(d, t)}`}
-              onPress={() => {
-                selectFeel();
-                onPick(Math.max(min, s * 30));
-              }}
-              style={[styles.bar, on && styles.barOn, past && { opacity: 0.25 }]}
-            >
-              <View style={styles.upper}>
-                <View style={[styles.riders, { height: d.riders ? 4 + (d.riders / topR) * (UP - 4) : 2, opacity: on ? 1 : 0.5 }]} />
-              </View>
-              <View style={styles.axis} />
-              <View style={styles.lower}>
-                {d.drivers ? <View style={[styles.drivers, { height: 4 + (d.drivers / topD) * (DOWN - 4), opacity: on ? 1 : 0.5 }]} /> : null}
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-      <View style={styles.marks}>
-        {marks.map((m) => (
-          <Text key={m.s} style={[styles.mark, { fontFamily: fonts.en.regular }]}>
-            {m.label}
-          </Text>
-        ))}
-      </View>
-    </View>
-  );
-}
+// ─── The line under the wheels ─────────────────────────────────────────────────
 
 type T = ReturnType<typeof useT>['t'];
 
@@ -282,19 +209,4 @@ const styles = StyleSheet.create({
   half: { fontSize: 19, color: colors.ink },
   colon: { fontFamily: fonts.en.bold, fontSize: 28, color: colors.ink, marginTop: -4 },
 
-  chart: { gap: 6, direction: 'ltr' },
-  legend: { flexDirection: 'row', gap: space.md },
-  key: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  swatch: { width: 8, height: 8, borderRadius: 2 },
-  keyText: { fontSize: 12, color: colors.inkSecondary },
-  bars: { flexDirection: 'row', gap: 1 },
-  bar: { flex: 1, alignItems: 'center', borderRadius: 4, paddingVertical: 2 },
-  barOn: { backgroundColor: colors.sunken },
-  upper: { height: UP, justifyContent: 'flex-end', alignItems: 'center', alignSelf: 'stretch' },
-  axis: { alignSelf: 'stretch', height: 1, backgroundColor: colors.hairline, marginVertical: 2 },
-  lower: { height: DOWN, alignItems: 'center', alignSelf: 'stretch' },
-  riders: { width: 6, borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: colors.clay },
-  drivers: { width: 6, borderBottomLeftRadius: 3, borderBottomRightRadius: 3, backgroundColor: colors.ink },
-  marks: { flexDirection: 'row', justifyContent: 'space-between' },
-  mark: { fontSize: 11, color: colors.inkSecondary },
 });
