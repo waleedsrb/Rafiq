@@ -98,6 +98,9 @@ const ALERT_ROOM = 56 + 12;
 // The days and trips are built this long after the tap: the bar is about 90% of the way by
 // then, so building them can't hold up the first frame or stutter the glide.
 const CONTENT_AFTER_MS = 260;
+// Opening on From: the trips under the towns are built this long after the tap, once the
+// bar, card and keyboard have all landed.
+const TRIPS_AFTER_MS = 900;
 // Swipe the grown card down this far (or flick it) to collapse it back to the bar.
 const PULL_COLLAPSE = 36;
 // Grown for place search: the two From/To fields under the row.
@@ -165,6 +168,10 @@ export function SearchMorph({
   // by it, so the card always comes down with the keyboard even if the tracked height above
   // is late or sticks (it left the grown card hanging mid-screen after the keyboard was closed).
   const kbOn = useSharedValue(1);
+  // Where the keyboard WILL end (its real height), known from the moment it starts to rise.
+  // While the search is opening, the bar heads straight there instead of first aiming at the
+  // bottom and then turning up with the keyboard (that dip-and-rise read as a jump).
+  const kbTarget = useSharedValue(0);
   const kbGone = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const coming = (e?: KeyboardEvent) => {
@@ -174,6 +181,7 @@ export function SearchMorph({
       // scale now, so the card rides up in one go; correcting it once the keyboard had landed
       // made the card rise and then nudge up a second time (Waleed, Nov 11).
       const real = e ? Math.max(0, screenH - e.endCoordinates.screenY) : 0;
+      if (real > MIN_KB) kbTarget.value = real;
       const reported = e?.endCoordinates.height ?? 0;
       if (real > MIN_KB && reported > MIN_KB) {
         lastKbScale = Math.max(lastKbScale, real / reported);
@@ -183,6 +191,7 @@ export function SearchMorph({
     // The keyboard left while From/To was open (its own dismiss key, Search, a swipe, a tap
     // outside the field): the card comes down with it and goes back to the one-line bar.
     const left = (e?: KeyboardEvent) => {
+      kbTarget.value = 0;
       setKbReal(0);
       if (Platform.OS === 'ios') kbOn.value = withTiming(0, { duration: e?.duration || 250 });
       typingEnded();
@@ -311,6 +320,16 @@ export function SearchMorph({
   // The pinned day row's height (it grows while the month is open), so the trips start under it.
   const [daysH, setDaysH] = useState(0);
   const showDays = ready && !picking;
+  // The trips list is the heaviest thing here. The search opens on From, so it isn't seen
+  // yet: build it once you leave the towns (or after the opening has fully settled), never
+  // while the bar and keyboard are moving.
+  const [tripsBuilt, setTripsBuilt] = useState(!!reduced);
+  useEffect(() => {
+    if (tripsBuilt) return;
+    if (ready && !picking) return setTripsBuilt(true);
+    const id = setTimeout(() => setTripsBuilt(true), TRIPS_AFTER_MS);
+    return () => clearTimeout(id);
+  }, [ready, picking, tripsBuilt]);
 
   // Opening the search puts the caret in From right away: the bar heads straight for the
   // keyboard as it rises, so you can type without a second tap (Waleed, Nov 11).
@@ -393,7 +412,9 @@ export function SearchMorph({
     const landedSide = side + (growSide - side) * grow.value;
     // Never lower than its resting spot: a few points of keyboard while it hides used to drop
     // the bar under it, which showed as a ghost outline with Alert me sitting on it.
-    const lift = Math.max(bottomGap, kbLift() + KB_GAP);
+    // Opening: aim at where the keyboard will be, not where it is this frame.
+    const kb = p.value < 1 && !leaving.value ? Math.max(kbLift(), kbTarget.value) : kbLift();
+    const lift = Math.max(bottomGap, kb + KB_GAP);
     return {
       left: landedSide,
       width: width - landedSide * 2,
@@ -489,7 +510,7 @@ export function SearchMorph({
                 // destroyed in the frame the keyboard starts to rise.
                 <>
                   <Animated.View style={[{ gap: space.md }, tripsFade, picking ? styles.gone : null]} entering={reduced ? undefined : FadeIn.duration(220)}>
-                    <SearchResults s={s} onOpenTrip={openTrip} dockedAlert />
+                    {tripsBuilt ? <SearchResults s={s} onOpenTrip={openTrip} dockedAlert /> : null}
                   </Animated.View>
                   <Animated.View style={[placesFade, picking ? null : styles.gone]}>
                     <PlaceResults

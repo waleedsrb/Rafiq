@@ -22,7 +22,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance 
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
-import { GlassButton, PillChips, useFont } from '@/components/ui';
+import { PillChips, useFont } from '@/components/ui';
 import { formatChipDay, formatDay, formatMonth, weekdayLetters } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
 import { monthCells } from '@/lib/leave-time';
@@ -137,7 +137,7 @@ export function DayPills({
                 )}
               </Pressable>
             ) : (
-              <GlassButton icon="calendar" label={t('pickDate')} onPress={toggle} />
+              <FrostedCircle size={CIRCLE} label={t('pickDate')} expanded={open} onPress={toggle} />
             )}
           </View>
         </View>
@@ -172,21 +172,20 @@ export function DayPills({
           />
         </ScrollView>
         <View style={[styles.pin, { end: 0 }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('pickDate')}
-            accessibilityState={{ expanded: open }}
-            onPress={() => {
-              selectFeel();
-              setOpen((o) => !o);
-            }}
-            hitSlop={4}
-            style={({ pressed }) => [styles.cal, open && styles.calOn, pressed && { opacity: 0.6 }]}
-          >
-            {/* Frosted, so the pills read as sliding under it (not Liquid Glass: this sits on a card). */}
-            {open ? null : <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />}
-            <Icon name="calendar" size={18} color={open ? colors.onInk : colors.ink} />
-          </Pressable>
+          {open ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('pickDate')}
+              accessibilityState={{ expanded: true }}
+              onPress={toggle}
+              hitSlop={4}
+              style={({ pressed }) => [styles.cal, styles.calOn, pressed && { opacity: 0.6 }]}
+            >
+              <Icon name="calendar" size={18} color={colors.onInk} />
+            </Pressable>
+          ) : (
+            <FrostedCircle size={CAL} label={t('pickDate')} expanded={false} onPress={toggle} />
+          )}
         </View>
       </View>
       {children !== undefined ? (
@@ -314,6 +313,32 @@ function MonthArrow({ label, icon, disabled, onPress }: { label: string; icon: '
   );
 }
 
+/**
+ * The calendar button while closed: a frosted circle. The pills scroll under it and are
+ * blurred away behind it (a real blur plus a strong porcelain wash, so they never read through).
+ * Not Liquid Glass: native glass inside the search's clipped layer drops to a see-through
+ * look, and on Post a trip it sits on a card (Waleed, Nov 11).
+ */
+function FrostedCircle({ size, label, expanded, onPress }: { size: number; label: string; expanded: boolean; onPress: () => void }) {
+  const round = { width: size, height: size, borderRadius: size / 2 };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ expanded }}
+      onPress={onPress}
+      hitSlop={4}
+      style={({ pressed }) => [round, styles.frostLift, pressed && { transform: [{ scale: 0.94 }] }]}
+    >
+      <View style={[round, styles.frost]}>
+        <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+        <View style={[StyleSheet.absoluteFill, styles.frostWash]} />
+        <Icon name="calendar" size={18} color={colors.ink} />
+      </View>
+    </Pressable>
+  );
+}
+
 const CELL = `${100 / 7}%` as const;
 /** The pinned calendar circle: the touch size, like the glass buttons on the tab pages. */
 const CIRCLE = 44;
@@ -335,6 +360,10 @@ const styles = StyleSheet.create({
   },
   calOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   pin: { position: 'absolute' },
+  // The shadow sits on an outer view: the inner one clips the blur to the circle.
+  frostLift: { backgroundColor: 'transparent', shadowColor: colors.ink, shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  frost: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong },
+  frostWash: { backgroundColor: 'rgba(247,246,243,0.8)' },
   circle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   circleDate: { fontFamily: fonts.en.bold, fontSize: 16, color: colors.onInk, fontVariant: ['tabular-nums'] },
   // At least a month tall; taller only when what it holds is (the weekly chips).
