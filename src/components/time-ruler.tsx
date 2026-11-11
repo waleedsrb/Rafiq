@@ -1,6 +1,6 @@
 // "When do you leave?" as a ruler you slide (look C, Nov 11): the day runs left to right in
-// 5-minute ticks under a fixed clay needle, and the big time above rolls its digits like a
-// departure board. Each 5-minute step gives a light tick.
+// 5-minute ticks under a fixed clay needle, and the big time above changes with it, all
+// digits at once. Each 5-minute step gives a light tick. The slide runs on the UI thread.
 //
 // Earlier times today can't be reached: the ruler stops at `min` (now + 30 minutes, on the
 // next half hour), so there is no "pick an upcoming time" error any more.
@@ -11,22 +11,21 @@
 // Digits and the ruler always run left to right, also in Arabic.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  type ScrollViewInstance,
-} from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, withTiming } from 'react-native-reanimated';
+import { StyleSheet, Text, TextInput, View, type LayoutChangeEvent } from 'react-native';
+import Animated, {
+  runOnJS,
+  scrollTo,
+  useAnimatedProps,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
 import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Body, ltr, useFont } from '@/components/ui';
 import { selectFeel } from '@/lib/haptics';
-import { LAST, slotOf, snapMinutes, STEP } from '@/lib/leave-time';
+import { LAST, STEP } from '@/lib/leave-time';
 import { useT } from '@/lib/session';
 import { colors, fonts, space } from '@/theme/tokens';
 
@@ -65,42 +64,70 @@ export function TimeRuler({
 }) {
   const { t } = useT();
   const { f } = useFont();
-  const ref = useRef<ScrollViewInstance>(null);
+  const ref = useAnimatedRef<Animated.ScrollView>();
   const [w, setW] = useState(0);
-  const shown = useRef(minutes);
-  const dragging = useRef(false);
   const xOf = (m: number) => (m / STEP) * PX;
+  // The slide runs on the UI thread: the time on screen follows the finger frame by frame,
+  // and the card (the parent) only hears the new time when the ruler comes to rest.
+  // Before, every 5-minute tick re-drew the whole card and the drag stuttered.
+  const cur = useSharedValue(minutes);
+  const dragging = useSharedValue(false);
+  const told = useRef(minutes);
+  const lo = useSharedValue(min);
+  useEffect(() => {
+    lo.value = min;
+  }, [min, lo]);
+  const am = t('am');
+  const pm = t('pm');
+
+  const report = (m: number) => {
+    told.current = m;
+    onChange(m);
+  };
 
   // Follow the value when it changes from outside (a new day pushes it past `min`, a prefill).
   useEffect(() => {
-    if (w && shown.current !== minutes) {
-      shown.current = minutes;
+    if (w && told.current !== minutes) {
+      told.current = minutes;
+      cur.value = minutes;
       ref.current?.scrollTo({ x: xOf(minutes), animated: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minutes, w]);
-
   // Put the ruler on the value once it has a width (contentOffset alone is iOS-only).
   useEffect(() => {
-    if (w) ref.current?.scrollTo({ x: xOf(shown.current), animated: false });
+    if (w) ref.current?.scrollTo({ x: xOf(told.current), animated: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [w]);
 
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // Only the person's own drag (and its glide) picks a time; our own scrollTo doesn't.
-    if (!dragging.current) return;
-    const m = snapMinutes((e.nativeEvent.contentOffset.x / PX) * STEP, min);
-    if (m !== shown.current) {
-      shown.current = m;
-      selectFeel();
-      onChange(m);
-    }
-  };
-  // Let go before `min` (or past 23:55)? Glide back to the earliest time.
-  const settle = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    dragging.current = false;
-    const x = e.nativeEvent.contentOffset.x;
-    if (x < xOf(min) - 1) ref.current?.scrollTo({ x: xOf(min), animated: true });
-  };
+  const onScroll = useAnimatedScrollHandler({
+    onBeginDrag: () => {
+      dragging.value = true;
+    },
+    onScroll: (e) => {
+      if (!dragging.value) return;
+      const m = Math.max(lo.value, Math.min(LAST, Math.round(e.contentOffset.x / PX) * STEP));
+      if (m !== cur.value) {
+        cur.value = m;
+        runOnJS(selectFeel)();
+      }
+    },
+    onEndDrag: (e) => {
+      // A slow drag with no fling never sends momentum-end.
+      if (Math.abs(e.velocity?.x ?? 0) < 0.05) {
+        dragging.value = false;
+        if (e.contentOffset.x < (lo.value / STEP) * PX - 1) scrollTo(ref, (lo.value / STEP) * PX, 0, true);
+        runOnJS(report)(cur.value);
+      }
+    },
+    onMomentumEnd: (e) => {
+      if (!dragging.value) return;
+      dragging.value = false;
+      // Let go before the earliest time? Glide back to it.
+      if (e.contentOffset.x < (lo.value / STEP) * PX - 1) scrollTo(ref, (lo.value / STEP) * PX, 0, true);
+      runOnJS(report)(cur.value);
+    },
+  });
 
   const hasBars = !!bars && bars.some((b) => b > 0);
   const top = hasBars ? Math.max(...bars!) : 0;
@@ -162,7 +189,7 @@ export function TimeRuler({
 
   return (
     <View style={styles.wrap}>
-      <RollingTime minutes={minutes} />
+      <LiveTime value={cur} initial={minutes} am={am} pm={pm} />
       <View
         style={styles.ruler}
         onLayout={(e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width))}
@@ -177,7 +204,7 @@ export function TimeRuler({
         }}
       >
         {w ? (
-          <ScrollView
+          <Animated.ScrollView
             ref={ref}
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -186,19 +213,12 @@ export function TimeRuler({
             decelerationRate="fast"
             scrollEventThrottle={16}
             onScroll={onScroll}
-            onScrollBeginDrag={() => (dragging.current = true)}
-            onMomentumScrollBegin={() => (dragging.current = true)}
-            onScrollEndDrag={(e) => {
-              // A slow drag with no fling never sends momentum-end.
-              if (Math.abs(e.nativeEvent.velocity?.x ?? 0) < 0.05) settle(e);
-            }}
-            onMomentumScrollEnd={settle}
             nestedScrollEnabled
           >
             <Svg width={TICKS * PX + pad * 2} height={H}>
               {art}
             </Svg>
-          </ScrollView>
+          </Animated.ScrollView>
         ) : null}
         <View pointerEvents="none" style={[styles.needle, { left: w / 2 - 1 }]} />
         <View pointerEvents="none" style={[styles.needleDot, { left: w / 2 - 5 }]} />
@@ -220,44 +240,34 @@ export function TimeRuler({
   );
 }
 
-/** The big time, each digit rolling to its new value like a departure board. */
-function RollingTime({ minutes }: { minutes: number }) {
-  const { t } = useT();
+const AnimatedInput = Animated.createAnimatedComponent(TextInput);
+
+/**
+ * The big time, drawn on the UI thread so it keeps up with the finger. All digits change
+ * together on each 5-minute step (no rolling columns). A read-only TextInput is the usual
+ * Reanimated way to change text without a React render.
+ */
+function LiveTime({ value, initial, am, pm }: { value: SharedValue<number>; initial: number; am: string; pm: string }) {
   const { f } = useFont();
-  const p = parts(minutes);
-  const hs = String(p.h12).padStart(2, ' ');
-  const ms = String(p.m).padStart(2, '0');
+  const clock = useAnimatedProps(() => {
+    const h = Math.floor(value.value / 60) % 24;
+    const m = value.value % 60;
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return { text: `${h12}:${m < 10 ? '0' : ''}${m}`, defaultValue: '' } as never;
+  });
+  const half = useAnimatedProps(() => ({ text: Math.floor(value.value / 60) % 24 >= 12 ? pm : am, defaultValue: '' }) as never);
+  // First frame only; after that the UI thread writes the text.
+  const p = parts(initial);
   return (
-    <View style={styles.time} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Digit c={hs[0]} />
-      <Digit c={hs[1]} />
-      <Text style={[styles.digitText, styles.colon]}>:</Text>
-      <Digit c={ms[0]} />
-      <Digit c={ms[1]} />
-      <Text style={[styles.ampm, { fontFamily: f.medium }]}>{p.pm ? t('pm') : t('am')}</Text>
-    </View>
-  );
-}
-
-const COLUMN = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-function Digit({ c }: { c: string }) {
-  const reduced = useReducedMotion();
-  const blank = c === ' ';
-  const i = blank ? 0 : Number(c);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: withTiming(-i * DIGIT_H, { duration: reduced ? 0 : 420, easing: Easing.bezier(0.2, 0.9, 0.25, 1) }) }],
-  }));
-  if (blank) return null;
-  return (
-    <View style={styles.digit}>
-      <Animated.View style={style}>
-        {COLUMN.map((d) => (
-          <Text key={d} style={styles.digitText}>
-            {d}
-          </Text>
-        ))}
-      </Animated.View>
+    <View style={styles.time} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <AnimatedInput
+        editable={false}
+        underlineColorAndroid="transparent"
+        style={styles.digits}
+        defaultValue={`${p.h12}:${String(p.m).padStart(2, '0')}`}
+        animatedProps={clock}
+      />
+      <AnimatedInput editable={false} style={[styles.ampm, { fontFamily: f.medium }]} defaultValue={p.pm ? pm : am} animatedProps={half} />
     </View>
   );
 }
@@ -265,18 +275,18 @@ function Digit({ c }: { c: string }) {
 const styles = StyleSheet.create({
   wrap: { gap: space.sm },
   time: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', direction: 'ltr' },
-  digit: { height: DIGIT_H, overflow: 'hidden', width: DIGIT * 0.62 },
-  digitText: {
+  // Tabular digits so the time keeps its width as it changes.
+  digits: {
     fontFamily: fonts.en.bold,
     fontSize: DIGIT,
-    lineHeight: DIGIT_H,
     height: DIGIT_H,
+    padding: 0,
     color: colors.ink,
-    textAlign: 'center',
     fontVariant: ['tabular-nums'],
+    minWidth: DIGIT * 2.6,
+    textAlign: 'right',
   },
-  colon: { width: DIGIT * 0.3 },
-  ampm: { fontSize: 20, color: colors.ink, marginStart: 6, marginBottom: 10 },
+  ampm: { fontSize: 20, color: colors.ink, marginStart: 6, marginBottom: 10, padding: 0, minWidth: 34 },
   // Edge to edge inside the trip card (its body has 18pt sides).
   ruler: { height: H, marginHorizontal: -18, direction: 'ltr' },
   needle: { position: 'absolute', top: 0, bottom: H - BASE + 6, width: 2, borderRadius: 1, backgroundColor: colors.clay },
