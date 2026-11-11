@@ -5,23 +5,10 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
 import { base64ToBytes } from '@/lib/base64';
+import { checkStatus, type CheckKind, type CheckStatus, type LastRequest, type PhotoSlot } from '@/lib/check-status';
 import { supabase } from '@/lib/supabase';
 
-export type CheckKind = 'passenger' | 'driver';
-export type CheckState = 'none' | 'pending' | 'rejected' | 'approved';
-
-/** Which photos each kind of check needs, in order. */
-export const PHOTO_SLOTS = {
-  passenger: ['id'],
-  driver: ['id', 'licence', 'car'],
-} as const satisfies Record<CheckKind, readonly string[]>;
-export type PhotoSlot = (typeof PHOTO_SLOTS)[CheckKind][number];
-
-export type CheckStatus = {
-  state: CheckState;
-  reason: string | null; // why it was rejected
-  hasCar: boolean; // drivers need a car before asking for a check
-};
+export { PHOTO_SLOTS, type CheckKind, type CheckState, type CheckStatus, type PhotoSlot } from '@/lib/check-status';
 
 /**
  * Where someone stands for one kind of check. Reloads whenever the screen comes into view,
@@ -44,14 +31,14 @@ export function useCheckStatus(userId: string | undefined, kind: CheckKind) {
         .limit(1)
         .maybeSingle(),
     ]);
-    const verified = kind === 'passenger' ? !!profileRes.data?.id_verified_at : !!carRes.data?.verified_at;
-    const last = lastRes.data as { status: CheckState; reject_reason: string | null } | null;
-    setStatus({
-      // A driver who changed their car has an old "approved" request but isn't verified any more.
-      state: verified ? 'approved' : last && last.status !== 'approved' ? last.status : 'none',
-      reason: last?.status === 'rejected' ? last.reject_reason : null,
-      hasCar: !!carRes.data,
-    });
+    setStatus(
+      checkStatus({
+        kind,
+        idVerifiedAt: profileRes.data?.id_verified_at ?? null,
+        car: carRes.data ? { verifiedAt: carRes.data.verified_at ?? null } : null,
+        last: lastRes.data as LastRequest | null,
+      }),
+    );
   }, [userId, kind]);
 
   useFocusEffect(
