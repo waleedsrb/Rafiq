@@ -31,7 +31,9 @@ import { monthCells } from '@/lib/leave-time';
 import { useT } from '@/lib/session';
 import { AHEAD_DAYS, PILL_DAYS, searchDayStart } from '@/lib/trip-search';
 import type { Language } from '@/i18n';
-import { colors, fonts, space } from '@/theme/tokens';
+import { wash } from '@/theme/palettes';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { fonts, space } from '@/theme/tokens';
 
 /** Day `d` (0 = today) as a pill label. */
 export function dayLabel(d: number, t: (k: 'today' | 'tomorrow') => string, lang: Language, now = new Date()): string {
@@ -66,6 +68,8 @@ export function DayPills({
   /** What the calendar replaces while it is open (kept mounted, so it keeps its state). */
   children?: ReactNode;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
@@ -211,6 +215,7 @@ const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
 /** The time (or whatever was given) and the calendar in one fixed box, cross-fading. */
 function Stage({ open, reduced, calendar, children }: { open: boolean; reduced: boolean; calendar: ReactNode; children: ReactNode }) {
+  const styles = useStyles();
   const p = useSharedValue(open ? 1 : 0);
   // Build the calendar the first time it is asked for, then keep it, so opening again is instant.
   const [built, setBuilt] = useState(open);
@@ -241,6 +246,7 @@ function Stage({ open, reduced, calendar, children }: { open: boolean; reduced: 
 }
 
 function MonthGrid({ day, onPick, dots }: { day: number; onPick: (d: number) => void; dots?: number[] }) {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const now = new Date();
@@ -300,6 +306,7 @@ function MonthGrid({ day, onPick, dots }: { day: number; onPick: (d: number) => 
 }
 
 function MonthArrow({ label, icon, disabled, onPress }: { label: string; icon: 'caretLeft' | 'caretRight'; disabled: boolean; onPress: () => void }) {
+  const styles = useStyles();
   const { rtl } = useFont();
   return (
     <Pressable
@@ -324,6 +331,9 @@ function MonthArrow({ label, icon, disabled, onPress }: { label: string; icon: '
  * look, and on Post a trip it sits on a card (Waleed, Nov 11).
  */
 function FrostedCircle({ size, label, expanded, onPress }: { size: number; label: string; expanded: boolean; onPress: () => void }) {
+  const { scheme: themeScheme } = useTheme();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const round = { width: size, height: size, borderRadius: size / 2 };
   return (
     <Pressable
@@ -335,7 +345,7 @@ function FrostedCircle({ size, label, expanded, onPress }: { size: number; label
       style={({ pressed }) => [round, styles.frostLift, pressed && { transform: [{ scale: 0.94 }] }]}
     >
       <View style={[round, styles.frost]}>
-        <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={60} tint={themeScheme} style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, styles.frostWash]} />
         <Icon name="calendar" size={18} color={colors.ink} />
       </View>
@@ -350,6 +360,8 @@ function FrostedCircle({ size, label, expanded, onPress }: { size: number; label
  * instead of being cut off by it. The blur is masked by a gradient (a "progressive blur").
  */
 function EdgeFade({ width }: { width: number }) {
+  const { scheme: themeScheme } = useTheme();
+  const styles = useStyles();
   const { rtl } = useFont();
   // Clear at the start side of the zone, solid at the end (the screen edge, under the button).
   const from = { x: rtl ? 1 : 0, y: 0.5 };
@@ -360,7 +372,7 @@ function EdgeFade({ width }: { width: number }) {
       style={[styles.fade, { width, end: 0 }]}
       maskElement={<LinearGradient colors={['transparent', 'black', 'black']} locations={[0, 0.55, 1]} start={from} end={to} style={StyleSheet.absoluteFill} />}
     >
-      <BlurView intensity={24} tint="light" style={StyleSheet.absoluteFill} />
+      <BlurView intensity={24} tint={themeScheme} style={StyleSheet.absoluteFill} />
       <View style={[StyleSheet.absoluteFill, styles.fadeWash]} />
     </MaskedView>
   );
@@ -377,7 +389,7 @@ const CIRCLE = 44;
 /** Post a trip's pinned calendar button. */
 const CAL = 40;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   cal: {
     width: CAL,
@@ -385,7 +397,7 @@ const styles = StyleSheet.create({
     borderRadius: CAL / 2,
     borderWidth: 1.5,
     borderColor: colors.lineStrong,
-    backgroundColor: 'rgba(247,246,243,0.72)',
+    backgroundColor: wash(colors.surface, 0.72),
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -394,11 +406,11 @@ const styles = StyleSheet.create({
   pin: { position: 'absolute' },
   // A little taller than the pills, so their outlines fade too.
   fade: { position: 'absolute', top: -6, bottom: -6 },
-  fadeWash: { backgroundColor: 'rgba(247,246,243,0.7)' },
+  fadeWash: { backgroundColor: wash(colors.surface, 0.7) },
   // The shadow sits on an outer view: the inner one clips the blur to the circle.
   frostLift: { backgroundColor: 'transparent', shadowColor: colors.ink, shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
   frost: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong },
-  frostWash: { backgroundColor: 'rgba(247,246,243,0.8)' },
+  frostWash: { backgroundColor: wash(colors.surface, 0.8) },
   circle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   circleDate: { fontFamily: fonts.en.bold, fontSize: 16, color: colors.onInk, fontVariant: ['tabular-nums'] },
   // At least a month tall; taller only when what it holds is (the weekly chips).
@@ -421,4 +433,4 @@ const styles = StyleSheet.create({
   dayOff: { color: colors.lineStrong },
   dayTextOn: { color: colors.onInk },
   dot: { position: 'absolute', bottom: 5, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.clay },
-});
+}));

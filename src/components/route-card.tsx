@@ -1,13 +1,14 @@
 // From / To in one white card, with an optional button to flip the direction.
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
-import { colors, radii, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, space } from '@/theme/tokens';
 
 /** From / To in one white card, with a button to flip the direction. */
 export function RouteCard({
@@ -25,6 +26,8 @@ export function RouteCard({
   /** Small grey text at the end of the first row, e.g. the date. */
   note?: string;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f, rtl } = useFont();
   const row = (city: City, label: string, mark: 'start' | 'end') => {
@@ -67,7 +70,7 @@ export function RouteCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -92,4 +95,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

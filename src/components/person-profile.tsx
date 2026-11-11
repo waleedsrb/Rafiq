@@ -6,7 +6,7 @@
 // (tap the driver on Trip details).
 
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon, type IconName } from '@/components/icon';
@@ -17,7 +17,8 @@ import type { StringKey } from '@/i18n/strings';
 import { useT } from '@/lib/session';
 import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 type PublicProfile = {
   name: string;
@@ -41,6 +42,8 @@ type Review = {
 
 /** Someone's page as a block: on its own screen (/people/[id]) or inside the trip card. */
 export function PersonProfile({ id }: { id: string }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const [person, setPerson] = useState<PublicProfile | null>(null);
@@ -142,6 +145,7 @@ export function PersonProfile({ id }: { id: string }) {
 }
 
 function ReviewRow({ review, last }: { review: Review; last: boolean }) {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const when = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', { day: 'numeric', month: 'short' }).format(
@@ -167,7 +171,7 @@ function ReviewRow({ review, last }: { review: Review; last: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -202,4 +206,4 @@ const styles = StyleSheet.create({
   },
   reviewName: { fontSize: 15, color: colors.ink },
   reviewText: { fontSize: 14, lineHeight: 20, color: colors.inkSecondary },
-});
+}));

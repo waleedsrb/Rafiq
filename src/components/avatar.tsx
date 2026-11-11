@@ -8,7 +8,7 @@ import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 import { IconCircle } from '@/components/ui';
 import { avatarArt, type Part, type Swatch } from '@/lib/avatar-art';
 import { useAvatarUrl } from '@/lib/avatar';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export function Avatar({
   path,
@@ -22,6 +22,7 @@ export function Avatar({
   seed?: string | null;
   size?: number;
 }) {
+  const { c: colors } = useTheme();
   const url = useAvatarUrl(path);
   const round = { width: size, height: size, borderRadius: size / 2, overflow: 'hidden' as const, backgroundColor: colors.sunken };
   if (url) {

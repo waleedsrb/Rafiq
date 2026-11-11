@@ -16,7 +16,7 @@
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
+import { Switch, View, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { CheckpointPicker, useWayChoices } from '@/components/checkpoint-picker';
@@ -42,7 +42,8 @@ import { supabase } from '@/lib/supabase';
 import { PRICE_MAX, SEATS_MAX, SEATS_MIN, suggestedPrice, type City } from '@/lib/trip-form';
 import { AHEAD_DAYS } from '@/lib/trip-search';
 import { inDrivingOrder } from '@/lib/way';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 type Step = 'where' | 'pickup' | 'way' | 'when' | 'seats' | 'posted';
 type FormStep = Exclude<Step, 'posted'>;
@@ -63,6 +64,8 @@ type LastTrip = {
 };
 
 export default function NewTrip() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { session, profile } = useSession();
   const { height: H } = useWindowDimensions();
@@ -612,8 +615,8 @@ function parseHm(s: string | undefined): { h: number; m: number } | null {
   return h < 24 && mm < 60 ? { h, m: mm } : null;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   page: { flex: 1, backgroundColor: colors.surface },
   weekdays: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   demand: { borderRadius: 16, backgroundColor: colors.claySoft, paddingHorizontal: space.md },
-});
+}));

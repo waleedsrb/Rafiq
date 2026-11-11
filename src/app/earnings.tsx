@@ -7,7 +7,7 @@
 
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Body, Label, ListRow, Screen, Title, ltr, useFont } from '@/components/ui';
 import { byWeek, monthRange, totals, type EarningRow } from '@/lib/earnings';
@@ -16,9 +16,11 @@ import { routeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { tripsKey } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export default function Earnings() {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const [rows, setRows] = useState<EarningRow[] | null>(null);
@@ -93,7 +95,7 @@ export default function Earnings() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   big: { fontSize: 44, lineHeight: 52, color: colors.ink },
   weekHead: {
     flexDirection: 'row',
@@ -101,4 +103,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   amount: { fontSize: 16, color: colors.ink },
-});
+}));

@@ -8,9 +8,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useBookingChanges } from '@/lib/live';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors, fonts } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
+import { fonts } from '@/theme/tokens';
 
 export default function TabsLayout() {
+  const { c: colors } = useTheme();
   const { t, lang } = useT();
   const waiting = useRequestsWaiting();
   return (

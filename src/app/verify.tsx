@@ -4,7 +4,7 @@
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { Body, Button, IconCircle, Screen, Title, useFont } from '@/components/ui';
@@ -14,11 +14,14 @@ import { askForPhoto, type Picked } from '@/lib/photo-pick';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { slotsFor, uploadCheckPhoto, useCheckStatus, type CheckKind, type PhotoSlot } from '@/lib/verification';
-import { colors, radii, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, space } from '@/theme/tokens';
 
 const SLOT_ICON: Record<PhotoSlot, IconName> = { id: 'identificationCard', licence: 'identificationCard', car: 'car' };
 
 export default function Verify() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const params = useLocalSearchParams<{ kind?: string }>();
   const kind: CheckKind = params.kind === 'driver' ? 'driver' : 'passenger';
   const { t } = useT();
@@ -163,7 +166,7 @@ export default function Verify() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   statusBlock: { alignItems: 'center', gap: space.md, paddingTop: space.xl },
   rejected: { backgroundColor: colors.claySoft, borderRadius: radii.md, padding: space.md, gap: 4 },
   slot: {
@@ -183,4 +186,4 @@ const styles = StyleSheet.create({
   slotAction: { alignItems: 'center', gap: 6 },
   slotSub: { fontSize: 14, color: colors.inkSecondary },
   privacy: { alignItems: 'center', gap: space.sm, marginTop: space.xs },
-});
+}));

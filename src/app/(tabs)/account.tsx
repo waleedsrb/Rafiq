@@ -5,7 +5,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import * as Updates from 'expo-updates';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
@@ -23,13 +23,16 @@ import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import { useCheckStatus } from '@/lib/verification';
 import type { StringKey } from '@/i18n/strings';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 const STEP_TITLE: Record<StepKey, StringKey> = { photo: 'addProfilePhoto', id: 'idCheckRow', driver: 'driverCheckRow' };
 const STEP_SUB: Record<StepKey, StringKey> = { photo: 'stepPhotoSub', id: 'stepIdSub', driver: 'stepDriverSub' };
 
 /** What a step needs: why it's there, or (once sent) where it stands. Clay only when it needs you again. */
 function StepSubtitle({ stepKey, state }: { stepKey: StepKey; state: CheckState }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   const text = state === 'pending' || state === 'rejected' ? t(`checkState_${state}` as StringKey) : t(STEP_SUB[stepKey]);
@@ -41,6 +44,8 @@ function StepSubtitle({ stepKey, state }: { stepKey: StepKey; state: CheckState 
 type Extra = { created_at: string; emergency_name: string | null };
 
 export default function Account() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const { profile, session, refreshProfile } = useSession();
@@ -218,7 +223,7 @@ function buildLabel() {
   return `${sha}${when}`;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   steps: { marginBottom: space.lg },
   stepsHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   build: { fontSize: 11, color: colors.inkSecondary, textAlign: 'center', marginTop: space.lg },
@@ -239,4 +244,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

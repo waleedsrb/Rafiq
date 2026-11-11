@@ -4,7 +4,7 @@
 
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { Body, Button, IconCircle, Label, ListRow, ltr, useFont } from '@/components/ui';
@@ -14,7 +14,8 @@ import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { useOpenTrip } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 type Other = {
   id: string;
@@ -49,6 +50,8 @@ export function DriverCancelled({
   /** Inside the trip card: go back to the search instead of opening a results page. */
   onSearchAgain?: () => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const openTrip = useOpenTrip();
   const { f } = useFont();
@@ -141,9 +144,9 @@ export function DriverCancelled({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   clay: { fontSize: 14, color: colors.clay, flexShrink: 1 },
   title: { fontSize: 22, lineHeight: 28, color: colors.ink },
   time: { fontSize: 20, color: colors.ink },
-});
+}));

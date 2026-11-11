@@ -72,7 +72,9 @@ import { tapFeel } from '@/lib/haptics';
 import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { useScreenCorners } from '@/theme/screen-corners';
-import { colors, motion, space } from '@/theme/tokens';
+import { inkWash } from '@/theme/palettes';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { motion, space } from '@/theme/tokens';
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
@@ -85,8 +87,6 @@ const HEAD_H = PAD + ROW + PAD;
 const RADIUS = ROW / 2 + PAD;
 // Gap between the bar and the top of the keyboard.
 const KB_GAP = 8;
-// The moving bar's fill: the porcelain page colour, a touch lighter so its edge reads.
-const MOVING_FILL = 'rgba(251,250,248,0.98)';
 // Below this the keyboard counts as gone (iOS reports a few points while it hides).
 const MIN_KB = 40;
 // How much taller the real keyboard is than iOS reports (see kbScale), and its real height,
@@ -142,6 +142,9 @@ export function SearchMorph({
   onRequestClose: () => void;
   onClosed: () => void;
 }) {
+  const { scheme: themeScheme } = useTheme();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   // Place search, in the header itself: tapping From or To grows the bar into two fields.
   const places = usePlaceSearch();
@@ -547,7 +550,7 @@ export function SearchMorph({
             onLayout={(e) => setDaysH(e.nativeEvent.layout.height)}
           >
             <Animated.View style={[StyleSheet.absoluteFill, page]} pointerEvents="none">
-              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+              <BlurView intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
               <View style={[StyleSheet.absoluteFill, styles.daysFill]} />
             </Animated.View>
             <Animated.View style={page}>
@@ -571,7 +574,7 @@ export function SearchMorph({
               pointerEvents="none"
               glassEffectStyle="regular"
               tintColor={colors.glassTint}
-              colorScheme="light"
+              colorScheme={themeScheme}
               style={[StyleSheet.absoluteFill, { borderRadius: RADIUS }]}
             />
           </View>
@@ -593,7 +596,7 @@ export function SearchMorph({
               porcelain page, where a blur shows nothing, and a blur redrawn at a new size every
               frame was the costliest thing on screen (part of the stutter). Real Liquid Glass
               takes over once it's still at the bottom. */}
-          {nativeGlass ? null : <View style={[StyleSheet.absoluteFill, { backgroundColor: MOVING_FILL }]} />}
+          {nativeGlass ? null : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.lifted }]} />}
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }, barSkin]} pointerEvents="none" />
           </Animated.View>
 
@@ -692,7 +695,7 @@ export function SearchMorph({
   }
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   page: { backgroundColor: colors.surface },
   gone: { display: 'none' },
   clip: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
@@ -700,7 +703,7 @@ const styles = StyleSheet.create({
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
   days: { position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: space.sm },
   // Mostly porcelain: the trips only show through as a soft blur, and the month reads as solid.
-  daysFill: { backgroundColor: 'rgba(247,246,243,0.86)' },
+  daysFill: { backgroundColor: colors.panel },
   // The bar's frame: only slid about. Its look is `skin`, its contents are in `inside`.
   glass: { position: 'absolute' },
   skin: {
@@ -720,7 +723,7 @@ const styles = StyleSheet.create({
     width: ROW,
     height: ROW,
     borderRadius: ROW / 2,
-    backgroundColor: 'rgba(23,25,28,0.06)',
+    backgroundColor: inkWash(colors, 0.06),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -730,4 +733,4 @@ const styles = StyleSheet.create({
   dotStart: { width: 9, height: 9, borderRadius: 5, borderWidth: 2.5, borderColor: colors.ink, backgroundColor: colors.card },
   dotLine: { width: 1.5, height: 8, backgroundColor: colors.lineStrong },
   dotEnd: { width: 9, height: 9, borderRadius: 2, backgroundColor: colors.ink },
-});
+}));

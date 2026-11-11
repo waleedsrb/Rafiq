@@ -5,9 +5,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icon';
 import { tapFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export function StarPicker({ value, onChange, size = 40, label }: { value: number; onChange: (n: number) => void; size?: number; label?: string }) {
+  const { c: colors } = useTheme();
   const { t } = useT();
   return (
     <View
@@ -37,6 +38,7 @@ export function StarPicker({ value, onChange, size = 40, label }: { value: numbe
 
 /** "★★★★☆" small, for lists. */
 export function Stars({ value, size = 14 }: { value: number; size?: number }) {
+  const { c: colors } = useTheme();
   return (
     <View style={[styles.row, { gap: 2 }]} accessibilityLabel={`${value}/5`}>
       {[1, 2, 3, 4, 5].map((n) => (

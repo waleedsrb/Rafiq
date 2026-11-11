@@ -37,7 +37,8 @@ import { isRTL } from '@/i18n';
 import { goBack } from '@/lib/nav';
 import { useT } from '@/lib/session';
 import { selectFeel, tapFeel } from '@/lib/haptics';
-import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
 import { Icon, type IconName } from './icon';
 
@@ -87,6 +88,7 @@ export function Screen({
   overlay?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
+  const styles = useStyles();
   const { direction } = useFont();
   const insets = useSafeAreaInsets();
   const topBar = top ?? (back ? <TopBar start={<BackButton />} /> : null);
@@ -129,6 +131,7 @@ export function Screen({
 
 /** The row of glass buttons at the top of a screen. */
 export function TopBar({ start, end }: { start?: ReactNode; end?: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.topBar}>
       {start ?? <View style={styles.topSpacer} />}
@@ -157,6 +160,8 @@ export function GlassButton({
   iconColor?: string;
   children?: ReactNode;
 }) {
+  const { scheme: themeScheme } = useTheme();
+  const styles = useStyles();
   const content = icon ? <Icon name={icon} flip={flip} color={iconColor} /> : children;
   return (
     <Pressable
@@ -172,7 +177,7 @@ export function GlassButton({
         <GlassView
           style={[StyleSheet.absoluteFill, styles.glassInner, { borderRadius: sizes.touch / 2 }]}
           glassEffectStyle="regular"
-          colorScheme="light"
+          colorScheme={themeScheme}
           isInteractive
         >
           <View pointerEvents="none" style={styles.glassContent}>
@@ -181,7 +186,7 @@ export function GlassButton({
         </GlassView>
       ) : (
         <>
-          <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
           <View style={styles.glassFill} />
           <View style={styles.glassContent}>{content}</View>
         </>
@@ -228,6 +233,8 @@ export function TabScreen({
   pinned?: boolean;
   children: ReactNode;
 }) {
+  const { scheme: themeScheme } = useTheme();
+  const styles = useStyles();
   const { direction } = useFont();
   const insets = useSafeAreaInsets();
   const y = useSharedValue(0);
@@ -291,7 +298,7 @@ export function TabScreen({
 
       <View pointerEvents="box-none" style={[styles.tabBar, { height: barH }]}>
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, frost]}>
-          <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
           <View style={styles.glassFill} />
         </Animated.View>
         <Animated.View pointerEvents="none" style={[styles.tabLine, { bottom: 0 }, line]} />
@@ -305,6 +312,7 @@ export function TabScreen({
 const TAB_BAR_ROW = sizes.touch + space.sm * 2;
 
 export function Title({ children, size = 'title' }: { children: ReactNode; size?: 'title' | 'display' }) {
+  const styles = useStyles();
   const { f } = useFont();
   return <Text style={[size === 'display' ? styles.display : styles.title, { fontFamily: f.bold }]}>{children}</Text>;
 }
@@ -327,6 +335,8 @@ export function Body({
   /** Keep to this many lines, ending with "…" (the Home hero keeps every line to one). */
   numberOfLines?: number;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <Text
@@ -347,12 +357,14 @@ export function Body({
 
 /** Small grey caption, e.g. above a field or a section. */
 export function Label({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   const { f } = useFont();
   return <Text style={[styles.label, { fontFamily: f.medium }]}>{children}</Text>;
 }
 
 /** A section heading inside a screen, e.g. "Passengers". */
 export function SectionTitle({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   const { f } = useFont();
   return <Text style={[styles.sectionTitle, { fontFamily: f.bold }]}>{children}</Text>;
 }
@@ -373,6 +385,8 @@ export function Button({
   variant?: 'primary' | 'secondary' | 'plain';
   icon?: IconName;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   const primary = variant === 'primary';
   const color = primary ? colors.onInk : colors.ink;
@@ -409,6 +423,8 @@ export function Button({
 
 /** Underlined text button, e.g. "Change the number". */
 export function TextLink({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled} style={styles.textLink} hitSlop={8}>
@@ -425,6 +441,8 @@ export function Field({
   style,
   ...rest
 }: TextInputProps & { label?: string; ltr?: boolean; prefix?: string }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f, direction } = useFont();
   const [focused, setFocused] = useState(false);
   return (
@@ -470,6 +488,8 @@ export function Chip({
   onPress?: () => void;
   icon?: IconName;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <Pressable
@@ -494,6 +514,7 @@ export function ChipRow<T extends string | number>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const styles = useStyles();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
       <PillChips
@@ -527,6 +548,7 @@ export function PillChips({
   /** Options drawn lighter (still tappable), like days with no trips. */
   faint?: boolean[];
 }) {
+  const styles = useStyles();
   const { rtl, direction } = useFont();
   const pill = usePillSlide(selected, rtl);
   const pillStyle = usePillStyle(pill);
@@ -572,6 +594,8 @@ function PillChip({
   faint?: boolean;
   onPress: () => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   const text = usePillColor(pill, i, colors.ink, colors.onInk);
   const border = usePillBorder(pill, i, colors.lineStrong, colors.ink);
@@ -601,6 +625,7 @@ export function Choice<T extends string>({
   value: T | null;
   onChange: (v: T) => void;
 }) {
+  const styles = useStyles();
   const { rtl, direction } = useFont();
   const pill = usePillSlide(
     options.findIndex((o) => o.value === value),
@@ -628,6 +653,8 @@ export function Choice<T extends string>({
 }
 
 function SegmentItem({ i, pill, label, on, onPress }: { i: number; pill: PillSlide; label: string; on: boolean; onPress: () => void }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   const text = usePillColor(pill, i, colors.inkSecondary, colors.ink);
   return (
@@ -655,6 +682,7 @@ export function Stepper({
   max: number;
   onChange: (n: number) => void;
 }) {
+  const styles = useStyles();
   const btn = (icon: IconName, label: string, next: number, disabled: boolean) => (
     <Pressable
       accessibilityRole="button"
@@ -680,6 +708,7 @@ export function Stepper({
 
 /** 40pt sunken circle holding an icon or a letter (avatars). */
 export function IconCircle({ icon, letter, size = 40 }: { icon?: IconName; letter?: string; size?: number }) {
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <View style={[styles.iconCircle, { width: size, height: size, borderRadius: size / 2 }]}>
@@ -697,6 +726,7 @@ export function ListRow({
   trailing,
   onPress,
   last,
+  selected,
 }: {
   icon?: IconName;
   leading?: ReactNode;
@@ -705,7 +735,11 @@ export function ListRow({
   trailing?: ReactNode;
   onPress?: () => void;
   last?: boolean;
+  /** For a row in a pick-one list (a radio): read out as selected or not. */
+  selected?: boolean;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f, rtl } = useFont();
   const content = (
     <>
@@ -725,7 +759,12 @@ export function ListRow({
   );
   const style = [styles.row, !last && styles.rowLine];
   return onPress ? (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [style, pressed && { opacity: 0.6 }]}>
+    <Pressable
+      accessibilityRole={selected === undefined ? 'button' : 'radio'}
+      accessibilityState={selected === undefined ? undefined : { selected }}
+      onPress={onPress}
+      style={({ pressed }) => [style, pressed && { opacity: 0.6 }]}
+    >
       {content}
     </Pressable>
   ) : (
@@ -735,6 +774,7 @@ export function ListRow({
 
 /** Quick action: a 56pt sunken circle with a label under it. */
 export function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <Pressable
@@ -752,6 +792,7 @@ export function QuickAction({ icon, label, onPress }: { icon: IconName; label: s
 
 /** Clay countdown line with a thin progress bar, for "waiting on someone". */
 export function Countdown({ label, remaining, progress }: { label: string; remaining: string; progress: number }) {
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <View style={{ gap: space.sm }}>
@@ -766,7 +807,7 @@ export function Countdown({ label, remaining, progress }: { label: string; remai
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
   topBar: {
@@ -930,4 +971,4 @@ const styles = StyleSheet.create({
   countdownTrack: { height: 2, borderRadius: 1, backgroundColor: colors.claySoft, overflow: 'hidden' },
   countdownBar: { height: '100%', backgroundColor: colors.clay },
 
-});
+}));

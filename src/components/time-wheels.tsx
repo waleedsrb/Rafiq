@@ -12,7 +12,7 @@
 // hour). Digits always run left to right, also in Arabic.
 
 import { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Animated, {
   runOnJS,
   scrollTo,
@@ -27,7 +27,8 @@ import { Body, ltr, useFont } from '@/components/ui';
 import { selectFeel } from '@/lib/haptics';
 import { LAST, STEP, type SlotDemand } from '@/lib/leave-time';
 import { useT } from '@/lib/session';
-import { colors, fonts } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { fonts } from '@/theme/tokens';
 
 const ROW = 44;
 const VISIBLE = 4; // rows of height in view: the middle one plus 1.5 above and below
@@ -54,6 +55,7 @@ export function TimeWheels({
   min?: number;
   onChange: (minutes: number) => void;
 }) {
+  const styles = useStyles();
   const { t } = useT();
   const h24 = Math.floor(minutes / 60);
   const want = { h: h24 % 12, m: Math.round((minutes % 60) / STEP), p: h24 >= 12 ? 1 : 0 };
@@ -164,6 +166,7 @@ function Wheel({ items, index, onRest, width, small }: { items: string[]; index:
 
 /** One row: it tips back, shrinks and fades the further it is from the middle. */
 function Row({ i, y, label, small, font }: { i: number; y: SharedValue<number>; label: string; small?: boolean; font: string }) {
+  const styles = useStyles();
   const style = useAnimatedStyle(() => {
     const d = (i * ROW - y.value) / ROW;
     const ad = Math.min(Math.abs(d), 3);
@@ -201,7 +204,7 @@ export function DemandLine({ slots, minutes }: { slots: SlotDemand[]; minutes: n
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wheels: { height: H, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', direction: 'ltr' },
   band: { position: 'absolute', left: 8, right: 8, top: PAD, height: ROW, borderRadius: 14, backgroundColor: colors.sunken },
   row: { height: ROW, alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden' },
@@ -209,4 +212,4 @@ const styles = StyleSheet.create({
   half: { fontSize: 19, color: colors.ink },
   colon: { fontFamily: fonts.en.bold, fontSize: 28, color: colors.ink, marginTop: -4 },
 
-});
+}));

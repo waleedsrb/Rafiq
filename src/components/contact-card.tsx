@@ -3,7 +3,7 @@
 // straight away; phone and plate only from opens_at (an hour before the trip).
 
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
@@ -13,7 +13,8 @@ import { formatTime } from '@/lib/format';
 import { formatPhone, telLink } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export type Contact = {
   first_name: string;
@@ -39,6 +40,8 @@ export function useContact(bookingId: string | null) {
 }
 
 export function ContactCard({ contact: c, avatarPath, seed }: { contact: Contact; avatarPath?: string | null; seed?: string | null }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const waiting = !c.phone && new Date(c.opens_at).getTime() > Date.now();
   return (
@@ -83,10 +86,10 @@ export function ContactCard({ contact: c, avatarPath, seed }: { contact: Contact
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   call: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   plateRow: { paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairline, alignItems: 'flex-start' },
-});
+}));
 
 /** Loads the contact for one accepted booking, then shows it. */
 export function BookingContact({ bookingId, avatarPath, seed }: { bookingId: string; avatarPath?: string | null; seed?: string | null }) {

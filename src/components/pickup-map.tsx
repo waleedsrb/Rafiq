@@ -14,7 +14,9 @@ import MapView, { type Region } from 'react-native-maps';
 
 import { Icon } from '@/components/icon';
 import type { LatLng } from '@/lib/places';
-import { colors, shadows } from '@/theme/tokens';
+import { NIGHT as NIGHT_MAP } from '@/components/route-map';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { shadows } from '@/theme/tokens';
 
 // About 600 m across: close enough to see the street, far enough to see the square.
 const SPAN = 0.006;
@@ -31,6 +33,9 @@ export function PickupMap({
   /** Where the card starts (window y): the map stops there. */
   visibleBottom: number;
 }) {
+  const { dark: themeDark } = useTheme();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const ref = useRef<MapView>(null);
   const { width: W, height: H } = useWindowDimensions();
   // The pin's tip: the middle of what you see above the card (whose rounded corners overlap
@@ -61,6 +66,8 @@ export function PickupMap({
         style={StyleSheet.absoluteFill}
         initialRegion={centreFor(center)}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
+        userInterfaceStyle={themeDark ? 'dark' : 'light'}
+        customMapStyle={Platform.OS === 'android' && themeDark ? NIGHT_MAP : undefined}
         rotateEnabled={false}
         pitchEnabled={false}
         toolbarEnabled={false}
@@ -86,7 +93,7 @@ export function PickupMap({
 const degPerPt = (latitude: number, width: number) => (SPAN / width) * Math.cos((latitude * Math.PI) / 180);
 
 const PIN = 52; // from the pin's top to its point
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pinWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   pin: {
     width: 40,
@@ -100,5 +107,5 @@ const styles = StyleSheet.create({
     ...shadows.float,
   },
   stem: { width: 3, height: 12, backgroundColor: colors.ink },
-  dot: { width: 8, height: 4, borderRadius: 4, backgroundColor: 'rgba(23,25,28,0.3)' },
-});
+  dot: { width: 8, height: 4, borderRadius: 4, backgroundColor: colors.scrim },
+}));

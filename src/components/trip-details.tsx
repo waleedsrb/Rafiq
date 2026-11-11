@@ -11,7 +11,7 @@
 // /trips/[id] screen for links from notifications.
 
 import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { ContactCard, useContact } from '@/components/contact-card';
@@ -45,7 +45,8 @@ import { supabase } from '@/lib/supabase';
 import { startOpen, tripState } from '@/lib/trip-day';
 import type { City } from '@/lib/trip-form';
 import { TripOpenerContext, type Rect } from '@/lib/trip-layer';
-import { colors, radii, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, space } from '@/theme/tokens';
 
 type Payment = { status: 'held' | 'charged' | 'released' | 'refunded'; total_ils: number; card_brand: string; card_last4: string };
 
@@ -95,6 +96,8 @@ export function TripDetails({
   /** Android back: a step goes back to the details, the details close. */
   backRef?: MutableRefObject<(() => void) | null>;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const { session, profile } = useSession();
@@ -631,6 +634,7 @@ export function TripDetails({
 
 /** One slim capsule per seat (confirmed, waiting, free), with the same in words. */
 function SeatLine({ seats, inLine }: { seats: SeatKind[]; inLine: number }) {
+  const styles = useStyles();
   const { t } = useT();
   const n = (k: SeatKind) => seats.filter((s) => s === k).length;
   const words = [
@@ -657,6 +661,8 @@ function SeatLine({ seats, inLine }: { seats: SeatKind[]; inLine: number }) {
 
 /** "Verified driver" with the seal, under the driver's name. */
 function VerifiedLine({ founding }: { founding?: boolean }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   return (
     <View style={styles.labelRow}>
@@ -671,9 +677,11 @@ function VerifiedLine({ founding }: { founding?: boolean }) {
 
 /** A calm note in a soft box: what happened, in plain words. */
 export function Note({ text, icon, tone }: { text: string; icon?: IconName; tone?: 'ok' }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const fg = tone === 'ok' ? colors.statusOpen : colors.inkSecondary;
   return (
-    <View style={[styles.note, { backgroundColor: tone === 'ok' ? colors.statusOpenSoft : 'rgba(23,25,28,0.05)' }]}>
+    <View style={[styles.note, { backgroundColor: tone === 'ok' ? colors.statusOpenSoft : colors.fill }]}>
       {icon ? <Icon name={icon} size={16} color={fg} /> : null}
       <Body small style={{ color: fg, flex: 1 }}>
         {text}
@@ -682,7 +690,7 @@ export function Note({ text, icon, tone }: { text: string; icon?: IconName; tone
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   findCar: { gap: 10, paddingVertical: space.md, alignItems: 'flex-start', borderBottomWidth: 1, borderBottomColor: colors.hairline },
   seatLine: { gap: 8, paddingVertical: space.sm },
@@ -692,4 +700,4 @@ const styles = StyleSheet.create({
   seatWaiting: { backgroundColor: colors.clay },
   seatFree: { backgroundColor: colors.lineStrong, opacity: 0.45 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: radii.md },
-});
+}));

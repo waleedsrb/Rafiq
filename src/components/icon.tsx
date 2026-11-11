@@ -1,6 +1,6 @@
 import Svg, { Path } from 'react-native-svg';
 
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 import { iconPaths, type IconName } from './icon-paths';
 
@@ -13,7 +13,7 @@ export type { IconName };
 export function Icon({
   name,
   size = 22,
-  color = colors.ink,
+  color,
   flip,
 }: {
   name: IconName;
@@ -21,12 +21,13 @@ export function Icon({
   color?: string;
   flip?: boolean;
 }) {
+  const { c } = useTheme();
   return (
     <Svg
       width={size}
       height={size}
       viewBox="0 0 256 256"
-      fill={color}
+      fill={color ?? c.ink}
       style={flip ? { transform: [{ scaleX: -1 }] } : undefined}
       accessible={false}
     >

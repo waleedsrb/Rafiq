@@ -8,19 +8,35 @@ import { ltr, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { minutesAgo, type CheckpointStatus } from '@/lib/checkpoints';
 import { useT } from '@/lib/session';
-import { colors } from '@/theme/tokens';
+import { palettes, type Palette, type Scheme } from '@/theme/palettes';
+import { useTheme } from '@/theme/theme';
 
-export const STATUS_LOOK: Record<CheckpointStatus, { color: string; soft: string; icon: IconName | null; word: StringKey }> = {
-  open: { color: colors.statusOpen, soft: colors.statusOpenSoft, icon: 'check', word: 'statusOpen' },
-  crowded: { color: colors.statusCrowded, soft: colors.statusCrowdedSoft, icon: null, word: 'statusCrowded' },
-  closed: { color: colors.statusClosed, soft: colors.statusClosedSoft, icon: 'x', word: 'statusClosed' },
-};
+type StatusLook = Record<CheckpointStatus, { color: string; soft: string; icon: IconName | null; word: StringKey }>;
+
+function buildLook(c: Palette): StatusLook {
+  return {
+    open: { color: c.statusOpen, soft: c.statusOpenSoft, icon: 'check', word: 'statusOpen' },
+    crowded: { color: c.statusCrowded, soft: c.statusCrowdedSoft, icon: null, word: 'statusCrowded' },
+    closed: { color: c.statusClosed, soft: c.statusClosedSoft, icon: 'x', word: 'statusClosed' },
+  };
+}
+const LOOKS: Record<Scheme, StatusLook> = { light: buildLook(palettes.light), dark: buildLook(palettes.dark) };
+
+/** Colour, soft tint, icon and word for each status, in the current look. */
+export function useStatusLook(): StatusLook {
+  return LOOKS[useTheme().scheme];
+}
+
+/** The same for a given look (drive mode can be dark while the app is light). */
+export const statusLookFor = (scheme: Scheme): StatusLook => LOOKS[scheme];
 
 /** The dot's colour for a status (crowded uses the brighter amber, which reads at dot size). */
-export const dotColor = (status: CheckpointStatus) => (status === 'crowded' ? colors.statusCrowdedDot : STATUS_LOOK[status].color);
+export const dotColor = (status: CheckpointStatus, c: Palette) => (status === 'crowded' ? c.statusCrowdedDot : buildLook(c)[status].color);
 
 /** 40pt circle; grey with a dash when there is no recent report. */
 export function StatusCircle({ status, size = 40 }: { status: CheckpointStatus | null; size?: number }) {
+  const STATUS_LOOK = useStatusLook();
+  const { c: colors } = useTheme();
   const look = status ? STATUS_LOOK[status] : null;
   return (
     <View
@@ -44,6 +60,7 @@ export function StatusCircle({ status, size = 40 }: { status: CheckpointStatus |
  * dot on its corner. No dot when there is no recent report. The word beside it says the rest.
  */
 export function BarricadeMark({ status, size = 40, plain }: { status: CheckpointStatus | null; size?: number; plain?: boolean }) {
+  const { c: colors } = useTheme();
   const dot = Math.round(size * 0.32);
   return (
     <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2, backgroundColor: plain ? colors.card : colors.sunken }]}>
@@ -52,7 +69,7 @@ export function BarricadeMark({ status, size = 40, plain }: { status: Checkpoint
         <View
           style={[
             styles.dot,
-            { width: dot, height: dot, borderRadius: dot / 2, backgroundColor: dotColor(status), borderColor: plain ? colors.card : colors.surface },
+            { width: dot, height: dot, borderRadius: dot / 2, backgroundColor: dotColor(status, colors), borderColor: plain ? colors.card : colors.surface },
           ]}
         />
       ) : null}
@@ -62,6 +79,8 @@ export function BarricadeMark({ status, size = 40, plain }: { status: Checkpoint
 
 /** The status word in its colour, or "No recent reports". */
 export function StatusWord({ status }: { status: CheckpointStatus | null }) {
+  const STATUS_LOOK = useStatusLook();
+  const { c: colors } = useTheme();
   const { t } = useT();
   const { f } = useFont();
   return (

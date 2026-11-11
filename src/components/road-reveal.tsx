@@ -9,7 +9,7 @@ import { expandedInk, progress, REVEAL_END, ROAD_CUTOUT, roadDrawing, sceneTrans
 import { launchDuration, launchSceneTime } from '@/components/launch-timing';
 import { MARK_BODY, MARK_ROAD } from '@/components/rafiq-mark';
 import type { LaunchMode } from '@/lib/launch-state';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -20,6 +20,9 @@ const decorative = isWeb ? { 'aria-hidden': true as const } : { accessible: fals
 export function RoadReveal({ mode, reduced, label, onComplete, onLayout }: {
   mode: LaunchMode; reduced: boolean; label: string; onComplete: () => void; onLayout: () => void;
 }) {
+  const { dark: themeDark } = useTheme();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { width, height } = useWindowDimensions();
   const H = 360 * height / width;
   const time = useSharedValue(reduced ? REVEAL_END : 0);
@@ -48,12 +51,13 @@ export function RoadReveal({ mode, reduced, label, onComplete, onLayout }: {
 
   return (
     <View onLayout={onLayout} style={styles.root} accessible accessibilityLabel={label}>
-      <StatusBar style={settled ? 'dark' : 'light'} />
+      <StatusBar style={settled && !themeDark ? 'dark' : 'light'} />
       <Svg width={width} height={height} viewBox={`0 0 360 ${H}`} {...decorative}>
         <Defs><ClipPath id="launch-road"><Path d={ROAD_CUTOUT} /></ClipPath></Defs>
         <Rect width={360} height={H} fill={colors.surface} />
         <AnimatedGroup animatedProps={groupProps}>
-          <AnimatedPath animatedProps={inkProps} fill={colors.ink} />
+          {/* Graphite in both looks: it continues the native splash. */}
+          <AnimatedPath animatedProps={inkProps} fill={colors.graphite} />
           <G clipPath="url(#launch-road)"><AnimatedPath animatedProps={roadProps} fill={colors.surface} /></G>
           <AnimatedCircle cx={352} cy={268} animatedProps={headProps} fill={colors.surface} />
           <AnimatedGroup animatedProps={finalProps}>
@@ -66,4 +70,4 @@ export function RoadReveal({ mode, reduced, label, onComplete, onLayout }: {
   );
 }
 
-const styles = StyleSheet.create({ root: { ...StyleSheet.absoluteFill, backgroundColor: colors.surface } });
+const useStyles = makeStyles((colors) => ({ root: { ...StyleSheet.absoluteFill, backgroundColor: colors.surface } }));

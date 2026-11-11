@@ -42,23 +42,27 @@ import {
 import { selectFeel, tapFeel, warnFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
 import { useScreenCorners } from '@/theme/screen-corners';
-import { colors, motion, radii, sizes, space } from '@/theme/tokens';
+import type { Palette } from '@/theme/palettes';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { motion, radii, sizes, space } from '@/theme/tokens';
 
 import { Icon, type IconName } from './icon';
 import { useFont } from './ui';
 
-const TONES: Record<DialogTone, { icon: IconName; fg: string; bg: string; button: string; pressed: string }> = {
+const tones = (colors: Palette): Record<DialogTone, { icon: IconName; fg: string; bg: string; button: string; pressed: string }> => ({
   neutral: { icon: 'info', fg: colors.ink, bg: colors.sunken, button: colors.ink, pressed: colors.inkPressed },
   success: { icon: 'check', fg: colors.statusOpen, bg: colors.statusOpenSoft, button: colors.ink, pressed: colors.inkPressed },
   warning: { icon: 'warning', fg: colors.clay, bg: colors.claySoft, button: colors.clay, pressed: colors.clayPressed },
   danger: { icon: 'warning', fg: colors.clay, bg: colors.claySoft, button: colors.clay, pressed: colors.clayPressed },
-};
+});
 
 // The same two curves for every pop-up.
 const IN = { duration: motion.inMs, easing: Easing.out(Easing.cubic) };
 const OUT = { duration: motion.outMs, easing: Easing.in(Easing.cubic) };
 
 export function DialogHost({ layer = 0 }: { layer?: number }) {
+  const styles = useStyles();
+  const theme = useTheme();
   // Only the newest layer draws (see pushDialogLayer): the root one, or the trip card's.
   const top = useSyncExternalStore(subscribeDialogLayers, topDialogLayer, topDialogLayer);
   const queued = useSyncExternalStore(subscribeDialogs, currentDialog, currentDialog);
@@ -179,7 +183,7 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
   }
 
   const { spec } = shown;
-  const tone = TONES[spec.tone ?? 'neutral'];
+  const tone = tones(theme.c)[spec.tone ?? 'neutral'];
   const list = spec.layout === 'list';
   const answer = (value: unknown) => {
     if (!closing) answerDialog(shown.id, value);
@@ -321,6 +325,7 @@ export function DialogHost({ layer = 0 }: { layer?: number }) {
 }
 
 function QuietButton({ label, font, onPress }: { label: string; font: string; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -332,7 +337,7 @@ function QuietButton({ label, font, onPress }: { label: string; font: string; on
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   fill: { flex: 1 },
   veil: { flex: 1, backgroundColor: colors.veil },
   dock: { flex: 1, justifyContent: 'flex-end' },
@@ -376,7 +381,7 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 17, color: colors.onInk },
   quiet: { height: sizes.touch + 4, alignItems: 'center', justifyContent: 'center' },
   quietText: { fontSize: 16, color: colors.ink },
-});
+}));
 
 /**
  * Pop-ups for a full-screen layer of ours (a Modal: the trip card, the search). Put it

@@ -9,7 +9,8 @@ import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { openTripFrom, type Rect } from '@/lib/trip-layer';
-import { colors, fonts, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { fonts, space } from '@/theme/tokens';
 
 export function TripRow({
   origin,
@@ -30,6 +31,7 @@ export function TripRow({
   /** Gets where the row is on screen, so a trip can grow out of it. */
   onPress?: (from: Rect | null) => void;
 }) {
+  const styles = useStyles();
   const ref = useRef<HostInstance>(null);
   const { t, lang } = useT();
   const f = fonts[lang];
@@ -57,7 +59,7 @@ export function TripRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -70,4 +72,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: 14, color: colors.inkSecondary },
   signal: { fontSize: 14, color: colors.clay },
   price: { fontSize: 17, color: colors.ink },
-});
+}));
