@@ -41,13 +41,19 @@ export default function ProfileStep() {
     }
     setSaving(true);
     setError(null);
-    // Upsert, so pressing Continue again after a failed phone save still works.
-    const { error: err } = await supabase.from('profiles').upsert({
-      id: session.user.id,
+    // Insert, then update if the row is already there (Continue pressed again after a
+    // failed phone save). Not upsert: Postgres makes an upsert READ the columns it
+    // overwrites, and full_name is private (no one may select it, not even its owner).
+    const row = {
       full_name: `${first.trim()} ${last.trim()}`,
       gender,
       language: chosenLanguage ?? deviceLanguage(),
-    });
+    };
+    let { error: err } = await supabase.from('profiles').insert({ id: session.user.id, ...row });
+    if (err?.code === '23505') {
+      // 23505 = unique_violation: this person already has a profile row.
+      ({ error: err } = await supabase.from('profiles').update(row).eq('id', session.user.id));
+    }
     // Stored like Supabase stores sign-in phones: digits only (970591234567).
     const { error: phoneErr } =
       err || !needsPhone || !phone
