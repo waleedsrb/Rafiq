@@ -4,6 +4,7 @@
 // only for a valid token, and only until 2 hours after the trip ends. The page refreshes
 // every 30 seconds while the car is on the road.
 
+import './crash';
 import { createClient } from '@supabase/supabase-js';
 
 import { minutesAgo, placeName, tripStatus, type Lang, type SharedTrip } from './share-logic';

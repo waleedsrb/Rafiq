@@ -11,6 +11,7 @@ import { Icon } from '@/components/icon';
 import { StatsRow } from '@/components/stats-row';
 import { Body, ListRow, TabScreen, ltr, useFont } from '@/components/ui';
 import { removeAvatar, setAvatar } from '@/lib/avatar';
+import { sendTestCrash } from '@/lib/crash';
 import { askForPhoto } from '@/lib/photo-pick';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
@@ -174,7 +175,10 @@ export default function Account() {
         />
       </View>
       {/* Which published version this is, so a phone test can be matched to a change. */}
-      <Text style={[styles.build, { fontFamily: f.regular }]}>{buildLabel()}</Text>
+      {/* Long-press sends a test crash report, to check Sentry receives them. */}
+      <Text style={[styles.build, { fontFamily: f.regular }]} onLongPress={sendTestCrash}>
+        {buildLabel()}
+      </Text>
     </TabScreen>
   );
 }

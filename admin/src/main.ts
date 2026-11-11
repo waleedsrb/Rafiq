@@ -4,6 +4,7 @@
 // everything. Only people listed in public.admins can read other people's requests, see the
 // photos (private bucket, 10-minute signed links), or call review_verification().
 
+import { setCrashUser } from './crash';
 import { createClient, type Session } from '@supabase/supabase-js';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -409,5 +410,6 @@ supabase.auth.onAuthStateChange((_event, session) => {
   const user = session?.user.id ?? null;
   if (user === currentUser) return;
   currentUser = user;
+  setCrashUser(user);
   render(session);
 });
