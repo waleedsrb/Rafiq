@@ -142,6 +142,12 @@ do $$ begin
   end if;
 end $$;
 
+-- 7. With the ID already verified, a new driver check asks only for licence and car.
+select pg_temp.expect_error($$insert into public.verifications (user_id, kind, photos)
+  values (auth.uid(), 'driver', array['00000000-0000-0000-0000-00000000000d/i.jpg', '00000000-0000-0000-0000-00000000000d/l.jpg', '00000000-0000-0000-0000-00000000000d/c.jpg'])$$, 'licence and car photos');
+insert into public.verifications (user_id, kind, photos)
+  values (auth.uid(), 'driver', array['00000000-0000-0000-0000-00000000000d/licence-2.jpg', '00000000-0000-0000-0000-00000000000d/car-2.jpg']);
+
 reset role;
 select 'All verification checks passed' as result;
 rollback;

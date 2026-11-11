@@ -8,7 +8,7 @@ import { base64ToBytes } from '@/lib/base64';
 import { checkStatus, type CheckKind, type CheckStatus, type LastRequest, type PhotoSlot } from '@/lib/check-status';
 import { supabase } from '@/lib/supabase';
 
-export { PHOTO_SLOTS, type CheckKind, type CheckState, type CheckStatus, type PhotoSlot } from '@/lib/check-status';
+export { PHOTO_SLOTS, slotsFor, type CheckKind, type CheckState, type CheckStatus, type PhotoSlot } from '@/lib/check-status';
 
 /**
  * Where someone stands for one kind of check. Reloads whenever the screen comes into view,

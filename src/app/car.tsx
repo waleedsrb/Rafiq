@@ -1,6 +1,7 @@
 // Driver: add or edit your car. Required before posting a trip
 // (the database refuses a trip without one: see require_car()).
 
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -74,9 +75,15 @@ export default function Car() {
       plate: normalized,
       updated_at: new Date().toISOString(),
     });
+    if (err) {
+      setSaving(false);
+      return setError(t('somethingWrong'));
+    }
+    // A new car (or a changed one) needs the driver check: go straight to its photos.
+    const { data } = await supabase.from('driver_details').select('verified_at').eq('driver_id', session.user.id).maybeSingle();
     setSaving(false);
-    if (err) return setError(t('somethingWrong'));
-    goBack();
+    if (data && !data.verified_at) router.replace({ pathname: '/verify', params: { kind: 'driver' } });
+    else goBack();
   }
 
   return (
