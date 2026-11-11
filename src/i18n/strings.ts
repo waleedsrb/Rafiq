@@ -145,9 +145,6 @@ export const strings = {
   waitingForDriver: { ar_m: 'في انتظار قبول السائق', en: 'Waiting for the driver to accept' },
   seatConfirmed: { ar_m: 'مقعدك مؤكد', en: 'Your seat is confirmed' },
   requestsWaiting: { ar_m: 'طلبات مقاعد بانتظارك', en: 'Seat requests waiting for you' },
-  partMorning: { ar_m: 'صباحًا', en: 'Morning' },
-  partAfternoon: { ar_m: 'ظهرًا', en: 'Afternoon' },
-  partEvening: { ar_m: 'مساءً', en: 'Evening' },
   am: { ar_m: 'صباحًا', en: 'AM' },
   pm: { ar_m: 'مساءً', en: 'PM' },
 
@@ -427,7 +424,11 @@ export const strings = {
   findSeatTitle: { ar_m: 'إلى أين؟', en: 'Where to?' },
   noResults: { ar_m: 'لا رحلات في هذا اليوم بعد', en: 'No trips on this day yet' },
   closeSearch: { ar_m: 'إغلاق البحث', en: 'Close search' },
-  allDay: { ar_m: 'كل اليوم', en: 'All day' },
+  noResultsAnyDay: {
+    ar_m: 'لا رحلات على هذا الطريق بعد. اختر يومًا لننبهك عند نشر رحلة.',
+    ar_f: 'لا رحلات على هذا الطريق بعد. اختاري يومًا لننبهك عند نشر رحلة.',
+    en: 'No trips on this route yet. Pick a day to get an alert when one is posted.',
+  },
   leavingSoon: { ar_m: 'يغادر قريبًا', en: 'Leaving soon' },
   tripsThatDay: { ar_m: 'رحلات في هذا اليوم', en: 'trips that day' },
   seatsLeft: { ar_m: 'مقاعد متبقية', en: 'seats left' },
