@@ -1,6 +1,6 @@
 // Pure logic for picking when a trip leaves: minutes since midnight in 5-minute steps,
 // how early "today" may start, and the month grid of the calendar.
-// Shared by the time ruler (components/time-ruler.tsx) and the day pills (components/day-pills.tsx).
+// Shared by the time wheels (components/time-wheels.tsx) and the day pills (components/day-pills.tsx).
 
 export const STEP = 5;
 /** The last pickable minute of a day: 23:55. */
@@ -34,14 +34,17 @@ export function untilWords(mins: number, ar: boolean): string {
   return [hs, ms].filter(Boolean).join(' ');
 }
 
-/** The half hour (0-47) a minute falls in, for the riders-looking bars. */
+/** The half hour (0-47) a minute falls in, for the demand chart. */
 export const slotOf = (t: number) => Math.floor(t / 30);
 
-/** Bars from the server's sparse answer: 48 counts, 0 where nobody is waiting. */
-export function slotBars(rows: { slot: number; riders: number }[] | null | undefined): number[] {
-  const bars = Array.from({ length: 48 }, () => 0);
-  for (const r of rows ?? []) if (r.slot >= 0 && r.slot < 48) bars[r.slot] = r.riders;
-  return bars;
+/** Riders looking and other drivers going in one half hour. */
+export type SlotDemand = { riders: number; drivers: number };
+
+/** The chart's 48 half hours from the server's sparse answer, zeros where nobody is. */
+export function slotDemand(rows: { slot: number; riders: number; drivers: number }[] | null | undefined): SlotDemand[] {
+  const out = Array.from({ length: 48 }, () => ({ riders: 0, drivers: 0 }));
+  for (const r of rows ?? []) if (r.slot >= 0 && r.slot < 48) out[r.slot] = { riders: r.riders ?? 0, drivers: r.drivers ?? 0 };
+  return out;
 }
 
 /**

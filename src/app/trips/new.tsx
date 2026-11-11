@@ -24,14 +24,14 @@ import { PickupMap } from '@/components/pickup-map';
 import { PlaceFields, PlaceResults, usePlaceSearch } from '@/components/place-search';
 import { RouteCard } from '@/components/route-card';
 import { DayPills } from '@/components/day-pills';
-import { TimeRuler } from '@/components/time-ruler';
+import { DemandChart, DemandLine, TimeWheels } from '@/components/time-wheels';
 import { TripHero } from '@/components/trip-hero';
 import { StepHeader, TripSheet, sheetMidTop, type SheetMini } from '@/components/trip-sheet';
 import { Body, Button, Chip, Field, ListRow, Stepper, TextLink, ltr } from '@/components/ui';
 import { photoGate, photoGateText } from '@/lib/avatar';
 import { formatDay, formatLongDay, shortTime } from '@/lib/format';
 import { successFeel } from '@/lib/haptics';
-import { earliestToday, LAST, minutesOf, slotBars, untilWords } from '@/lib/leave-time';
+import { earliestToday, LAST, minutesOf, slotDemand, untilWords, type SlotDemand } from '@/lib/leave-time';
 import { goBack } from '@/lib/nav';
 import { centreName, centrePoint, NABLUS, place, placeKm, RAMALLAH, routeName, type LatLng } from '@/lib/places';
 import { labelOk, movePickup, offerSpots, spotAt, type Pickup } from '@/lib/pickup';
@@ -264,21 +264,23 @@ export default function NewTrip() {
     if (day === 0 && firstToday !== null && leaveMin < firstToday) setTime({ h: Math.floor(firstToday / 60), m: firstToday % 60 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day]);
-  // Riders with an open ride alert, per half hour of the chosen day (bars over the ruler).
-  const [bars, setBars] = useState<number[] | undefined>(undefined);
+  // Riders looking and other drivers going, per half hour of the chosen day (the chart).
+  const [slots, setSlots] = useState<SlotDemand[] | undefined>(undefined);
   const barsDay = weekly ? null : departs.toLocaleDateString('en-CA');
   useEffect(() => {
-    setBars(undefined);
+    setSlots(undefined);
     if (step !== 'when' || !barsDay) return;
     let live = true;
-    supabase.rpc('alert_demand_by_slot', { p_origin: origin, p_destination: destination, p_day: barsDay }).then(({ data, error: err }) => {
-      // Before the database function exists (or offline) there are simply no bars.
-      if (live && !err) setBars(slotBars(data as { slot: number; riders: number }[] | null));
+    supabase.rpc('demand_by_slot', { p_origin: origin, p_destination: destination, p_day: barsDay }).then(({ data, error: err }) => {
+      // Before the database function exists (or offline) there is simply no chart.
+      if (live && !err) setSlots(slotDemand(data as { slot: number; riders: number; drivers: number }[] | null));
     });
     return () => {
       live = false;
     };
   }, [step, origin, destination, barsDay]);
+  const hasDemand = !!slots && slots.some((d) => d.riders > 0 || d.drivers > 0);
+  const pickTime = (m: number) => setTime({ h: Math.floor(m / 60), m: m % 60 });
   const whenText = weekly ? t('weeklyChip') : day === 0 ? t('today') : day === 1 ? t('tomorrow') : formatDay(departs, lang);
 
   // ─── Steps ────────────────────────────────────────────────────────────────────
@@ -489,7 +491,18 @@ export default function NewTrip() {
               </Body>
             ) : (
               <View style={{ gap: space.sm }}>
-                <TimeRuler minutes={leaveMin} min={minToday} onChange={(m) => setTime({ h: Math.floor(m / 60), m: m % 60 })} bars={bars} />
+                {/* Who wants to go when: shown once there is anyone to show; weekly has no one day. */}
+                {!weekly && slots ? (
+                  hasDemand ? (
+                    <DemandChart slots={slots} minutes={leaveMin} min={minToday} onPick={pickTime} />
+                  ) : (
+                    <Body muted small style={{ textAlign: 'center' }}>
+                      {t('noDemandYet')}
+                    </Body>
+                  )
+                ) : null}
+                <TimeWheels minutes={leaveMin} min={minToday} onChange={pickTime} />
+                {!weekly && slots && hasDemand ? <DemandLine slots={slots} minutes={leaveMin} /> : null}
                 {!weekly ? (
                   <Body muted small style={{ textAlign: 'center' }}>
                     {day === 0 ? t('leaveIn').replace('{t}', ltr(untilWords(Math.max(0, leaveMin - nowMin), lang === 'ar'))) : formatDay(departs, lang)}
