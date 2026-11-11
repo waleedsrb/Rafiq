@@ -1,4 +1,5 @@
-// The day pills (today plus six) with a calendar button at the end (Nov 11). The calendar
+// The day pills (today plus six) with a calendar button pinned at the end: the pills scroll
+// under it (Nov 11). The calendar
 // is a month grid up to AHEAD_DAYS ahead; past days and days beyond the limit are greyed.
 // With `children` (Post a trip: the time ruler), the calendar takes the children's place in
 // a box of fixed height, so the card never changes size and the swap is a short cross-fade
@@ -7,13 +8,21 @@
 //
 // Used by Post a trip, the search on Home and the results page, so all of them pick days
 // the same way.
+//
+// Search (`onClear` given, Nov 11, design A): picking a day is optional. Nothing picked =
+// every day; tapping the picked pill (it shows a small ×) un-picks it. The calendar is a
+// glass circle pinned at the row's end: the pills slide under it, blurred by the glass. A far
+// day picked in the calendar shows its date inside the circle, which turns solid graphite,
+// as it does while the month is open (the month itself sits on the page, solid: it is
+// content to read, not a floating control).
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { BlurView } from 'expo-blur';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
-import { PillChips, useFont } from '@/components/ui';
+import { GlassButton, PillChips, useFont } from '@/components/ui';
 import { formatChipDay, formatDay, formatMonth, weekdayLetters } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
 import { monthCells } from '@/lib/leave-time';
@@ -31,16 +40,22 @@ export function dayLabel(d: number, t: (k: 'today' | 'tomorrow') => string, lang
 }
 
 export function DayPills({
-  day,
+  day: dayOrNull,
   onDay,
+  onClear,
   extra,
   dots,
   padding,
+  inset = 0,
   children,
 }: {
-  /** 0 = today .. AHEAD_DAYS, or -1 when the extra pill is picked. */
-  day: number;
+  /** 0 = today .. AHEAD_DAYS, or -1 when the extra pill is picked; null = none (search only). */
+  day: number | null;
   onDay: (d: number) => void;
+  /** Search: un-pick the day (tap the picked pill again). Also pins the calendar. */
+  onClear?: () => void;
+  /** Side margin of the row, when it runs edge to edge. */
+  inset?: number;
   /** One more pill after the days, like "Weekly" on Post a trip. */
   extra?: { label: string; onPick: () => void };
   /** Days with something on them (trips found), marked with a dot in the calendar. */
@@ -54,48 +69,126 @@ export function DayPills({
   const [open, setOpen] = useState(false);
   const scroller = useRef<ScrollViewInstance>(null);
 
+  const pinned = !!onClear;
+  // -2: nothing picked (never matches a day, the extra pill or a calendar cell).
+  const day = dayOrNull ?? -2;
   const far = day >= PILL_DAYS ? day : null;
   const labels = Array.from({ length: PILL_DAYS }, (_, i) => dayLabel(i, t, lang));
-  if (far !== null) labels.push(dayLabel(far, t, lang));
+  // Pinned, a far day shows in the calendar circle instead of as a pill of its own.
+  if (far !== null && !pinned) labels.push(dayLabel(far, t, lang));
   if (extra) labels.push(extra.label);
   const extraIndex = extra ? labels.length - 1 : -1;
-  const selected = day === -1 ? extraIndex : far !== null ? PILL_DAYS : day;
+  const selected = day === -1 ? extraIndex : far !== null ? (pinned ? -1 : PILL_DAYS) : day < 0 ? -1 : day;
+  // Days with nothing on them look lighter (still tappable), once we know.
+  const faint = pinned && dots ? labels.map((_, i) => i < PILL_DAYS && !dots[i]) : undefined;
 
   const pick = (d: number) => {
     setOpen(false);
+    if (pinned && d === day) return onClear?.();
     onDay(d);
     // A far day lands at the end of the row: bring it into view.
-    if (d >= PILL_DAYS) requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+    if (d >= PILL_DAYS && !pinned) requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
   };
+  const toggle = () => {
+    selectFeel();
+    setOpen((o) => !o);
+  };
+
+  if (pinned) {
+    const solid = open || far !== null;
+    return (
+      <View style={{ gap: space.sm }}>
+        <View style={{ justifyContent: 'center' }}>
+          <ScrollView
+            ref={scroller}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
+            // Room at the end so the last pill can scroll out from under the circle.
+            contentContainerStyle={[styles.row, { paddingStart: inset, paddingEnd: inset + CIRCLE + space.sm }]}
+          >
+            <PillChips
+              labels={labels}
+              selected={selected}
+              padding={padding}
+              clearable
+              faint={faint}
+              onPick={(i) => {
+                setOpen(false);
+                if (i === selected) onClear?.();
+                else onDay(i);
+              }}
+            />
+          </ScrollView>
+          <View style={[styles.pin, { end: Math.max(0, inset - 2) }]}>
+            {solid ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={far !== null ? `${t('pickDate')}: ${formatDay(searchDayStart(far, new Date()), lang)}` : t('pickDate')}
+                accessibilityState={{ expanded: open }}
+                onPress={toggle}
+                hitSlop={4}
+                style={({ pressed }) => [styles.circle, pressed && { opacity: 0.7 }]}
+              >
+                {far !== null && !open ? (
+                  <Text style={styles.circleDate}>{searchDayStart(far, new Date()).getDate()}</Text>
+                ) : (
+                  <Icon name="calendar" size={18} color={colors.onInk} />
+                )}
+              </Pressable>
+            ) : (
+              <GlassButton icon="calendar" label={t('pickDate')} onPress={toggle} />
+            )}
+          </View>
+        </View>
+        {open ? (
+          <Animated.View
+            style={{ paddingHorizontal: inset }}
+            entering={reduced ? undefined : FadeIn.duration(220)}
+            exiting={reduced ? undefined : FadeOut.duration(160)}
+          >
+            <MonthGrid day={day} onPick={pick} dots={dots} />
+          </Animated.View>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <View style={{ gap: space.sm }}>
-      <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.row}>
-        <PillChips
-          labels={labels}
-          selected={selected}
-          padding={padding}
-          onPick={(i) => {
-            setOpen(false);
-            if (i === extraIndex) extra?.onPick();
-            else if (far !== null && i === PILL_DAYS) onDay(far);
-            else onDay(i);
-          }}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('pickDate')}
-          accessibilityState={{ expanded: open }}
-          onPress={() => {
-            selectFeel();
-            setOpen((o) => !o);
-          }}
-          hitSlop={4}
-          style={({ pressed }) => [styles.cal, open && styles.calOn, pressed && { opacity: 0.6 }]}
-        >
-          <Icon name="calendar" size={18} color={open ? colors.onInk : colors.ink} />
-        </Pressable>
-      </ScrollView>
+      {/* The calendar stays pinned at the row's end; the pills scroll under it (Nov 11). */}
+      <View style={{ justifyContent: 'center' }}>
+        <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={[styles.row, { paddingEnd: CAL + space.sm }]}>
+          <PillChips
+            labels={labels}
+            selected={selected}
+            padding={padding}
+            onPick={(i) => {
+              setOpen(false);
+              if (i === extraIndex) extra?.onPick();
+              else if (far !== null && i === PILL_DAYS) onDay(far);
+              else onDay(i);
+            }}
+          />
+        </ScrollView>
+        <View style={[styles.pin, { end: 0 }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('pickDate')}
+            accessibilityState={{ expanded: open }}
+            onPress={() => {
+              selectFeel();
+              setOpen((o) => !o);
+            }}
+            hitSlop={4}
+            style={({ pressed }) => [styles.cal, open && styles.calOn, pressed && { opacity: 0.6 }]}
+          >
+            {/* Frosted, so the pills read as sliding under it (not Liquid Glass: this sits on a card). */}
+            {open ? null : <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />}
+            <Icon name="calendar" size={18} color={open ? colors.onInk : colors.ink} />
+          </Pressable>
+        </View>
+      </View>
       {children !== undefined ? (
         <Stage open={open} reduced={reduced} calendar={<MonthGrid day={day} onPick={pick} dots={dots} />}>
           {children}
@@ -222,19 +315,28 @@ function MonthArrow({ label, icon, disabled, onPress }: { label: string; icon: '
 }
 
 const CELL = `${100 / 7}%` as const;
+/** The pinned calendar circle: the touch size, like the glass buttons on the tab pages. */
+const CIRCLE = 44;
+/** Post a trip's pinned calendar button. */
+const CAL = 40;
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   cal: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: CAL,
+    height: CAL,
+    borderRadius: CAL / 2,
     borderWidth: 1.5,
     borderColor: colors.lineStrong,
+    backgroundColor: 'rgba(247,246,243,0.72)',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   calOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  pin: { position: 'absolute' },
+  circle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  circleDate: { fontFamily: fonts.en.bold, fontSize: 16, color: colors.onInk, fontVariant: ['tabular-nums'] },
   // At least a month tall; taller only when what it holds is (the weekly chips).
   stage: { minHeight: STAGE_H },
   layer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
