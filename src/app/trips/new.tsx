@@ -578,6 +578,7 @@ export default function NewTrip() {
         checkpointsExact
         want={want}
         fitContent={step !== 'pickup'}
+        noFull={step === 'when'}
         map={step === 'pickup' && !pausedUntil ? <PickupMap center={mapAt} onMove={onMapMove} visibleBottom={sheetMidTop(H)} /> : undefined}
       />
     </GestureHandlerRootView>
