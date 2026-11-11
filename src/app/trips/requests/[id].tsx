@@ -44,7 +44,7 @@ import { tapFeel } from '@/lib/haptics';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
 import { shortName } from '@/lib/names';
 import { goBack } from '@/lib/nav';
-import { formatPhone, telLink } from '@/lib/phone';
+import { telLink } from '@/lib/phone';
 import { centreName, routeName } from '@/lib/places';
 import { useDriverPosition } from '@/lib/position';
 import { isLateTripCancel } from '@/lib/rules';
@@ -481,7 +481,7 @@ export default function DriverTrip() {
         </Body>
       ) : null}
 
-      {/* Your riders: a plain list, each with a call button. At the pickup, one big button each. */}
+      {/* Your riders: one row each (look A, Nov 11): call, and at the pickup an "In the car?" capsule. */}
       {riders.length > 0 ? (
         <View>
           {riders.map((r, i) => (
@@ -492,21 +492,20 @@ export default function DriverTrip() {
               onOpen={() => openRider(r.passenger_id)}
               checkIn={
                 atPickup ? (
-                  <View style={styles.checkIn}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: !!r.boarded_at }}
-                      onPress={() => board(r)}
-                      disabled={busy !== null}
-                      style={({ pressed }) => [styles.inCar, r.boarded_at ? styles.inCarOn : null, pressed && { opacity: 0.7 }]}
-                    >
-                      {r.boarded_at ? <Icon name="check" size={18} color={colors.onInk} /> : null}
-                      <Text style={[styles.inCarText, { fontFamily: f.medium }, r.boarded_at ? { color: colors.onInk } : null]}>
-                        {t(r.boarded_at ? 'inTheCar' : 'inTheCarAsk')}
-                      </Text>
-                    </Pressable>
-                    {!r.boarded_at && noShowOk ? <TextLink label={t('markNoShow')} onPress={() => noShow(r)} /> : null}
-                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: !!r.boarded_at }}
+                    accessibilityLabel={`${t(r.boarded_at ? 'inTheCar' : 'inTheCarAsk')} ${shortName(r.profiles.display_name)}`}
+                    onPress={() => board(r)}
+                    disabled={busy !== null}
+                    hitSlop={4}
+                    style={({ pressed }) => [styles.inCar, r.boarded_at ? styles.inCarOn : null, pressed && { opacity: 0.7 }]}
+                  >
+                    {r.boarded_at ? <Icon name="check" size={16} color={colors.onInk} /> : null}
+                    <Text style={[styles.inCarText, { fontFamily: f.medium }, r.boarded_at ? { color: colors.onInk } : null]}>
+                      {t(r.boarded_at ? 'inTheCar' : 'inTheCarAsk')}
+                    </Text>
+                  </Pressable>
                 ) : null
               }
               note={
@@ -515,11 +514,14 @@ export default function DriverTrip() {
                     <Body small style={{ color: colors.clay, fontFamily: f.medium }}>
                       {t('atPickup')}
                     </Body>
-                  ) : !noShowOk ? (
+                  ) : noShowOk ? (
+                    // No-show only takes space once it's allowed (10 minutes after leaving time).
+                    <TextLink label={t('markNoShow')} onPress={() => noShow(r)} />
+                  ) : (
                     <Body muted small>
                       {t('noShowFrom')} {ltr(formatTime(noShowFrom(departs), lang))}
                     </Body>
-                  ) : null
+                  )
                 ) : null
               }
             />
@@ -587,7 +589,7 @@ export default function DriverTrip() {
         <Button label={t('startTrip')} icon="steeringWheel" onPress={start} loading={busy === 'trip'} disabled={!allIn} />
         {allIn ? null : (
           <Body muted small style={{ textAlign: 'center' }}>
-            {t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.display_name).split(' ')[0]).join('، '))}
+            {t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.display_name).split(' ')[0]).join(lang === 'ar' ? '، ' : ', '))}
           </Body>
         )}
       </>
@@ -595,7 +597,7 @@ export default function DriverTrip() {
     if (!firstAsk) {
       mini = allIn
         ? { sub: t('allInCar'), tone: 'ok', action: { label: t('startTrip'), onPress: start, loading: busy === 'trip' } }
-        : { sub: t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.display_name).split(' ')[0]).join('، ')) };
+        : { sub: t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.display_name).split(' ')[0]).join(lang === 'ar' ? '، ' : ', ')) };
     }
   } else if (state === 'finished') {
     if (canRate && unrated.length > 0) {
@@ -686,7 +688,7 @@ export default function DriverTrip() {
   );
 }
 
-/** One confirmed rider: photo, name, phone and a call button; at the pickup, the check-in button below. */
+/** One confirmed rider in one row: photo, name, seats, call; at the pickup, the check-in capsule beside it. */
 function RiderRow({
   r,
   last,
@@ -714,9 +716,9 @@ function RiderRow({
         onPress={onOpen}
         subtitle={
           <View style={{ gap: 2 }}>
+            {/* No phone number here: the call button dials it. */}
             <Body muted small>
               {ltr(r.seats)} {t('seatOne')}
-              {phone ? ` · ${ltr(formatPhone(phone))}` : ''}
             </Body>
             {opensAt ? (
               <Body muted small>
@@ -727,19 +729,24 @@ function RiderRow({
           </View>
         }
         trailing={
-          phone ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${t('call')} ${shortName(r.profiles.display_name)}`}
-              onPress={() => Linking.openURL(telLink(phone)).catch(() => {})}
-              style={({ pressed }) => [styles.call, pressed && { opacity: 0.7 }]}
-            >
-              <Icon name="phone" size={20} color={colors.onInk} />
-            </Pressable>
+          phone || checkIn ? (
+            <View style={styles.riderEnd}>
+              {phone ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('call')} ${shortName(r.profiles.display_name)}`}
+                  onPress={() => Linking.openURL(telLink(phone)).catch(() => {})}
+                  hitSlop={4}
+                  style={({ pressed }) => [styles.call, pressed && { opacity: 0.7 }]}
+                >
+                  <Icon name="phone" size={18} color={colors.onInk} />
+                </Pressable>
+              ) : null}
+              {checkIn}
+            </View>
           ) : undefined
         }
       />
-      {checkIn}
     </View>
   );
 }
@@ -761,19 +768,20 @@ const styles = StyleSheet.create({
   askLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   rider: { paddingBottom: space.sm },
   riderLine: { borderBottomWidth: 1, borderBottomColor: colors.hairline },
-  checkIn: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingBottom: space.sm },
+  riderEnd: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  // 40pt targets plus 4pt hitSlop keep the 48pt tap area, same as the request rows.
   inCar: {
-    flex: 1,
-    height: 48,
-    borderRadius: 24,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderColor: colors.ink,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   inCarOn: { backgroundColor: colors.statusOpen, borderColor: colors.statusOpen },
-  inCarText: { fontSize: 16, color: colors.ink },
-  call: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  inCarText: { fontSize: 15, color: colors.ink },
+  call: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
 });
