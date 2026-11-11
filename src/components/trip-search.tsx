@@ -1,6 +1,7 @@
 // Find a seat, design C1a "time first". There is no Search button: the next 30 days of trips
-// for one direction load once, and changing the day or the part of the day only filters
-// what is already here, so the list changes in place without waiting.
+// for one direction load once, and picking a day only filters what is already here, so the
+// list changes in place without waiting. No day picked (how it opens) = every trip in the
+// next 30 days, earliest first, with a small heading starting each day (Waleed, Nov 11).
 // Used by the search that grows out of Home's "Where to?" bar (search-morph.tsx)
 // and by the stand-alone results screen that other screens link to.
 
@@ -11,17 +12,16 @@ import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from
 import { DayPills } from '@/components/day-pills';
 import { Icon } from '@/components/icon';
 import { StatsLine, useTripDriverStats } from '@/components/stats-line';
-import { pillBase, usePillColor, usePillSlide, usePillStyle, type PillSlide } from '@/components/pill-slide';
 import { Body, Button, Chip, ltr, useFont } from '@/components/ui';
 import { alertWindow } from '@/lib/alerts';
-import { shortTime, type DayPart } from '@/lib/format';
+import { formatDay, shortTime } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
 import { NABLUS, place, placeName, RAMALLAH } from '@/lib/places';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { carName } from '@/lib/names';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { countByDay, dayIndex, filterTrips, leavingSoon, PARTS, AHEAD_DAYS, searchDayStart } from '@/lib/trip-search';
+import { byDay, countByDay, dayIndex, filterTrips, leavingSoon, AHEAD_DAYS, searchDayStart } from '@/lib/trip-search';
 import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
 import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
@@ -45,18 +45,15 @@ export type Result = {
   destination_km: number;
 };
 
-const partLabel = { morning: 'partMorning', afternoon: 'partAfternoon', evening: 'partEvening' } as const;
-
 export type SearchState = {
   origin: City;
   destination: City;
-  day: number;
-  part: DayPart | null;
+  /** 0 = today .. AHEAD_DAYS, or null for every day (nothing picked). */
+  day: number | null;
   setOrigin: (c: City) => void;
   setDestination: (c: City) => void;
   swap: () => void;
-  setDay: (d: number) => void;
-  setPart: (p: DayPart | null) => void;
+  setDay: (d: number | null) => void;
   /** Verified women can narrow the list to women-only trips. */
   womenOnly: boolean;
   setWomenOnly: (on: boolean) => void;
@@ -67,7 +64,7 @@ export type SearchState = {
 };
 
 /** Everything a search page needs: the question, and the week of answers for it. */
-export function useTripSearch(start?: { origin?: City; destination?: City; day?: number; part?: DayPart | null }): SearchState {
+export function useTripSearch(start?: { origin?: City; destination?: City; day?: number | null }): SearchState {
   const { t, lang } = useT();
   const [route, setRoute] = useState<{ origin: City; destination: City }>(() => {
     const origin = place(start?.origin)?.id ?? RAMALLAH;
@@ -75,8 +72,7 @@ export function useTripSearch(start?: { origin?: City; destination?: City; day?:
     return { origin, destination: destination === origin ? (origin === NABLUS ? RAMALLAH : NABLUS) : destination };
   });
   const { origin, destination } = route;
-  const [day, setDay] = useState(start?.day ?? 0);
-  const [part, setPart] = useState<DayPart | null>(start?.part ?? null);
+  const [day, setDay] = useState<number | null>(start?.day ?? null);
   const [womenOnly, setWomenOnly] = useState(false);
   const [week, setWeek] = useState<Result[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,19 +101,44 @@ export function useTripSearch(start?: { origin?: City; destination?: City; day?:
   const setOrigin = useCallback((c: City) => setRoute((r) => (c === r.destination ? { origin: c, destination: r.origin } : { ...r, origin: c })), []);
   const setDestination = useCallback((c: City) => setRoute((r) => (c === r.origin ? { origin: r.destination, destination: c } : { ...r, destination: c })), []);
   const swap = useCallback(() => setRoute((r) => ({ origin: r.destination, destination: r.origin })), []);
-  return { origin, destination, day, part, setOrigin, setDestination, swap, setDay, setPart, womenOnly, setWomenOnly, week, loading, counts };
+  return { origin, destination, day, setOrigin, setDestination, swap, setDay, womenOnly, setWomenOnly, week, loading, counts };
 }
 
 /** The day pills: one tap picks the day, the graphite pill glides there, and the list below
- *  changes in place. The calendar at the end reaches further days; dots mark days with trips. */
-export function DayChips({ s }: { s: SearchState }) {
-  return <DayPills day={s.day} onDay={s.setDay} dots={s.counts} padding={14} />;
+ *  changes in place; tapping it again goes back to every day. The calendar stays pinned at
+ *  the end (the pills slide under its glass) and reaches further days. `inset`: the row's
+ *  side margin, when it runs edge to edge. */
+export function DayChips({ s, inset }: { s: SearchState; inset?: number }) {
+  return (
+    <DayPills
+      day={s.day}
+      onDay={s.setDay}
+      onClear={() => s.setDay(null)}
+      // Until the answer is here every day would look empty, so no dots or faded days yet.
+      dots={s.week ? s.counts : undefined}
+      padding={14}
+      inset={inset}
+    />
+  );
 }
 
-/** The trips of the chosen day, part of the day and (for verified women) women-only switch. */
+/** The trips of the chosen day (or every day), and the women-only switch for verified women. */
 function dayTrips(s: SearchState, now: Date) {
-  const ofDay = (s.week ?? []).filter((r) => dayIndex(r.departs_at, now) === s.day);
-  return { ofDay, shown: filterTrips(ofDay, s.part, s.womenOnly) };
+  const all = s.week ?? [];
+  const ofDay = s.day === null ? byDay(all, now) : all.filter((r) => dayIndex(r.departs_at, now) === s.day);
+  return { ofDay, shown: filterTrips(ofDay, s.womenOnly) };
+}
+
+/** "Today · Wed 11 Nov": the heading that starts each day in the every-day list. */
+function DayHeading({ d, now }: { d: number; now: Date }) {
+  const { t, lang } = useT();
+  const date = formatDay(searchDayStart(d, now), lang).replace('،', '');
+  const text = d === 0 ? `${t('today')} · ${date}` : d === 1 ? `${t('tomorrow')} · ${date}` : date;
+  return (
+    <View style={styles.dayHead} accessibilityRole="header">
+      <Body muted small>{text}</Body>
+    </View>
+  );
 }
 
 /**
@@ -132,9 +153,11 @@ export function AlertMe({ s, docked, style }: { s: SearchState; docked?: boolean
   const now = new Date();
   const { shown } = dayTrips(s, now);
   const [alert, setAlert] = useState<'idle' | 'saving' | 'saved' | 'tooMany' | 'error'>('idle');
-  const win = alertWindow(searchDayStart(s.day, now), s.part, now);
+  // An alert covers one day, so it needs a day picked (with every day shown, the empty
+  // list says to pick one instead).
+  const win = s.day === null ? null : alertWindow(searchDayStart(s.day, now), null, now);
   const canAlert = !!s.week && !s.loading && !!win && !shown.some((r) => r.seats_left > 0);
-  useEffect(() => setAlert('idle'), [s.part, s.day, s.origin, s.destination]);
+  useEffect(() => setAlert('idle'), [s.day, s.origin, s.destination]);
 
   async function saveAlert() {
     if (!session || !win) return;
@@ -169,7 +192,7 @@ export function AlertMe({ s, docked, style }: { s: SearchState; docked?: boolean
   );
 }
 
-/** Part-of-day switch, the count line, and the trips for the chosen day. `dockedAlert`: the owner shows <AlertMe> elsewhere. */
+/** The trips for the chosen day (or every day). `dockedAlert`: the owner shows <AlertMe> elsewhere. */
 export function SearchResults({
   s,
   onOpenTrip,
@@ -192,11 +215,12 @@ export function SearchResults({
   // A trip grows out of its row, over the results (see trip-sheet.tsx).
   const open = onOpenTrip ?? openInLayer;
   // A new key per question replays the rows' entrance, so you see the list change.
-  const answerKey = `${s.origin}-${s.destination}-${s.day}-${s.part}-${womenOnly}`;
+  const answerKey = `${s.origin}-${s.destination}-${s.day}-${womenOnly}`;
+  const everyDay = s.day === null;
+  const dayOf = (r: Result) => dayIndex(r.departs_at, now);
 
   return (
     <View style={{ gap: space.md }}>
-      <PartTabs s={s} />
       {isVerifiedWoman(profile) ? (
         <View style={{ flexDirection: 'row' }}>
           <Chip
@@ -213,7 +237,7 @@ export function SearchResults({
 
       {s.week && !s.loading && shown.length === 0 ? (
         <Animated.View entering={reduced ? undefined : FadeIn.duration(200)}>
-          <Body muted>{t('noResults')}</Body>
+          <Body muted>{t(everyDay ? 'noResultsAnyDay' : 'noResults')}</Body>
         </Animated.View>
       ) : null}
       {dockedAlert ? null : <AlertMe s={s} />}
@@ -227,9 +251,13 @@ export function SearchResults({
             entering={reduced ? undefined : FadeInDown.duration(260).delay(Math.min(i, 6) * 35)}
             layout={reduced ? undefined : LinearTransition.duration(220)}
           >
-            {/* Exact towns come first (search_trips orders them so); a quiet label starts the nearby ones. */}
-            {isNearby(r) && (i === 0 || !isNearby(shown[i - 1])) ? <Body muted small>{t('nearbyTrips')}</Body> : null}
-            <TimeFirstRow r={r} last={i === shown.length - 1} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} onPress={(from) => open(r.id, from)} />
+            {/* Every day: a heading starts each day. */}
+            {everyDay && (i === 0 || dayOf(shown[i - 1]) !== dayOf(r)) ? <DayHeading d={dayOf(r)} now={now} /> : null}
+            {/* Within a day, exact towns come first (search_trips orders them so); a quiet label starts the nearby ones. */}
+            {isNearby(r) && (i === 0 || !isNearby(shown[i - 1]) || (everyDay && dayOf(shown[i - 1]) !== dayOf(r))) ? (
+              <Body muted small>{t('nearbyTrips')}</Body>
+            ) : null}
+            <TimeFirstRow r={r} last={i === shown.length - 1 || (everyDay && dayOf(shown[i + 1]) !== dayOf(r))} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} onPress={(from) => open(r.id, from)} />
           </Animated.View>
         ))}
       </View>
@@ -239,57 +267,6 @@ export function SearchResults({
 
 /** A trip from or to a town near the one you searched, not the town itself. */
 const isNearby = (r: Result) => Number(r.origin_km) > 0 || Number(r.destination_km) > 0;
-
-/** Time of day as quiet tabs (All day, Morning, Afternoon, Evening): an underline, not a box. */
-function PartTabs({ s }: { s: SearchState }) {
-  const { t } = useT();
-  const { rtl, direction } = useFont();
-  const tabs: { value: DayPart | null; label: string }[] = [
-    { value: null, label: t('allDay') },
-    ...PARTS.map((p) => ({ value: p, label: t(partLabel[p]) })),
-  ];
-  const pill = usePillSlide(
-    tabs.findIndex((o) => o.value === s.part),
-    rtl,
-  );
-  const line = usePillStyle(pill, 'underline');
-  return (
-    <View style={[styles.tabs, { direction }]} accessibilityRole="tablist" onLayout={pill.onTrackLayout}>
-      {tabs.map((o, i) => (
-        <PartTab
-          key={o.value ?? 'all'}
-          i={i}
-          pill={pill}
-          label={o.label}
-          on={o.value === s.part}
-          onPress={() => {
-            selectFeel();
-            s.setPart(o.value);
-          }}
-        />
-      ))}
-      {/* The underline slides from tab to tab instead of jumping. */}
-      <Animated.View pointerEvents="none" style={[pillBase, styles.tabLine, line]} />
-    </View>
-  );
-}
-
-function PartTab({ i, pill, label, on, onPress }: { i: number; pill: PillSlide; label: string; on: boolean; onPress: () => void }) {
-  const { f } = useFont();
-  const text = usePillColor(pill, i, colors.inkSecondary, colors.ink);
-  return (
-    <Pressable
-      accessibilityRole="tab"
-      accessibilityState={{ selected: on }}
-      hitSlop={8}
-      onPress={onPress}
-      onLayout={pill.onItemLayout(i)}
-      style={styles.tab}
-    >
-      <Animated.Text style={[styles.tabText, { fontFamily: on ? f.bold : f.regular }, text]}>{label}</Animated.Text>
-    </Pressable>
-  );
-}
 
 /** One trip: the time leads (that's what people choose by), then the driver, then seats and price. */
 function TimeFirstRow({
@@ -375,10 +352,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadows.float,
   },
-  tabs: { flexDirection: 'row', gap: 18 },
-  tab: { paddingBottom: 8 },
-  tabLine: { backgroundColor: colors.ink, borderRadius: 1 },
-  tabText: { fontSize: 14, color: colors.inkSecondary },
+  dayHead: { paddingTop: space.md, paddingBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   rowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
   time: { fontFamily: fonts.en.bold, fontSize: 24, color: colors.ink, minWidth: 66 },
