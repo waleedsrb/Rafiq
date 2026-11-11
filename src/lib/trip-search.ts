@@ -1,6 +1,10 @@
 // Pure logic for searching seats: which day a chip means and which trips a filter keeps.
 // Shared by the search sheet on Home and the stand-alone results screen.
 
+import { dayPart, type DayPart } from './format.ts';
+
+export const PARTS: DayPart[] = ['morning', 'afternoon', 'evening'];
+
 /** How many day pills sit in a row (today plus six). Later days come from the calendar. */
 export const PILL_DAYS = 7;
 /** The furthest day anyone can post or search: today + 30 (Waleed, Nov 11). */
@@ -14,22 +18,19 @@ export function searchDayStart(day: number, now: Date): Date {
   return d;
 }
 
-/** Only women-only trips when that filter is on. Order is kept. */
-export function filterTrips<T extends { women_only: boolean }>(trips: T[], womenOnly: boolean): T[] {
-  return womenOnly ? trips.filter((r) => r.women_only) : trips;
+/** Turn a route param into a part of the day, or null for the whole day. */
+export function parsePart(v: string | undefined | null): DayPart | null {
+  return v && (PARTS as string[]).includes(v) ? (v as DayPart) : null;
 }
 
-/**
- * Every trip in the search range, a day at a time (today first). Within a day the server's
- * order is kept (exact towns first, then nearby ones, each by time). Trips outside the range
- * are left out. This is the list when no day is picked.
- */
-export function byDay<T extends { departs_at: string }>(trips: T[], now: Date): T[] {
-  return trips
-    .map((r, i) => ({ r, i, d: dayIndex(r.departs_at, now) }))
-    .filter((x) => x.d >= 0)
-    .sort((a, b) => a.d - b.d || a.i - b.i)
-    .map((x) => x.r);
+/** Keep the trips in the chosen part of the day (all of them when none is chosen), and
+ *  only women-only trips when that filter is on. Order is kept (earliest first). */
+export function filterTrips<T extends { departs_at: string; women_only: boolean }>(
+  trips: T[],
+  part: DayPart | null,
+  womenOnly: boolean,
+): T[] {
+  return trips.filter((r) => (!part || dayPart(new Date(r.departs_at)) === part) && (!womenOnly || r.women_only));
 }
 
 /** Which day (0 = today) a departure falls on, or -1 when it is before today or past AHEAD_DAYS. */

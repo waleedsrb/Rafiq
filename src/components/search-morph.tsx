@@ -2,7 +2,7 @@
 //
 // The grey bar on Home lifts off, glides DOWN to the bottom of the screen and becomes a glass
 // capsule with just the route, in the tab bar's place, where your thumb is (Apple's HIG:
-// "place search at the bottom if there's room"). The day row (pinned at the top) and the trips fill
+// "place search at the bottom if there's room"). The days, the time of day and the trips fill
 // the page above it and scroll under it. Tapping From or To grows the capsule upward into two
 // fields that ride on top of the keyboard. × or a swipe down folds it back into Home's bar.
 //
@@ -39,7 +39,6 @@
 // (only the page under it follows your finger), so the glass never moves. With the keyboard
 // up (choosing a town) the bar moves with it, so it stays frosted then.
 
-import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, Modal, Platform, Pressable, type KeyboardEvent, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -117,8 +116,6 @@ const CLOSE = { damping: 30, stiffness: 260, mass: 1, overshootClamping: true };
 // How far the list slides down into the bar as it folds away.
 const TUCK = 220;
 const LIQUID_GLASS = isLiquidGlassAvailable();
-// The pinned day row before it has measured itself: 8 above, the 44pt calendar circle, 8 below.
-const DAYS_ROW_H = space.sm + 44 + space.sm;
 
 export function SearchMorph({
   from,
@@ -167,18 +164,9 @@ export function SearchMorph({
   const kbOn = useSharedValue(1);
   const kbGone = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    const coming = (e?: KeyboardEvent) => {
+    const coming = () => {
       if (kbGone.current) clearTimeout(kbGone.current);
       kbOn.value = 1;
-      // Before the keyboard starts to rise, iOS already says where it will end up. Correct the
-      // scale now, so the card rides up in one go; correcting it once the keyboard had landed
-      // made the card rise and then nudge up a second time (Waleed, Nov 11).
-      const real = e ? Math.max(0, screenH - e.endCoordinates.screenY) : 0;
-      const reported = e?.endCoordinates.height ?? 0;
-      if (real > MIN_KB && reported > MIN_KB) {
-        lastKbScale = Math.max(lastKbScale, real / reported);
-        kbScale.value = lastKbScale;
-      }
     };
     // The keyboard left while From/To was open (its own dismiss key, Search, a swipe, a tap
     // outside the field): the card comes down with it and goes back to the one-line bar.
@@ -194,13 +182,8 @@ export function SearchMorph({
       lastKbReal = Math.max(lastKbReal, real);
       const reported = keyboard.height.value;
       if (reported > MIN_KB) {
-        // Only a real miss is corrected here (more than a few points): the estimate made as
-        // the keyboard started is normally right already, and a late fix shows as a nudge.
-        const scale = Math.max(1, real / reported);
-        if (Math.abs(scale - kbScale.value) * reported > 3) {
-          lastKbScale = scale;
-          kbScale.value = withTiming(lastKbScale, { duration: 160 });
-        }
+        lastKbScale = Math.max(1, real / reported);
+        kbScale.value = withTiming(lastKbScale, { duration: 160 });
       }
     };
     const subs = [
@@ -308,15 +291,6 @@ export function SearchMorph({
   const pulledDown = () => (pickingRef.current ? collapse() : requestClose());
   // Real Liquid Glass only while the bar is still at the bottom (see the note at the top).
   const [settled, setSettled] = useState(false);
-  // The pinned day row's height (it grows while the month is open), so the trips start under it.
-  const [daysH, setDaysH] = useState(0);
-  const showDays = ready && !picking;
-
-  // Opening the search puts the caret in From right away: the bar heads straight for the
-  // keyboard as it rises, so you can type without a second tap (Waleed, Nov 11).
-  useEffect(() => {
-    places.open('origin');
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!closing) {
@@ -417,6 +391,7 @@ export function SearchMorph({
   const face = useAnimatedStyle(() => ({ opacity: interpolate(p.value, [0, 0.25], [1, 0], Extrapolation.CLAMP) }));
   const head = useAnimatedStyle(() => ({
     opacity: interpolate(p.value, [0.4, 0.85], [0, 1], Extrapolation.CLAMP),
+    transform: [{ translateY: interpolate(p.value, [0.4, 1], [6, 0], Extrapolation.CLAMP) }],
   }));
   // Home fades under the porcelain while the page rises a little into place.
   // While you pull it down, the page lightens a little, so you can tell letting go will close it.
@@ -475,8 +450,7 @@ export function SearchMorph({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              // The trips start under the pinned day row; the towns right under the status bar.
-              paddingTop: showDays ? (daysH || insets.top + DAYS_ROW_H) + space.xs : insets.top + space.md,
+              paddingTop: insets.top + space.md,
               paddingBottom: bottomGap + HEAD_H + space.lg + ALERT_ROOM,
               paddingHorizontal: space.screen,
               direction,
@@ -489,6 +463,7 @@ export function SearchMorph({
                 // destroyed in the frame the keyboard starts to rise.
                 <>
                   <Animated.View style={[{ gap: space.md }, tripsFade, picking ? styles.gone : null]} entering={reduced ? undefined : FadeIn.duration(220)}>
+                    <DayChips s={s} />
                     <SearchResults s={s} onOpenTrip={openTrip} dockedAlert />
                   </Animated.View>
                   <Animated.View style={[placesFade, picking ? null : styles.gone]}>
@@ -496,16 +471,9 @@ export function SearchMorph({
                       search={places}
                       exclude={picking === 'origin' ? s.destination : s.origin}
                       onPick={(id) => {
-                        // From picked: straight on to To, card and keyboard stay up.
-                        // To picked: the card folds down and the trips show.
-                        if (pickingRef.current === 'origin') {
-                          s.setOrigin(id);
-                          places.open('destination');
-                        } else {
-                          if (pickingRef.current === 'destination') s.setDestination(id);
-                          places.close();
-                          Keyboard.dismiss();
-                        }
+                        if (pickingRef.current === 'origin') s.setOrigin(id);
+                        else if (pickingRef.current === 'destination') s.setDestination(id);
+                        places.close();
                       }}
                     />
                   </Animated.View>
@@ -518,25 +486,6 @@ export function SearchMorph({
 
         {/* A porcelain band behind the status bar, so the list doesn't show through the clock. */}
         <Animated.View style={[styles.statusBand, { height: insets.top }, page]} pointerEvents="none" />
-
-        {/* The day row stays pinned at the top while the trips scroll under its frosted band
-            (design A, Nov 11). It steps away while you pick a town. */}
-        {showDays ? (
-          // Moves with the list (rises in on open, tucks away on close); fades with the page.
-          // Separate views, because two opacities on one view would overwrite each other.
-          <Animated.View
-            style={[styles.days, { paddingTop: insets.top + space.sm }, list]}
-            onLayout={(e) => setDaysH(e.nativeEvent.layout.height)}
-          >
-            <Animated.View style={[StyleSheet.absoluteFill, page]} pointerEvents="none">
-              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-              <View style={[StyleSheet.absoluteFill, styles.daysFill]} />
-            </Animated.View>
-            <Animated.View style={page}>
-              <DayChips s={s} inset={space.screen} />
-            </Animated.View>
-          </Animated.View>
-        ) : null}
         </View>
         </Animated.View>
 
@@ -680,9 +629,6 @@ const styles = StyleSheet.create({
   clip: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
   unclip: { position: 'absolute', left: 0, right: 0 },
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
-  days: { position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: space.sm },
-  // Mostly porcelain: the trips only show through as a soft blur, and the month reads as solid.
-  daysFill: { backgroundColor: 'rgba(247,246,243,0.86)' },
   // The bar's frame: only slid about. Its look is `skin`, its contents are in `inside`.
   glass: { position: 'absolute' },
   skin: {
