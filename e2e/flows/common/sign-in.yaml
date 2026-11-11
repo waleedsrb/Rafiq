@@ -16,8 +16,8 @@ appId: app.rafiq
 - tapOn:
     id: "email-input"
 - inputText: ${EMAIL}
-- tapOn:
-    id: "send-code"
+# The keyboard covers the Send code button; the keyboard's own Enter sends it too.
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "Enter the code"
     timeout: 30000
