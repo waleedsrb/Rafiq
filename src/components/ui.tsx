@@ -514,11 +514,18 @@ export function PillChips({
   selected,
   onPick,
   padding = space.md,
+  clearable,
+  faint,
 }: {
   labels: string[];
+  /** The chosen option, or -1 for none. */
   selected: number;
   onPick: (i: number) => void;
   padding?: number;
+  /** The chosen pill shows a small × (tapping it again un-picks it; the owner handles that). */
+  clearable?: boolean;
+  /** Options drawn lighter (still tappable), like days with no trips. */
+  faint?: boolean[];
 }) {
   const { rtl, direction } = useFont();
   const pill = usePillSlide(selected, rtl);
@@ -534,6 +541,8 @@ export function PillChips({
           label={label}
           on={i === selected}
           padding={padding}
+          clear={!!clearable && i === selected}
+          faint={!!faint?.[i] && i !== selected}
           onPress={() => {
             selectFeel();
             onPick(i);
@@ -550,6 +559,8 @@ function PillChip({
   label,
   on,
   padding,
+  clear,
+  faint,
   onPress,
 }: {
   i: number;
@@ -557,6 +568,8 @@ function PillChip({
   label: string;
   on: boolean;
   padding: number;
+  clear?: boolean;
+  faint?: boolean;
   onPress: () => void;
 }) {
   const { f } = useFont();
@@ -570,8 +583,9 @@ function PillChip({
       onPress={onPress}
       onLayout={pill.onItemLayout(i)}
     >
-      <Animated.View style={[styles.chip, { paddingHorizontal: padding }, border]}>
+      <Animated.View style={[styles.chip, { paddingHorizontal: padding }, faint && { opacity: 0.45 }, border]}>
         <Animated.Text style={[styles.chipText, { fontFamily: f.medium }, text]}>{label}</Animated.Text>
+        {clear ? <Icon name="x" size={11} color={colors.onInk} /> : null}
       </Animated.View>
     </Pressable>
   );

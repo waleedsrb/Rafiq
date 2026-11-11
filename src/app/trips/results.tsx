@@ -1,6 +1,6 @@
 // Results on a screen of their own, for links from elsewhere in the app (Home's hero,
 // a driver's cancellation). Home's "Where to?" bar opens the same search in place instead
-// (src/components/search-morph.tsx). The day and part of the day change right here.
+// (src/components/search-morph.tsx). The day changes right here; with none picked, every day shows.
 
 import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
@@ -11,13 +11,14 @@ import { DayChips, SearchResults, useTripSearch } from '@/components/trip-search
 import { Screen, TextLink } from '@/components/ui';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
-import { AHEAD_DAYS, parsePart } from '@/lib/trip-search';
+import { AHEAD_DAYS } from '@/lib/trip-search';
 import { space } from '@/theme/tokens';
 
 export default function Results() {
-  const params = useLocalSearchParams<{ origin?: City; destination?: City; day?: string; part?: string }>();
-  const day = Math.min(AHEAD_DAYS, Math.max(0, Number(params.day ?? 0) || 0));
-  const s = useTripSearch({ origin: params.origin, destination: params.destination, day, part: parsePart(params.part) });
+  const params = useLocalSearchParams<{ origin?: City; destination?: City; day?: string }>();
+  // A link that names a day opens on it; otherwise every day shows.
+  const day = params.day == null ? null : Math.min(AHEAD_DAYS, Math.max(0, Number(params.day) || 0));
+  const s = useTripSearch({ origin: params.origin, destination: params.destination, day });
   // Tapping From or To turns the route card into the two place fields, right here.
   const places = usePlaceSearch();
   const picking = places.end;
@@ -33,9 +34,14 @@ export default function Results() {
               search={places}
               exclude={picking === 'destination' ? s.origin : s.destination}
               onPick={(id) => {
-                if (picking === 'origin') s.setOrigin(id);
-                else s.setDestination(id);
-                places.close();
+                // From picked: straight on to To. To picked: back to the trips.
+                if (picking === 'origin') {
+                  s.setOrigin(id);
+                  places.open('destination');
+                } else {
+                  s.setDestination(id);
+                  places.close();
+                }
               }}
             />
           </>
