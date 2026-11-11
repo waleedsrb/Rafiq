@@ -13,7 +13,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
+  Easing,
   runOnJS,
+  useAnimatedReaction,
+  withTiming,
   scrollTo,
   useAnimatedStyle,
   useAnimatedRef,
@@ -38,6 +41,7 @@ const BAR_MAX = 40;
 const DIGIT = 56; // big time
 const DIGIT_H = 64;
 const HALF_H = 26; // AM/PM row
+const DIGIT_W = DIGIT * 0.62; // one tabular digit
 
 /** 24-hour minutes in, "2:30" + PM out. */
 function parts(t: number) {
@@ -72,8 +76,6 @@ export function TimeRuler({
   // and the card (the parent) only hears the new time when the ruler comes to rest.
   // Before, every 5-minute tick re-drew the whole card and the drag stuttered.
   const cur = useSharedValue(minutes);
-  // Where the ruler is, in 5-minute steps, without rounding: the digits roll with it.
-  const steps = useSharedValue(Math.max(min, minutes) / STEP);
   const dragging = useSharedValue(false);
   const told = useRef(minutes);
   const lo = useSharedValue(min);
@@ -93,7 +95,6 @@ export function TimeRuler({
     if (w && told.current !== minutes) {
       told.current = minutes;
       cur.value = minutes;
-      steps.value = minutes / STEP;
       ref.current?.scrollTo({ x: xOf(minutes), animated: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,12 +105,18 @@ export function TimeRuler({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [w]);
 
+  // Always come to rest exactly on a tick (and never before the earliest time). The glide
+  // alone could stop between two ticks, which left the needle and the digits in between.
+  const snapTo = (m: number) => {
+    'worklet';
+    scrollTo(ref, (m / STEP) * PX, 0, true);
+  };
+
   const onScroll = useAnimatedScrollHandler({
     onBeginDrag: () => {
       dragging.value = true;
     },
     onScroll: (e) => {
-      steps.value = Math.max(lo.value / STEP, Math.min(LAST / STEP, e.contentOffset.x / PX));
       if (!dragging.value) return;
       const m = Math.max(lo.value, Math.min(LAST, Math.round(e.contentOffset.x / PX) * STEP));
       if (m !== cur.value) {
@@ -121,15 +128,14 @@ export function TimeRuler({
       // A slow drag with no fling never sends momentum-end.
       if (Math.abs(e.velocity?.x ?? 0) < 0.05) {
         dragging.value = false;
-        if (e.contentOffset.x < (lo.value / STEP) * PX - 1) scrollTo(ref, (lo.value / STEP) * PX, 0, true);
+        snapTo(cur.value);
         runOnJS(report)(cur.value);
       }
     },
-    onMomentumEnd: (e) => {
+    onMomentumEnd: () => {
       if (!dragging.value) return;
       dragging.value = false;
-      // Let go before the earliest time? Glide back to it.
-      if (e.contentOffset.x < (lo.value / STEP) * PX - 1) scrollTo(ref, (lo.value / STEP) * PX, 0, true);
+      snapTo(cur.value);
       runOnJS(report)(cur.value);
     },
   });
@@ -194,7 +200,7 @@ export function TimeRuler({
 
   return (
     <View style={styles.wrap}>
-      <Odometer steps={steps} am={am} pm={pm} />
+      <Odometer value={cur} initial={minutes} am={am} pm={pm} />
       <View
         style={styles.ruler}
         onLayout={(e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width))}
@@ -247,35 +253,87 @@ export function TimeRuler({
   );
 }
 
-const HOURS = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-const MINS = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55', '00'];
+const ROLL = { duration: 280, easing: Easing.bezier(0.22, 1, 0.36, 1) };
+const DIGITS = Array.from({ length: 30 }, (_, i) => String(i % 10)); // 0-9 three times
+
+/** The digits of a time: hour tens (0 = blank), hour ones, minute tens, minute ones, PM. */
+function digitsOf(t: number) {
+  'worklet';
+  const h = Math.floor(t / 60) % 24;
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const m = t % 60;
+  return [Math.floor(h12 / 10), h12 % 10, Math.floor(m / 10), m % 10, h >= 12 ? 1 : 0];
+}
 
 /**
- * The big time as an odometer tied to the ruler: the minutes roll with the finger (one row per
- * 5-minute tick, so they always match the needle), and the hour and AM/PM roll over only
- * while the minutes pass :55 to :00, the way a car's odometer carries. All on the UI thread.
+ * The big time: each digit is its own little wheel that rolls on its own to the next value
+ * (only the digits that change move), on the UI thread. A digit takes the short way round,
+ * and when both ways are equal (0 and 5) it rolls the way the ruler is going.
  */
-function Odometer({ steps, am, pm }: { steps: SharedValue<number>; am: string; pm: string }) {
+function Odometer({ value, initial, am, pm }: { value: SharedValue<number>; initial: number; am: string; pm: string }) {
   const { f } = useFont();
-  const minStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -(steps.value % 12) * DIGIT_H }] }));
-  const hourStyle = useAnimatedStyle(() => {
-    const r = steps.value % 12;
-    const pos = (Math.floor(steps.value / 12) + (r > 11 ? r - 11 : 0)) % 12;
-    return { transform: [{ translateY: -pos * DIGIT_H }] };
-  });
-  const halfStyle = useAnimatedStyle(() => {
-    const r = steps.value % 144;
-    const pos = Math.floor(steps.value / 144) + (r > 143 ? r - 143 : 0);
-    return { transform: [{ translateY: -pos * HALF_H }] };
-  });
+  const start = digitsOf(initial);
+  // Positions on the 0-9 x3 strips, kept in the middle copy (10-19) when at rest.
+  const d0 = useSharedValue(start[0]);
+  const d1 = useSharedValue(start[1] + 10);
+  const d2 = useSharedValue(start[2] + 10);
+  const d3 = useSharedValue(start[3] + 10);
+  const half = useSharedValue(start[4]);
+
+  useAnimatedReaction(
+    () => value.value,
+    (now, before) => {
+      if (before === null || now === before) return;
+      const up = now > before;
+      const next = digitsOf(now);
+      const roll = (pos: SharedValue<number>, to: number) => {
+        // Where the wheel is headed (or is), and the short way from there to the new digit.
+        const at = pos.value;
+        const cur = ((Math.round(at) % 10) + 10) % 10;
+        let d = to - cur;
+        if (d > 5 || (d === 5 && !up)) d -= 10;
+        if (d < -5 || (d === -5 && up)) d += 10;
+        if (d === 0) return;
+        const target = Math.round(at) + d;
+        pos.value = withTiming(target, ROLL, (done) => {
+          // Back to the middle copy, invisibly (same digit), so the strip never runs out.
+          if (done) pos.value = (((target % 10) + 10) % 10) + 10;
+        });
+      };
+      d0.value = withTiming(next[0], ROLL);
+      roll(d1, next[1]);
+      roll(d2, next[2]);
+      roll(d3, next[3]);
+      half.value = withTiming(next[4], ROLL);
+    },
+  );
+
+  const s0 = useAnimatedStyle(() => ({ transform: [{ translateY: -d0.value * DIGIT_H }] }));
+  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: -d1.value * DIGIT_H }] }));
+  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: -d2.value * DIGIT_H }] }));
+  const s3 = useAnimatedStyle(() => ({ transform: [{ translateY: -d3.value * DIGIT_H }] }));
+  const sHalf = useAnimatedStyle(() => ({ transform: [{ translateY: -half.value * HALF_H }] }));
+  // The hour's tens digit is "1" or nothing; it slides away rather than showing a 0.
+  const tensWidth = useAnimatedStyle(() => ({ width: DIGIT_W * d0.value, opacity: d0.value }));
+
   return (
     <View style={styles.time} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Column style={hourStyle} items={HOURS} width={DIGIT * 1.25} align="right" />
+      <Animated.View style={[styles.window, tensWidth]}>
+        <Animated.View style={s0}>
+          {['', '1'].map((c, i) => (
+            <Text key={i} style={styles.digitText}>
+              {c}
+            </Text>
+          ))}
+        </Animated.View>
+      </Animated.View>
+      <Wheel style={s1} />
       <Text style={[styles.digitText, styles.colon]}>:</Text>
-      <Column style={minStyle} items={MINS} width={DIGIT * 1.25} />
+      <Wheel style={s2} />
+      <Wheel style={s3} />
       <View style={styles.halfWindow}>
-        <Animated.View style={halfStyle}>
-          {[am, pm, am].map((s, i) => (
+        <Animated.View style={sHalf}>
+          {[am, pm].map((s, i) => (
             <Text key={i} style={[styles.ampm, { fontFamily: f.medium }]}>
               {s}
             </Text>
@@ -286,13 +344,13 @@ function Odometer({ steps, am, pm }: { steps: SharedValue<number>; am: string; p
   );
 }
 
-function Column({ style, items, width, align = 'left' }: { style: object; items: string[]; width: number; align?: 'left' | 'right' }) {
+function Wheel({ style }: { style: object }) {
   return (
-    <View style={[styles.window, { width }]}>
+    <View style={[styles.window, { width: DIGIT_W }]}>
       <Animated.View style={style}>
-        {items.map((s, i) => (
-          <Text key={i} style={[styles.digitText, { textAlign: align }]}>
-            {s}
+        {DIGITS.map((c, i) => (
+          <Text key={i} style={[styles.digitText, { textAlign: 'center' }]}>
+            {c}
           </Text>
         ))}
       </Animated.View>
