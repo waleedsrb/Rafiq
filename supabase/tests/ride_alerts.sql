@@ -75,12 +75,12 @@ do $$ begin
     raise exception 'FAIL: demand was %', (select json_agg(d) from public.alert_demand('osm-n246843686', 'osm-n293546203') d);
   end if;
 end $$;
--- The time ruler's bars: all 4 cover the first half hour of the window, only the 5-hour
--- alert reaches its last half hour, and the hour before the window is empty.
+-- The time wheels' chart: all 4 riders cover the first half hour of the window, only the
+-- 5-hour alert reaches its last half hour, and the hour before the window is empty.
 do $$ declare
   w timestamp := (date_trunc('hour', now()) + interval '2 days') at time zone 'Asia/Hebron';
   first_slot int := (extract(hour from w) * 2)::int;
-  bars jsonb := (select jsonb_object_agg(d.slot, d.riders) from public.alert_demand_by_slot('osm-n246843686', 'osm-n293546203', w::date) d);
+  bars jsonb := (select jsonb_object_agg(d.slot, d.riders) from public.demand_by_slot('osm-n246843686', 'osm-n293546203', w::date) d);
 begin
   if first_slot + 9 <= 47 and (
        (bars ->> first_slot::text)::int <> 4
@@ -118,6 +118,26 @@ do $$ declare n record; begin
     raise exception 'FAIL: alerts should be matched';
   end if;
 end $$;
+
+-- Other drivers see Dana's trip as one driver going in its half hour; Dana doesn't count herself.
+set local role authenticated;
+do $$ declare
+  w timestamp := (date_trunc('hour', now()) + interval '2 days 1 hour') at time zone 'Asia/Hebron';
+  s int := (extract(hour from w) * 2)::int;
+  mine int := (select d.drivers from public.demand_by_slot('osm-n246843686', 'osm-n293546203', w::date) d where d.slot = s);
+begin
+  if coalesce(mine, 0) <> 0 then raise exception 'FAIL: Dana counted her own trip'; end if;
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000002a2');
+do $$ declare
+  w timestamp := (date_trunc('hour', now()) + interval '2 days 1 hour') at time zone 'Asia/Hebron';
+  s int := (extract(hour from w) * 2)::int;
+  seen int := (select d.drivers from public.demand_by_slot('osm-n246843686', 'osm-n293546203', w::date) d where d.slot = s);
+begin
+  if coalesce(seen, 0) <> 1 then raise exception 'FAIL: expected 1 driver at slot %, got %', s, seen; end if;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000020d');
 
 -- 4. A second trip in the same window doesn't ping again (an alert fires once).
 insert into public.trips (driver_id, origin, destination, departs_at, seats_total, price_ils)
