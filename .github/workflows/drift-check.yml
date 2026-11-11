@@ -1,0 +1,96 @@
+# Drift check: does the live Supabase database match supabase/migrations/?
+#
+# Database changes are pasted into Supabase by hand, so a slice can be missed. Every night this
+# builds a fresh database from the migrations, asks both for public.schema_fingerprint() and
+# public.cron_fingerprint(), and compares them. Any difference opens (or updates) a GitHub issue
+# titled "Live database drift"; a clean run closes it.
+#
+# Setup, once: repo Settings -> Secrets and variables -> Actions -> Secrets:
+#   SUPABASE_SECRET_KEY = the server key from Supabase (Project settings -> API keys)
+# The live database needs migration 20261111090000_schema_fingerprint.sql applied first.
+name: Drift check
+
+on:
+  schedule:
+    - cron: '30 2 * * *'   # 04:30 in Palestine (winter time), before the morning commute
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: drift-check
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      SUPABASE_URL: https://pomyvelsxfzvplkzjlou.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: Live database drift
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the expected database from the migrations
+        run: |
+          psql -q -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql
+          for f in supabase/migrations/*.sql; do psql -q -v ON_ERROR_STOP=1 -f "$f"; done
+          psql -Atc 'select public.schema_fingerprint()' > expected.json
+
+      - name: Read the live fingerprint
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::error::Add the SUPABASE_SECRET_KEY secret first (see the top of this file)."
+            exit 1
+          fi
+          for fn in schema_fingerprint cron_fingerprint; do
+            curl -sS --fail-with-body -X POST "$SUPABASE_URL/rest/v1/rpc/$fn" \
+              -H "apikey: $SUPABASE_SECRET_KEY" -H 'Content-Type: application/json' -d '{}' \
+              -o "live-$fn.json" || {
+                echo "::error::Could not call $fn on live. Was 20261111090000_schema_fingerprint.sql applied?"
+                cat "live-$fn.json"; exit 1; }
+          done
+
+      - name: Compare
+        id: compare
+        run: |
+          set +e
+          python3 scripts/drift-check/drift_check.py \
+            --expected expected.json --live live-schema_fingerprint.json \
+            --live-cron live-cron_fingerprint.json \
+            --migrations supabase/migrations --out report.md
+          echo "drift=$([ $? -eq 0 ] && echo no || echo yes)" >> "$GITHUB_OUTPUT"
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the drift issue
+        if: steps.compare.outputs.drift == 'yes'
+        run: |
+          n=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue edit "$n" --body-file report.md
+            gh issue comment "$n" --body "Still drifting on $(date -u +%F). List above is up to date."
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file report.md --assignee "${{ github.repository_owner }}"
+          fi
+          exit 1
+
+      - name: Close the drift issue once clean
+        if: steps.compare.outputs.drift == 'no'
+        run: |
+          n=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number')
+          [ -z "$n" ] || gh issue close "$n" --comment "Live database matches the migrations again ($(date -u +%F))."

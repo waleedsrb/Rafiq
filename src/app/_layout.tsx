@@ -10,12 +10,14 @@ import {
 } from '@expo-google-fonts/ibm-plex-sans-arabic';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 
 import { DialogHost } from '@/components/dialog-host';
 import { LaunchGate } from '@/components/launch-gate';
 import { TripLayerHost } from '@/components/trip-layer-host';
+import { setCrashUser, wrapRoot } from '@/lib/crash';
 import { usePush } from '@/lib/push';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/theme/tokens';
@@ -25,7 +27,10 @@ SplashScreen.preventAutoHideAsync();
 // fonts and the device-local launch preference are ready to paint.
 SplashScreen.setOptions({ fade: true, duration: 400 });
 
-export default function RootLayout() {
+// wrapRoot reports any crash below it to Sentry (src/lib/crash.ts).
+export default wrapRoot(RootLayout);
+
+function RootLayout() {
   const [fontsLoaded] = useFonts({
     IBMPlexSans_400Regular,
     IBMPlexSans_500Medium,
@@ -53,6 +58,8 @@ function Routes() {
 
   const ready = !loading && !!session && !!profile;
   usePush(ready);
+  const userId = session?.user.id;
+  useEffect(() => setCrashUser(userId), [userId]);
 
   const signedOut = !session;
   const needsProfile = !!session && !profile;
