@@ -1,4 +1,5 @@
-// The day pills (today plus six) with a calendar button at the end (Nov 11). The calendar
+// The day pills (today plus six) with a calendar button pinned at the end: the pills scroll
+// under it (Nov 11). The calendar
 // is a month grid up to AHEAD_DAYS ahead; past days and days beyond the limit are greyed.
 // With `children` (Post a trip: the time ruler), the calendar takes the children's place in
 // a box of fixed height, so the card never changes size and the swap is a short cross-fade
@@ -16,6 +17,7 @@
 // content to read, not a floating control).
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { BlurView } from 'expo-blur';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -154,32 +156,39 @@ export function DayPills({
 
   return (
     <View style={{ gap: space.sm }}>
-      <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.row}>
-        <PillChips
-          labels={labels}
-          selected={selected}
-          padding={padding}
-          onPick={(i) => {
-            setOpen(false);
-            if (i === extraIndex) extra?.onPick();
-            else if (far !== null && i === PILL_DAYS) onDay(far);
-            else onDay(i);
-          }}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('pickDate')}
-          accessibilityState={{ expanded: open }}
-          onPress={() => {
-            selectFeel();
-            setOpen((o) => !o);
-          }}
-          hitSlop={4}
-          style={({ pressed }) => [styles.cal, open && styles.calOn, pressed && { opacity: 0.6 }]}
-        >
-          <Icon name="calendar" size={18} color={open ? colors.onInk : colors.ink} />
-        </Pressable>
-      </ScrollView>
+      {/* The calendar stays pinned at the row's end; the pills scroll under it (Nov 11). */}
+      <View style={{ justifyContent: 'center' }}>
+        <ScrollView ref={scroller} horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={[styles.row, { paddingEnd: CAL + space.sm }]}>
+          <PillChips
+            labels={labels}
+            selected={selected}
+            padding={padding}
+            onPick={(i) => {
+              setOpen(false);
+              if (i === extraIndex) extra?.onPick();
+              else if (far !== null && i === PILL_DAYS) onDay(far);
+              else onDay(i);
+            }}
+          />
+        </ScrollView>
+        <View style={[styles.pin, { end: 0 }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('pickDate')}
+            accessibilityState={{ expanded: open }}
+            onPress={() => {
+              selectFeel();
+              setOpen((o) => !o);
+            }}
+            hitSlop={4}
+            style={({ pressed }) => [styles.cal, open && styles.calOn, pressed && { opacity: 0.6 }]}
+          >
+            {/* Frosted, so the pills read as sliding under it (not Liquid Glass: this sits on a card). */}
+            {open ? null : <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />}
+            <Icon name="calendar" size={18} color={open ? colors.onInk : colors.ink} />
+          </Pressable>
+        </View>
+      </View>
       {children !== undefined ? (
         <Stage open={open} reduced={reduced} calendar={<MonthGrid day={day} onPick={pick} dots={dots} />}>
           {children}
@@ -308,15 +317,19 @@ function MonthArrow({ label, icon, disabled, onPress }: { label: string; icon: '
 const CELL = `${100 / 7}%` as const;
 /** The pinned calendar circle: the touch size, like the glass buttons on the tab pages. */
 const CIRCLE = 44;
+/** Post a trip's pinned calendar button. */
+const CAL = 40;
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   cal: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: CAL,
+    height: CAL,
+    borderRadius: CAL / 2,
     borderWidth: 1.5,
     borderColor: colors.lineStrong,
+    backgroundColor: 'rgba(247,246,243,0.72)',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
