@@ -13,7 +13,7 @@ tags: [trip-day]
     timeout: 20000
 - tapOn: "Notifications.*"
 - extendedWaitUntil:
-    visible: "Your trip was due at .*"
+    visible: ".*Your trip was due at .*"
     timeout: 20000
 - takeScreenshot: 05-driver-inbox
 - back

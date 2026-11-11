@@ -17,7 +17,7 @@ tags: [trip-day]
 # The nudge also landed in the inbox.
 - tapOn: "Notifications.*"
 - extendedWaitUntil:
-    visible: "Did you ride with Dana\\?"
+    visible: ".*Did you ride with Dana\\?.*"
     timeout: 20000
 - takeScreenshot: 04-rider-inbox
 - back
