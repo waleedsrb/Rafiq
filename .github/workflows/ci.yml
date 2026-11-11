@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: postgres
         ports: ['5432:5432']
@@ -71,3 +71,5 @@ jobs:
         run: for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
       - name: Run database checks
         run: for f in supabase/tests/*.sql; do [ "$f" = supabase/tests/supabase_stub.sql ] || psql -v ON_ERROR_STOP=1 -f "$f"; done
+      - name: Test the drift check script
+        run: python3 -m unittest discover -s scripts/drift-check -v

@@ -3,6 +3,7 @@
 do $$ begin
   if not exists (select from pg_roles where rolname = 'anon') then create role anon; end if;
   if not exists (select from pg_roles where rolname = 'authenticated') then create role authenticated; end if;
+  if not exists (select from pg_roles where rolname = 'service_role') then create role service_role bypassrls; end if;
 end $$;
 create schema auth;
 create table auth.users (id uuid primary key, phone text);
@@ -11,10 +12,13 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 
 -- Supabase gives these roles table access by default and relies on RLS to filter.
-grant usage on schema public, auth to anon, authenticated;
+grant usage on schema public, auth to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated;
-alter default privileges in schema public grant all on tables to anon, authenticated;
-alter default privileges in schema public grant all on sequences to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+-- Supabase also lets these roles call every new function unless a migration revokes it.
+-- Mirroring that matters: a function we forgot to lock down is callable live, so CI must see it too.
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 
 -- Supabase Realtime broadcasts changes for the tables in this publication.
 create publication supabase_realtime;

@@ -47,6 +47,8 @@ Apply migrations with the Supabase CLI (`supabase db push`) or paste them into t
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/booking_rules.sql
 ```
 
+**Drift check.** Every night `.github/workflows/drift-check.yml` builds a fresh database from `supabase/migrations/`, compares it with live Supabase through `public.schema_fingerprint()` and `public.cron_fingerprint()`, and opens a "Live database drift" issue listing anything missing, different or extra. Run it by hand after pasting a migration (Actions → Drift check → Run workflow). It needs the `SUPABASE_SECRET_KEY` repo secret.
+
 ## Fake SMS during development
 
 Sign up uses Supabase phone sign-in. So we don't send real SMS while building, add **test phone numbers** in the Supabase dashboard (Authentication → Providers → Phone → Test phone numbers and OTPs), for example:
@@ -64,7 +66,7 @@ Type `0591111111` in the app and use code `123456`. A real SMS provider comes la
 npm test   # app logic (node:test)
 ```
 
-The database checks in `supabase/tests/` run in CI on plain Postgres.
+The database checks in `supabase/tests/` run in CI on plain Postgres 17 (the same major version as live), with `supabase/tests/supabase_stub.sql` standing in for the parts Supabase provides.
 
 ## How we work
 
