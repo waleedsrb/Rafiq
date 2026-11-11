@@ -105,12 +105,12 @@ jobs:
 
       - name: Keep screenshots and logs
         if: always()
+        timeout-minutes: 5
         uses: actions/upload-artifact@v4
         with:
           name: e2e-output
           path: |
             e2e/output/
             e2e/**/*.png
-            ~/.maestro/tests/
           if-no-files-found: ignore
           retention-days: 14
