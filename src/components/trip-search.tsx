@@ -23,7 +23,7 @@ import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { byDay, countByDay, dayIndex, filterTrips, leavingSoon, AHEAD_DAYS, searchDayStart } from '@/lib/trip-search';
 import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
-import { useSeatCountsFor } from '@/lib/live';
+import { useMySeatsFor, useSeatCountsFor, type MySeatStatus } from '@/lib/live';
 import { seatView, type SeatCounts, type SeatKind } from '@/lib/seat-line';
 import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
@@ -206,7 +206,7 @@ export function SearchResults({
 }) {
   const openInLayer = useOpenTrip();
   const { t } = useT();
-  const { profile } = useSession();
+  const { profile, session } = useSession();
   const reduced = useReducedMotion();
   const now = new Date();
   const { womenOnly, setWomenOnly } = s;
@@ -215,6 +215,11 @@ export function SearchResults({
   const driverStats = useTripDriverStats(ofDay.map((r) => r.id));
   // Confirmed and waiting seats, live, so every square shows who holds it.
   const seatCounts = useSeatCountsFor(ofDay.map((r) => r.id));
+  // Trips I already asked for, wait in line on, or have a confirmed seat on.
+  const mySeats = useMySeatsFor(
+    ofDay.map((r) => r.id),
+    session?.user.id,
+  );
 
   // A trip grows out of its row, over the results (see trip-sheet.tsx).
   const open = onOpenTrip ?? openInLayer;
@@ -261,7 +266,7 @@ export function SearchResults({
             {isNearby(r) && (i === 0 || !isNearby(shown[i - 1]) || (everyDay && dayOf(shown[i - 1]) !== dayOf(r))) ? (
               <Body muted small>{t('nearbyTrips')}</Body>
             ) : null}
-            <TimeFirstRow r={r} last={i === shown.length - 1 || (everyDay && dayOf(shown[i + 1]) !== dayOf(r))} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} counts={seatCounts[r.id] ?? null} onPress={(from) => open(r.id, from)} />
+            <TimeFirstRow r={r} last={i === shown.length - 1 || (everyDay && dayOf(shown[i + 1]) !== dayOf(r))} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} counts={seatCounts[r.id] ?? null} mine={mySeats[r.id] ?? null} onPress={(from) => open(r.id, from)} />
           </Animated.View>
         ))}
       </View>
@@ -279,6 +284,7 @@ function TimeFirstRow({
   soon,
   stats,
   counts,
+  mine,
   onPress,
 }: {
   r: Result;
@@ -286,6 +292,8 @@ function TimeFirstRow({
   soon: boolean;
   stats: Parameters<typeof StatsLine>[0]['stats'];
   counts: SeatCounts | null;
+  /** My own booking on this trip, if any. */
+  mine: MySeatStatus | null;
   /** Gets where the row is on screen, so the trip can grow out of it. */
   onPress: (from: Rect | null) => void;
 }) {
@@ -328,6 +336,14 @@ function TimeFirstRow({
           {sub}
           {soon ? <Text style={{ color: colors.statusOpen, fontFamily: f.medium }}>{sub ? ' · ' : ''}{t('leavingSoon')}</Text> : null}
         </Text>
+        {mine ? (
+          <View style={styles.mineRow}>
+            <Icon name={mine === 'accepted' ? 'check' : 'clock'} size={13} color={mine === 'accepted' ? colors.statusOpen : colors.clay} />
+            <Text style={[styles.meta, { fontFamily: f.medium, color: mine === 'accepted' ? colors.statusOpen : colors.clay }]} numberOfLines={1}>
+              {t(mine === 'accepted' ? 'seatIsConfirmed' : mine === 'queued' ? 'youAreInLine' : 'status_requested')}
+            </Text>
+          </View>
+        ) : null}
         <StatsLine stats={stats} showReliability={false} />
       </View>
       <View style={styles.end}>
@@ -364,6 +380,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   rowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
   time: { fontFamily: fonts.en.bold, fontSize: 24, color: colors.ink, minWidth: 66 },
+  mineRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { fontSize: 15, lineHeight: 21, color: colors.ink, flexShrink: 1 },
   meta: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
