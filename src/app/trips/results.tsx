@@ -11,12 +11,12 @@ import { DayChips, SearchResults, useTripSearch } from '@/components/trip-search
 import { Screen, TextLink } from '@/components/ui';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
-import { parsePart, SEARCH_DAYS } from '@/lib/trip-search';
+import { AHEAD_DAYS, parsePart } from '@/lib/trip-search';
 import { space } from '@/theme/tokens';
 
 export default function Results() {
   const params = useLocalSearchParams<{ origin?: City; destination?: City; day?: string; part?: string }>();
-  const day = Math.min(SEARCH_DAYS - 1, Math.max(0, Number(params.day ?? 0) || 0));
+  const day = Math.min(AHEAD_DAYS, Math.max(0, Number(params.day ?? 0) || 0));
   const s = useTripSearch({ origin: params.origin, destination: params.destination, day, part: parsePart(params.part) });
   // Tapping From or To turns the route card into the two place fields, right here.
   const places = usePlaceSearch();
