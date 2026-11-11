@@ -128,6 +128,9 @@ update public.profiles set emergency_name = 'Umm Amir', emergency_phone = '+9705
 
 -- 7. Amir deletes his account: his accepted seat is cancelled (Dana is told),
 --    the sign-in is gone, the profile is anonymous, and Dana's trip keeps its history.
+--    His gender was confirmed from his ID, which used to block the wipe (Nov 11 bug).
+select set_config('request.jwt.claim.sub', '', true);
+update public.profiles set gender_verified_at = now() where id = '00000000-0000-0000-0000-0000000001a1';
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000001a1', true);
 select public.delete_my_account();
 do $$

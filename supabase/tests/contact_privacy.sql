@@ -17,7 +17,7 @@ end $$;
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-0000000031d0'), ('00000000-0000-0000-0000-0000000031a1'),
-  ('00000000-0000-0000-0000-0000000031ad');
+  ('00000000-0000-0000-0000-0000000031ad'), ('00000000-0000-0000-0000-0000000031e0');
 insert into public.profiles (id, full_name, gender, emergency_name, emergency_phone) values
   ('00000000-0000-0000-0000-0000000031d0', 'Dana Al Haddad', 'f', 'Mum', '+970599000000'),
   ('00000000-0000-0000-0000-0000000031a1', 'Amir Saleh', 'm', null, null),
@@ -56,6 +56,25 @@ select pg_temp.check((select full_name from public.my_profile()) = 'Amir Saleh',
 select pg_temp.check((select count(*) from public.my_profile()) = 1, 'my_profile is only me');
 update public.profiles set emergency_name = 'Dad', emergency_phone = '+970599111111' where id = auth.uid();
 select pg_temp.check((select emergency_name from public.my_profile()) = 'Dad', 'I can update my own row');
+
+-- 2b. Sign-up (Nov 11 bug): a new person saves their name with a plain insert, and
+--     an update when the row already exists. An upsert is refused, because Postgres must
+--     read full_name to overwrite it and nobody may read full_name.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000031e0', true);
+select pg_temp.check(pg_temp.denied($q$insert into public.profiles (id, full_name, gender, language)
+  values ('00000000-0000-0000-0000-0000000031e0', 'Abdel Bayatneh', 'm', 'en')
+  on conflict (id) do update set full_name = excluded.full_name$q$), 'upsert of a profile is refused');
+insert into public.profiles (id, full_name, gender, language)
+values ('00000000-0000-0000-0000-0000000031e0', 'Abdel Bayatneh', 'm', 'en');
+do $$ begin
+  insert into public.profiles (id, full_name, gender, language)
+  values ('00000000-0000-0000-0000-0000000031e0', 'Abdel Bayatneh', 'm', 'en');
+  raise exception 'FAIL (privacy): second insert should hit the unique id';
+exception when unique_violation then null;
+end $$;
+update public.profiles set full_name = 'Abdelrahman Bayatneh' where id = '00000000-0000-0000-0000-0000000031e0';
+select pg_temp.check((select full_name from public.my_profile()) = 'Abdelrahman Bayatneh', 'sign-up name saved and fixed');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000031a1', true);
 
 -- 3. Only admins get full names, to compare with the ID photo.
 select pg_temp.check(pg_temp.denied($q$select public.admin_full_names(array['00000000-0000-0000-0000-0000000031d0'::uuid])$q$),
