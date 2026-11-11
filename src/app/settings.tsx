@@ -1,4 +1,4 @@
-// Settings: language, which pushes you get, your emergency contact, and deleting
+// Settings: language, light or dark, which pushes you get, your emergency contact, and deleting
 // your account. Switches save straight away (no Save button), like iOS Settings.
 //
 // Only settings that already do something are shown. Later slices add their rows
@@ -14,7 +14,8 @@ import { deleteMyAccount } from '@/lib/account';
 import { confirm } from '@/lib/dialog';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors, space } from '@/theme/tokens';
+import { useTheme, type AppearancePref } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 type Prefs = {
   notify_trips: boolean;
@@ -28,6 +29,8 @@ export default function Settings() {
   const { t, lang } = useT();
   const { f } = useFont();
   const { session, refreshProfile } = useSession();
+  const { pref, setPref, dark, c } = useTheme();
+  const colors = c;
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -90,6 +93,28 @@ export default function Settings() {
 
       <View>
         <ListRow last icon="globe" title={t('languageRow')} subtitle={t('languageName')} onPress={switchLanguage} />
+      </View>
+
+      {/* Three rows with a tick, like iPhone Settings (Waleed's pick, Nov 11). */}
+      <View style={{ gap: space.xs }} accessibilityRole="radiogroup">
+        <Label>{t('appearanceSection')}</Label>
+        {(
+          [
+            ['system', t('appearanceSystem'), t(dark ? 'appearanceSystemNowDark' : 'appearanceSystemNowLight')],
+            ['light', t('appearanceLight'), undefined],
+            ['dark', t('appearanceDark'), undefined],
+          ] as [AppearancePref, string, string | undefined][]
+        ).map(([value, title, subtitle], i) => (
+          <ListRow
+            key={value}
+            last={i === 2}
+            title={title}
+            subtitle={subtitle}
+            selected={pref === value}
+            trailing={pref === value ? <Icon name="check" size={20} color={c.ink} /> : <View />}
+            onPress={() => setPref(value)}
+          />
+        ))}
       </View>
 
       <View style={{ gap: space.xs }}>

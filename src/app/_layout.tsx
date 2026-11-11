@@ -20,7 +20,7 @@ import { TripLayerHost } from '@/components/trip-layer-host';
 import { setCrashUser, wrapRoot } from '@/lib/crash';
 import { usePush } from '@/lib/push';
 import { SessionProvider, useSession } from '@/lib/session';
-import { colors } from '@/theme/tokens';
+import { ThemeProvider, useTheme } from '@/theme/theme';
 
 SplashScreen.preventAutoHideAsync();
 // The plain graphite native splash hands off to the shared launch reveal once
@@ -41,13 +41,22 @@ function RootLayout() {
   });
 
   return (
-    <SessionProvider>
-      <StatusBar style="dark" />
-      {fontsLoaded ? <Routes /> : null}
-      {/* Rafiq's own pop-ups (src/lib/dialog.ts), drawn above every screen. */}
-      {fontsLoaded ? <DialogHost /> : null}
-    </SessionProvider>
+    // Light, dark or follow the phone (Settings > Appearance, src/theme/theme.tsx).
+    <ThemeProvider>
+      <SessionProvider>
+        <ThemedStatusBar />
+        {fontsLoaded ? <Routes /> : null}
+        {/* Rafiq's own pop-ups (src/lib/dialog.ts), drawn above every screen. */}
+        {fontsLoaded ? <DialogHost /> : null}
+      </SessionProvider>
+    </ThemeProvider>
   );
+}
+
+// Dark clock and battery on a light screen, light ones on a dark screen.
+function ThemedStatusBar() {
+  const { dark } = useTheme();
+  return <StatusBar style={dark ? 'light' : 'dark'} />;
 }
 
 // Which screens exist depends on where the person is in sign up.
@@ -55,6 +64,7 @@ function RootLayout() {
 // signed-out person can never land on "home", and a signed-in one never sees "phone".
 function Routes() {
   const { loading, session, profile } = useSession();
+  const { c } = useTheme();
 
   const ready = !loading && !!session && !!profile;
   usePush(ready);
@@ -67,7 +77,7 @@ function Routes() {
   return (
     <LaunchGate loading={loading}>
       {loading ? null : (
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.surface } }}>
           {/* The launch gate preserves the initial route, including deep links. */}
           <Stack.Screen name="index" />
           <Stack.Screen name="auth-callback" />

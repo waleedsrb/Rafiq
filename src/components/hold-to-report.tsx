@@ -7,7 +7,7 @@
 // Screen-reader users can't see the circle, so their "activate" (double tap) sends directly.
 
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -17,13 +17,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { STATUS_LOOK } from '@/components/checkpoint-badge';
+import { useStatusLook } from '@/components/checkpoint-badge';
 import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { HOLD_MS, TOO_SHORT_MS, humGap, humPattern, type CheckpointStatus } from '@/lib/checkpoints';
 import { confirmFeel, humPulse, startHumAndroid, stopHum } from '@/lib/haptics';
 import { useT } from '@/lib/session';
-import { colors, radii, sizes } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, sizes } from '@/theme/tokens';
 
 const never = ReduceMotion.Never; // the circle IS the hold's progress, so it runs even with Reduce Motion
 const HALO_OUT = 36; // how far the full circle reaches past the button (about 0.8 inch across)
@@ -43,6 +44,9 @@ export function HoldToReport({
   busy?: boolean; // this report is being sent: stay solid
   disabled?: boolean; // another report is being sent
 }) {
+  const STATUS_LOOK = useStatusLook();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   const look = STATUS_LOOK[status];
@@ -183,7 +187,7 @@ export function HoldToReport({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { overflow: 'visible' },
   halo: { position: 'absolute' },
   button: {
@@ -199,4 +203,4 @@ const styles = StyleSheet.create({
   },
   mark: { fontSize: 16, fontWeight: '700' },
   label: { fontSize: 16 },
-});
+}));

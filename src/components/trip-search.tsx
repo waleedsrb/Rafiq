@@ -25,7 +25,8 @@ import { byDay, countByDay, dayIndex, filterTrips, leavingSoon, AHEAD_DAYS, sear
 import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
 import { useMySeatsFor, useSeatCountsFor, type MySeatStatus } from '@/lib/live';
 import { seatView, type SeatCounts, type SeatKind } from '@/lib/seat-line';
-import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
 export type Result = {
   id: string;
@@ -133,6 +134,7 @@ function dayTrips(s: SearchState, now: Date) {
 
 /** "Today · Wed 11 Nov": the heading that starts each day in the every-day list. */
 function DayHeading({ d, now }: { d: number; now: Date }) {
+  const styles = useStyles();
   const { t, lang } = useT();
   const date = formatDay(searchDayStart(d, now), lang).replace('،', '');
   const text = d === 0 ? `${t('today')} · ${date}` : d === 1 ? `${t('tomorrow')} · ${date}` : date;
@@ -149,6 +151,7 @@ function DayHeading({ d, now }: { d: number; now: Date }) {
  * list; the search on Home docks it just above its bar at the bottom, in thumb reach.
  */
 export function AlertMe({ s, docked, style }: { s: SearchState; docked?: boolean; style?: StyleProp<ViewStyle> }) {
+  const styles = useStyles();
   const { t } = useT();
   const { session } = useSession();
   const reduced = useReducedMotion();
@@ -204,6 +207,7 @@ export function SearchResults({
   onOpenTrip?: (tripId: string, from?: Rect | null) => void;
   dockedAlert?: boolean;
 }) {
+  const { c: colors } = useTheme();
   const openInLayer = useOpenTrip();
   const { t } = useT();
   const { profile, session } = useSession();
@@ -297,6 +301,8 @@ function TimeFirstRow({
   /** Gets where the row is on screen, so the trip can grow out of it. */
   onPress: (from: Rect | null) => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const ref = useRef<HostInstance>(null);
   const { t, lang } = useT();
   const { f } = useFont();
@@ -356,6 +362,7 @@ function TimeFirstRow({
 
 /** One square per seat: confirmed dark, waiting for the driver clay, free light. */
 function SeatSquares({ seats }: { seats: SeatKind[] }) {
+  const styles = useStyles();
   return (
     <View style={styles.seats}>
       {seats.slice(0, 8).map((k, i) => (
@@ -365,7 +372,7 @@ function SeatSquares({ seats }: { seats: SeatKind[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   // Docked over the list, so it needs its own porcelain behind the outline.
   dockButton: { borderRadius: radii.capsule, backgroundColor: colors.surface, ...shadows.float },
   dockNote: {
@@ -390,4 +397,4 @@ const styles = StyleSheet.create({
   seat: { width: 9, height: 9, borderRadius: 2.5, backgroundColor: colors.ink },
   seatWaiting: { backgroundColor: colors.clay },
   seatFree: { backgroundColor: colors.lineStrong, opacity: 0.45 },
-});
+}));

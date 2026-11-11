@@ -8,7 +8,7 @@
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,7 +22,8 @@ import { inboxChanged } from '@/lib/notifications';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { openTrip } from '@/lib/trip-layer';
-import { colors, radii, sizes, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, sizes, space } from '@/theme/tokens';
 
 const GROUP_LABEL = { today: 'today', week: 'thisWeek', earlier: 'earlier' } as const satisfies Record<InboxGroup, string>;
 /** How long "Undo" stays before a delete is sent to the server. */
@@ -31,6 +32,7 @@ const UNDO_MS = 4000;
 type Failure = 'notificationLoadFailed' | 'notificationActionFailed';
 
 export default function Notifications() {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -213,6 +215,8 @@ function InboxRow({ n, subtitle, last, onOpen, onRead, onDelete }: {
   n: Notification; subtitle: string; last: boolean;
   onOpen: () => void; onRead: () => void; onDelete: () => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const unread = !n.read_at;
@@ -256,6 +260,7 @@ function InboxRow({ n, subtitle, last, onOpen, onRead, onDelete }: {
 
 /** "Notification deleted · Undo" capsule at the bottom of the screen. */
 function UndoBar({ label, action, onUndo }: { label: string; action: string; onUndo: () => void }) {
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <View style={styles.toastInner}>
@@ -267,7 +272,7 @@ function UndoBar({ label, action, onUndo }: { label: string; action: string; onU
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   flex: { flex: 1 },
   topEnd: { flexDirection: 'row', gap: space.sm },
   title: { fontSize: 16, lineHeight: 22, color: colors.ink },
@@ -288,7 +293,7 @@ const styles = StyleSheet.create({
   },
   toastText: { fontSize: 15, color: colors.onInk },
   toastAction: { minHeight: sizes.touch, justifyContent: 'center' },
-});
+}));
 
 /** A trip opens as the card over this page; anything else is a page of its own. */
 function openUrl(url: string) {

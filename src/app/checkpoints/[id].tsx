@@ -3,7 +3,7 @@
 
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { FollowBell } from '@/components/follow-bell';
@@ -15,11 +15,13 @@ import { warnFeel } from '@/lib/haptics';
 import type { StringKey } from '@/i18n/strings';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 type Report = { created_at: string; status: CheckpointStatus; source: 'passenger' | 'driver' | 'channel' };
 
 export default function CheckpointDetail() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, lang } = useT();
   const { f } = useFont();
@@ -165,9 +167,9 @@ export default function CheckpointDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   buttons: { flexDirection: 'row', gap: space.sm, zIndex: -1 }, // the growing circle stays behind the text around it
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: space.md },
   time: { width: 48, fontSize: 15, color: colors.ink },
-});
+}));

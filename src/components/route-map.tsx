@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type MapStyleElement } from 'react-native-maps';
 
-import { BarricadeMark, STATUS_LOOK } from '@/components/checkpoint-badge';
+import { BarricadeMark, useStatusLook } from '@/components/checkpoint-badge';
 import { GlassButton, useFont } from '@/components/ui';
 import type { CheckpointStatus } from '@/lib/checkpoints';
 import { centrePoint, onRamallahNablusRoad, type LatLng } from '@/lib/places';
@@ -18,7 +18,9 @@ import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { tripCheckpoints } from '@/lib/way';
-import { colors, radii, shadows, space } from '@/theme/tokens';
+import { wash } from '@/theme/palettes';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, shadows, space } from '@/theme/tokens';
 
 export type MapCheckpoint = LatLng & {
   id: string;
@@ -144,7 +146,7 @@ export function RouteMap({
   checkpointsExact?: boolean;
   /** Where the car is now (drive mode). */
   car?: LatLng | null;
-  /** Night colours (drive mode in dark). */
+  /** Night colours. Defaults to the app's look; drive mode passes its own switch. */
   dark?: boolean;
   /** The pickup point, when the driver picked one; else the city square. */
   start?: LatLng;
@@ -164,6 +166,11 @@ export function RouteMap({
   /** Space taken by a card over the bottom of the map (the trip card). */
   bottomInset?: number;
 }) {
+  const STATUS_LOOK = useStatusLook();
+  const appTheme = useTheme();
+  const colors = appTheme.c;
+  const styles = useStyles();
+  const night = dark ?? appTheme.dark;
   const { t } = useT();
   const { f, rtl } = useFont();
   const ref = useRef<MapView>(null);
@@ -193,8 +200,8 @@ export function RouteMap({
         ref={ref}
         style={StyleSheet.absoluteFill}
         onMapReady={fit}
-        customMapStyle={Platform.OS === 'android' ? (dark ? NIGHT : GRAPHITE) : undefined}
-        userInterfaceStyle={dark ? 'dark' : 'light'}
+        customMapStyle={Platform.OS === 'android' ? (night ? NIGHT : GRAPHITE) : undefined}
+        userInterfaceStyle={night ? 'dark' : 'light'}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
         // Small maps are a picture of the route (tap to expand); the full-screen one moves.
         scrollEnabled={!!interactive}
@@ -269,6 +276,10 @@ export function RouteMap({
  * Tap one for its name and status; tap that to open its page.
  */
 export function CheckpointsMap({ height, topInset = 0 }: { height: number; topInset?: number }) {
+  const { dark: themeDark } = useTheme();
+  const STATUS_LOOK = useStatusLook();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const ref = useRef<MapView>(null);
   const all = useMapCheckpoints(60_000);
@@ -288,7 +299,8 @@ export function CheckpointsMap({ height, topInset = 0 }: { height: number; topIn
         onMapReady={fit}
         // The whole West Bank before the checkpoints load.
         initialRegion={{ latitude: 31.95, longitude: 35.25, latitudeDelta: 1.6, longitudeDelta: 1.0 }}
-        customMapStyle={Platform.OS === 'android' ? GRAPHITE : undefined}
+        customMapStyle={Platform.OS === 'android' ? (themeDark ? NIGHT : GRAPHITE) : undefined}
+        userInterfaceStyle={themeDark ? 'dark' : 'light'}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
         rotateEnabled={false}
         pitchEnabled={false}
@@ -320,7 +332,7 @@ export function CheckpointsMap({ height, topInset = 0 }: { height: number; topIn
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   // Start: hollow ring. End: solid square. Same marks as the route card.
   end: { width: 14, height: 14, borderRadius: 3, backgroundColor: colors.ink, borderWidth: 2, borderColor: colors.card },
   start: { borderRadius: 7, backgroundColor: colors.card, borderColor: colors.ink, borderWidth: 3 },
@@ -331,7 +343,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: wash(colors.card, 0.9),
     borderWidth: 1,
     borderColor: colors.hairline,
   },
@@ -348,7 +360,7 @@ const styles = StyleSheet.create({
   },
   checkpoint: { borderRadius: 14, ...shadows.float },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: colors.card },
-});
+}));
 
 // Google Maps style: porcelain land, white roads, grey labels, no shop or transit clutter.
 const GRAPHITE: MapStyleElement[] = [
@@ -368,7 +380,7 @@ const GRAPHITE: MapStyleElement[] = [
 ];
 
 // Google Maps at night (drive mode, dark): graphite land, dim roads, quiet labels.
-const NIGHT: MapStyleElement[] = [
+export const NIGHT: MapStyleElement[] = [
   { elementType: 'geometry', stylers: [{ color: '#1E2023' }] },
   { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#8A8D92' }] },

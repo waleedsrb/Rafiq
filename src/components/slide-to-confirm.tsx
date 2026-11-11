@@ -10,6 +10,7 @@ import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming
 import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { successFeel, tapFeel } from '@/lib/haptics';
+import { inkWash, palettes } from '@/theme/palettes';
 
 const KNOB = 52;
 const PAD = 4;
@@ -72,9 +73,10 @@ export function SlideToConfirm({
   const knob = useAnimatedStyle(() => ({ transform: [{ translateX: x.value * dir }] }));
   const fade = useAnimatedStyle(() => ({ opacity: 1 - Math.min(1, x.value / (travel * 0.6)) }));
 
-  const ink = dark ? '#F4F3EF' : '#17191C';
-  const onInk = dark ? '#17191C' : '#FFFFFF';
-  const track = dark ? 'rgba(255,255,255,0.12)' : 'rgba(23,25,28,0.08)';
+  const p = palettes[dark ? 'dark' : 'light'];
+  const ink = p.ink;
+  const onInk = p.onInk;
+  const track = inkWash(p, 0.08);
 
   if (reader) {
     return (

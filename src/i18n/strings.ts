@@ -167,6 +167,12 @@ export const strings = {
   accountTitle: { ar_m: 'حسابي', en: 'Account' },
   languageRow: { ar_m: 'اللغة', en: 'Language' },
   languageName: { ar_m: 'العربية', en: 'English' },
+  appearanceSection: { ar_m: 'المظهر', en: 'Appearance' },
+  appearanceSystem: { ar_m: 'حسب الهاتف', en: 'Follow phone' },
+  appearanceSystemNowDark: { ar_m: 'داكن الآن، ويتغيّر مع هاتفك', en: 'Dark now, changes with your phone' },
+  appearanceSystemNowLight: { ar_m: 'فاتح الآن، ويتغيّر مع هاتفك', en: 'Light now, changes with your phone' },
+  appearanceLight: { ar_m: 'فاتح', en: 'Light' },
+  appearanceDark: { ar_m: 'داكن', en: 'Dark' },
   addYourCar: { ar_m: 'أضف سيارتك', ar_f: 'أضيفي سيارتك', en: 'Add your car' },
   forDrivers: { ar_m: 'للسائقين', en: 'For drivers' },
 

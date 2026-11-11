@@ -6,9 +6,9 @@
 // Each shows its status now, so a closed one stands out and is easy to leave off.
 
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { STATUS_LOOK, BarricadeMark } from '@/components/checkpoint-badge';
+import { useStatusLook, BarricadeMark } from '@/components/checkpoint-badge';
 import { Icon } from '@/components/icon';
 import { useMapCheckpoints, type MapCheckpoint } from '@/components/route-map';
 import { Body, ListRow, SectionTitle } from '@/components/ui';
@@ -17,7 +17,7 @@ import { centrePoint, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { checkpointsNear, inDrivingOrder } from '@/lib/way';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 /** What the picker offers for a trip: `suggested` (start ticked) and `nearby`, in driving order. */
 export function useWayChoices(origin: City, destination: City, start?: LatLng | null) {
@@ -29,6 +29,9 @@ export function useWayChoices(origin: City, destination: City, start?: LatLng | 
 export type WayChoices = ReturnType<typeof useWayChoices>;
 
 export function CheckpointPicker({ choices, value, onChange }: { choices: WayChoices; value: string[]; onChange: (ids: string[]) => void }) {
+  const STATUS_LOOK = useStatusLook();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const chosen = new Set(value);
   // Ticked ones first (also any picked from further away), then the rest of the suggestions, then nearby.
@@ -86,6 +89,8 @@ export function CheckpointPicker({ choices, value, onChange }: { choices: WayCho
 }
 
 function Tick({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -100,8 +105,8 @@ function Tick({ on, label, onPress }: { on: boolean; label: string; onPress: () 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   tick: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: colors.lineStrong, alignItems: 'center', justifyContent: 'center' },
   tickOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   none: { marginVertical: 12, color: colors.inkSecondary },
-});
+}));

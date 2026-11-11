@@ -6,7 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
+import { Pressable, Text, View, type HostInstance } from 'react-native';
 
 import {
   CancelledBlock,
@@ -46,7 +46,8 @@ import { useSession, useT } from '@/lib/session';
 import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors, radii, shadows, sizes, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, shadows, sizes, space } from '@/theme/tokens';
 
 const LATER_KEY = 'rafiq.home.later';
 // A trip that left a few hours ago is still "next" until it finishes (trip day).
@@ -156,6 +157,8 @@ function toRequests(trip: DriveRow): (RequestHero & { info: RequestInfo })[] {
 }
 
 export default function Home() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f, rtl } = useFont();
   const { unread } = useUnreadCount();
@@ -503,7 +506,7 @@ export default function Home() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   greeting: { fontSize: 22, lineHeight: 30, color: colors.ink },
   hero: { marginTop: space.md, minHeight: 120 },
   // A small round arrow at the top end: this block opens a screen of its own.
@@ -543,4 +546,4 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
   },
   dayPillText: { fontSize: 13, color: colors.ink },
-});
+}));

@@ -4,9 +4,10 @@ import { View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import type { LatLng } from '@/lib/places';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export function PickupMap({ visibleBottom }: { center: LatLng & { key: number }; onMove: (at: LatLng) => void; visibleBottom: number }) {
+  const { c: colors } = useTheme();
   return (
     <View style={{ height: visibleBottom + 28, backgroundColor: colors.sunken, alignItems: 'center', justifyContent: 'center' }}>
       <Icon name="mapPin" size={32} />

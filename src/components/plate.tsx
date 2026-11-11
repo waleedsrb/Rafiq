@@ -1,11 +1,13 @@
 // A number plate drawn like the real thing, so a passenger can match it at a glance.
 // Always left to right, even inside Arabic.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { colors, fonts, radii } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { fonts, radii } from '@/theme/tokens';
 
 export function Plate({ plate, size = 'md' }: { plate: string; size?: 'sm' | 'md' }) {
+  const styles = useStyles();
   const small = size === 'sm';
   return (
     <View style={[styles.plate, small && { height: 34 }]} accessibilityLabel={plate}>
@@ -17,7 +19,7 @@ export function Plate({ plate, size = 'md' }: { plate: string; size?: 'sm' | 'md
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   plate: {
     flexDirection: 'row',
     direction: 'ltr',
@@ -39,4 +41,4 @@ const styles = StyleSheet.create({
   },
   side: { width: 30, backgroundColor: colors.plateInk, alignItems: 'center', justifyContent: 'center' },
   sideText: { fontFamily: fonts.en.bold, color: '#FFFFFF', fontSize: 14 },
-});
+}));

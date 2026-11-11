@@ -1,14 +1,16 @@
 // The three big numbers on a profile: Trips · Reliable · Rating. Used on Your profile
 // and on someone else's page. "–" until there is something to show.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { ltr, useFont } from '@/components/ui';
 import { useT } from '@/lib/session';
 import { ratingText, reliabilityText, type Stats } from '@/lib/stats';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export function StatsRow({ stats }: { stats: Stats }) {
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   const cells: [string, string][] = [
@@ -28,7 +30,7 @@ export function StatsRow({ stats }: { stats: Stats }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   stats: {
     flexDirection: 'row',
     borderTopWidth: 1,
@@ -39,4 +41,4 @@ const styles = StyleSheet.create({
   statLine: { borderStartWidth: 1, borderColor: colors.hairline },
   value: { fontSize: 22, lineHeight: 28, color: colors.ink },
   label: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
-});
+}));

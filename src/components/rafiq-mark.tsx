@@ -5,7 +5,7 @@
 import { Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export const MARK_VIEWBOX = '42 57 670 615';
 export const MARK_RATIO = 670 / 615; // width / height
@@ -15,11 +15,13 @@ export const MARK_ROAD = 'M60 672Q36 672 42 638C78 556 180 470 304 434Q333 428 3
 const decorative = Platform.OS === 'web' ? { 'aria-hidden': true as const } : { accessible: false };
 
 /** The mark at a given height; width follows the mark's proportions. */
-export function RafiqMark({ size = 24, color = colors.ink }: { size?: number; color?: string }) {
+export function RafiqMark({ size = 24, color }: { size?: number; color?: string }) {
+  const { c } = useTheme();
+  const ink = color ?? c.ink;
   return (
     <Svg width={size * MARK_RATIO} height={size} viewBox={MARK_VIEWBOX} {...decorative}>
-      <Path d={MARK_BODY} fill={color} fillRule="evenodd" />
-      <Path d={MARK_ROAD} fill={color} />
+      <Path d={MARK_BODY} fill={ink} fillRule="evenodd" />
+      <Path d={MARK_ROAD} fill={ink} />
     </Svg>
   );
 }

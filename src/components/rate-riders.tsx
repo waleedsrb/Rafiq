@@ -4,7 +4,7 @@
 // and that the trip really finished. Riders you skip can be rated later, for 7 days.
 
 import { useState, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { StarPicker, Stars } from '@/components/stars';
@@ -12,7 +12,8 @@ import { Body, Button, ListRow, ltr, useFont } from '@/components/ui';
 import { successFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export type RideToRate = {
   bookingId: string;
@@ -36,6 +37,7 @@ export function useRateRiders({
   open: boolean;
   onDone: () => void;
 }): { body: ReactNode; footer: ReactNode } {
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   const [stars, setStars] = useState<Record<string, number>>({});
@@ -112,7 +114,7 @@ export function useRateRiders({
   return { body, footer };
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   rider: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairline },
   who: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-});
+}));

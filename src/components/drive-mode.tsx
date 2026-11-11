@@ -1,5 +1,6 @@
 // Drive mode: what the driver sees once the trip has started.
-// Big text, few buttons, light or dark (sun/moon button; it starts dark after sunset).
+// Big text, few buttons, light or dark: it starts in the app's look (Settings > Appearance)
+// and the sun/moon button switches it for this trip.
 //
 // - Top: the next checkpoint, its status and how far it is. A closed one turns the banner
 //   red, the only red on this screen, with "Going around it" under it (one tap takes it off
@@ -17,7 +18,7 @@ import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
-import { STATUS_LOOK, useAgo } from '@/components/checkpoint-badge';
+import { statusLookFor, useAgo } from '@/components/checkpoint-badge';
 import { Icon, type IconName } from '@/components/icon';
 import { RouteMap, type MapCheckpoint } from '@/components/route-map';
 import { SlideToConfirm } from '@/components/slide-to-confirm';
@@ -29,34 +30,16 @@ import { centreName, centrePoint, placeName, type LatLng } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
 import { useScreenCorners } from '@/theme/screen-corners';
-import { colors, fonts, space } from '@/theme/tokens';
+import { palettes, type Palette } from '@/theme/palettes';
+import { fonts, space } from '@/theme/tokens';
 
 export type Rider = { id: string; name: string; avatarPath: string | null; seed: string };
 
-/** Dark after sunset and before dawn, roughly; the driver can switch it either way. */
-export function nightNow(d = new Date()) {
-  const h = d.getHours();
-  return h >= 18 || h < 6;
-}
-
 type Look = { ink: string; sub: string; panel: string; line: string; button: string; blur: 'light' | 'dark' };
 
-const DAY: Look = {
-  ink: colors.ink,
-  sub: colors.inkSecondary,
-  panel: 'rgba(247,246,243,0.86)',
-  line: colors.hairline,
-  button: 'rgba(23,25,28,0.06)',
-  blur: 'light',
-};
-const NIGHT: Look = {
-  ink: '#F4F3EF',
-  sub: '#9A9DA2',
-  panel: 'rgba(23,25,28,0.88)',
-  line: 'rgba(255,255,255,0.10)',
-  button: 'rgba(255,255,255,0.10)',
-  blur: 'dark',
-};
+const look = (p: Palette, blur: 'light' | 'dark'): Look => ({ ink: p.ink, sub: p.inkSecondary, panel: p.panel, line: p.hairline, button: p.fillStrong, blur });
+const DAY = look(palettes.light, 'light');
+const NIGHT = look(palettes.dark, 'dark');
 
 export function DriveMode({
   origin,
@@ -95,6 +78,9 @@ export function DriveMode({
   onEmergency: () => void;
   onLeave: () => void;
 }) {
+  // Drive mode has its own light/dark switch, so it picks its palette itself.
+  const colors = palettes[dark ? 'dark' : 'light'];
+  const STATUS_LOOK = statusLookFor(dark ? 'dark' : 'light');
   const { t, lang } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
@@ -127,14 +113,14 @@ export function DriveMode({
   const bannerSub = cp
     ? `${t('nextCheckpoint')} · ${cp.reportedAt ? ago(cp.reportedAt, now) : t('noRecentReport')}`
     : t('destinationPoint');
-  const bannerInk = closed ? '#FFFFFF' : c.ink;
-  const bannerSubInk = closed ? 'rgba(255,255,255,0.8)' : c.sub;
+  const bannerInk = closed ? colors.white : c.ink;
+  const bannerSubInk = closed ? colors.white : c.sub;
   const statusTint = cp?.status && !closed ? STATUS_LOOK[cp.status].color : bannerInk;
 
   const panelH = 250 + insets.bottom;
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: dark ? '#17191C' : colors.surface }]} entering={reduced ? undefined : FadeIn.duration(320)}>
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }]} entering={reduced ? undefined : FadeIn.duration(320)}>
       <RouteMap
         origin={origin}
         destination={destination}
@@ -151,10 +137,10 @@ export function DriveMode({
       {/* Top: leave drive mode, and the next checkpoint. */}
       <View style={[styles.top, { top: insets.top + 6, direction }]}>
         <RoundButton icon="x" label={t('leaveDriveMode')} onPress={onLeave} c={c} />
-        <View style={[styles.banner, { backgroundColor: closed ? colors.statusClosed : c.panel }]}>
+        <View style={[styles.banner, { backgroundColor: closed ? colors.alarm : c.panel }]}>
           {closed ? null : <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, styles.round]} />}
-          <View style={[styles.bannerIcon, { backgroundColor: closed ? 'rgba(255,255,255,0.2)' : c.button }]}>
-            <Icon name={bannerIcon} size={22} color={closed ? '#FFFFFF' : statusTint} />
+          <View style={[styles.bannerIcon, { backgroundColor: closed ? colors.alarmFill : c.button }]}>
+            <Icon name={bannerIcon} size={22} color={closed ? colors.white : statusTint} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text numberOfLines={1} style={[styles.bannerTitle, { fontFamily: f.bold, color: bannerInk }]}>
@@ -216,7 +202,7 @@ export function DriveMode({
           </View>
           <View style={styles.faces} accessibilityLabel={riders.map((r) => r.name).join(', ')}>
             {riders.slice(0, 4).map((r, i) => (
-              <View key={r.id} style={[styles.face, { borderColor: dark ? '#17191C' : colors.surface }, i > 0 && (rtl ? { marginRight: -10 } : { marginLeft: -10 })]}>
+              <View key={r.id} style={[styles.face, { borderColor: colors.surface }, i > 0 && (rtl ? { marginRight: -10 } : { marginLeft: -10 })]}>
                 <Avatar path={r.avatarPath} name={r.name} seed={r.seed} size={36} />
               </View>
             ))}

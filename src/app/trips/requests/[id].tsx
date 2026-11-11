@@ -21,10 +21,10 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Avatar } from '@/components/avatar';
-import { BarricadeMark, STATUS_LOOK } from '@/components/checkpoint-badge';
+import { BarricadeMark, useStatusLook } from '@/components/checkpoint-badge';
 import { CheckpointPicker, useWayChoices } from '@/components/checkpoint-picker';
 import { useContact } from '@/components/contact-card';
-import { DriveMode, nightNow } from '@/components/drive-mode';
+import { DriveMode } from '@/components/drive-mode';
 import { Icon } from '@/components/icon';
 import { PersonProfile } from '@/components/person-profile';
 import { useWayCheckpoints } from '@/components/route-map';
@@ -53,7 +53,8 @@ import { openEmergency, shareTrip } from '@/lib/share-trip';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { noShowFrom, noShowOpen, pickupOpen, ratingOpen, startOpen, tripState } from '@/lib/trip-day';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 type Trip = {
   id: string;
@@ -89,6 +90,10 @@ type Step = 'details' | 'rider' | 'arrived' | 'way';
 const holdsSeat = (status: string) => status === 'accepted' || status === 'completed';
 
 export default function DriverTrip() {
+  const STATUS_LOOK = useStatusLook();
+  const appTheme = useTheme();
+  const colors = appTheme.c;
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, lang } = useT();
   const { f } = useFont();
@@ -104,7 +109,8 @@ export default function DriverTrip() {
   const [riderId, setRiderId] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [want, setWant] = useState<{ to: Detent; key: number } | null>(null);
-  const [dark, setDark] = useState(() => nightNow());
+  // Drive mode starts in the app's look; the sun/moon button switches it for this trip.
+  const [dark, setDark] = useState(() => appTheme.dark);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -702,6 +708,8 @@ function RiderRow({
   checkIn: ReactNode;
   note: ReactNode;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const contact = useContact(r.id);
   const phone = contact?.phone ?? null;
@@ -759,7 +767,7 @@ function progressOf(r: Request, now: Date) {
   return end > startMs ? (end - now.getTime()) / (end - startMs) : 0;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   closed: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.statusClosedSoft },
   wayText: { fontSize: 14, color: colors.inkSecondary },
   page: { flex: 1, backgroundColor: colors.surface },
@@ -784,4 +792,4 @@ const styles = StyleSheet.create({
   inCarOn: { backgroundColor: colors.statusOpen, borderColor: colors.statusOpen },
   inCarText: { fontSize: 15, color: colors.ink },
   call: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-});
+}));

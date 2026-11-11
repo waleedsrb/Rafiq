@@ -1,36 +1,7 @@
 // Design tokens from the Rafiq design system (direction C5, tokens v2).
 // Screens read colors, spacing and type from here, never hard-coded values,
-// so a design change happens in one place.
-
-export const colors = {
-  surface: '#F7F6F3', // bg: porcelain, the single app background
-  card: '#FFFFFF', // white, sparingly: input fields, grouped inputs
-  sunken: '#ECEAE5', // quick-action circles, the "where to?" capsule, avatars
-  ink: '#17191C', // primary text and primary buttons (graphite)
-  inkPressed: '#2E3136',
-  inkSecondary: '#6B6E73',
-  hairline: '#E7E5E0', // line: separators instead of shadows and cards
-  lineStrong: '#B9BBC0', // unselected chip borders, secondary buttons
-  onInk: '#FFFFFF',
-  clay: '#B4583B', // signal: ONLY for "something needs you"
-  claySoft: '#F0E4DE',
-  clayPressed: '#9C4B32',
-  veil: 'rgba(23,25,28,0.32)', // behind pop-ups
-  glassFill: 'rgba(255,255,255,0.72)',
-  glassTint: 'rgba(247,246,243,0.55)', // Liquid Glass tint for bars over a map
-  glassVeil: 'rgba(247,246,243,0.38)', // porcelain wash on top, so text reads on a dark map
-  glassCardVeil: 'rgba(247,246,243,0.5)', // the same wash on the expanded card, which holds more text
-  glassEdge: 'rgba(255,255,255,0.90)',
-  glassLens: 'rgba(23,25,28,0.07)', // the selected tab's pill
-  plateInk: '#1F6B3A',
-  statusOpen: '#2E7A4D',
-  statusOpenSoft: '#E8F2EC',
-  statusCrowded: '#8A6410',
-  statusCrowdedDot: '#B8860B',
-  statusCrowdedSoft: '#FBF1D9',
-  statusClosed: '#B3263A',
-  statusClosedSoft: '#F8E4E7',
-} as const;
+// so a design change happens in one place. The colours themselves live in
+// palettes.ts (light and dark).
 
 export const radii = {
   sm: 8,

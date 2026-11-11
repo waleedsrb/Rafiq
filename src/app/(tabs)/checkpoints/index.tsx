@@ -10,7 +10,7 @@
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { Icon } from '@/components/icon';
@@ -18,9 +18,11 @@ import { Body, GlassButton, ListRow, SectionTitle, TabScreen, inputAlign, ltr, u
 import { byGovernorate, confidence, matchesQuery, reportsKey } from '@/lib/checkpoints';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export default function Checkpoints() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { session } = useSession();
   const { f, rtl } = useFont();
@@ -123,15 +125,15 @@ export default function Checkpoints() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   search: {
     alignItems: 'center',
     gap: 8,
     height: 44,
     borderRadius: 22,
     paddingHorizontal: 14,
-    backgroundColor: 'rgba(23,25,28,0.05)',
+    backgroundColor: colors.fill,
     marginTop: 12,
   },
   input: { flex: 1, fontSize: 16, color: colors.ink, paddingVertical: 0 },
-});
+}));

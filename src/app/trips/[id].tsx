@@ -10,9 +10,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TripDetails } from '@/components/trip-details';
 import { goBack } from '@/lib/nav';
 import { dayIndex } from '@/lib/trip-search';
-import { colors } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
 
 export default function TripPage() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [closing, setClosing] = useState(false);
   if (!id) return null;
@@ -37,6 +38,6 @@ export default function TripPage() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   page: { flex: 1, backgroundColor: colors.surface },
-});
+}));

@@ -8,7 +8,7 @@
 // buttons in its own pinned footer.
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { Body, Button, Field, ListRow, ltr } from '@/components/ui';
@@ -18,7 +18,8 @@ import { askForPush } from '@/lib/push';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors, radii, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, space } from '@/theme/tokens';
 
 export type CheckoutTrip = { id: string; origin: City; destination: City; departs_at: string; price_ils: number };
 
@@ -29,6 +30,8 @@ export function useRequestSeat(
   active: boolean,
   onDone: () => void,
 ): { ready: boolean; cash: boolean; title: string; trip: CheckoutTrip | null; body: ReactNode; footer: ReactNode } {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const [trip, setTrip] = useState<CheckoutTrip | null>(null);
   const [fee, setFee] = useState<number | null>(null);
@@ -205,7 +208,7 @@ export function useRequestSeat(
   };
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pair: { gap: space.md },
   test: { gap: space.sm, alignItems: 'flex-start', backgroundColor: colors.sunken, borderRadius: radii.md, padding: space.md },
-});
+}));

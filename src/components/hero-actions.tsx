@@ -11,18 +11,19 @@
 //   - Every capsule carries the full sentence for screen readers.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { ltr, useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export const UNDO_SECONDS = 5;
 const ROW = 40;
 
 export function ActionRow({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.row}>{children}</View>;
 }
 
@@ -45,6 +46,8 @@ export function Capsule({
   icon?: IconName;
   disabled?: boolean;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   const solid = variant === 'solid';
   return (
@@ -81,6 +84,8 @@ export function Capsule({
 
 /** The dark 40pt circle with a phone, as on the pickup rows. */
 export function CallCircle({ label, onPress }: { label: string; onPress: () => void }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -96,6 +101,7 @@ export function CallCircle({ label, onPress }: { label: string; onPress: () => v
 
 /** A quiet "✓ done" line in the row's place, same height, so nothing below moves. */
 export function DoneLine({ label }: { label: string }) {
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <View style={styles.row} accessible accessibilityLabel={label}>
@@ -161,6 +167,7 @@ export function useUndoable(onSent: (ok: boolean) => void) {
 
 /** What the row shows while an answer can still be undone. */
 export function UndoRow({ label, left, onUndo }: { label: string; left: number; onUndo: () => void }) {
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   return (
@@ -174,7 +181,7 @@ export function UndoRow({ label, left, onUndo }: { label: string; left: number; 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { height: ROW, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   capsule: {
     height: ROW,
@@ -194,4 +201,4 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, color: colors.ink, flexShrink: 1 },
   call: { width: ROW, height: ROW, borderRadius: ROW / 2, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   done: { flex: 1, fontSize: 14, color: colors.ink },
-});
+}));

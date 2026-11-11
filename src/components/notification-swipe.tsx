@@ -19,7 +19,8 @@ import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
 import { clampNotificationSwipe, notificationSwipeArmed, notificationSwipeResult, type NotificationSwipeAction } from '@/lib/notification-swipe';
-import { colors, motion, sizes, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { motion, sizes, space } from '@/theme/tokens';
 
 export function NotificationSwipe({ children, canRead, readLabel, deleteLabel, onRead, onDelete }: {
   /** The row itself. It receives a press handler that first closes an open swipe. */
@@ -30,6 +31,7 @@ export function NotificationSwipe({ children, canRead, readLabel, deleteLabel, o
   onRead: () => void;
   onDelete: () => void;
 }) {
+  const styles = useStyles();
   const { f, rtl } = useFont();
   const reduced = useReducedMotion();
   const x = useSharedValue(0);
@@ -116,6 +118,8 @@ function Action({ kind, label, armed, font, reduced, onPress }: {
   kind: NotificationSwipeAction; label: string; armed: SharedValue<NotificationSwipeAction | null>;
   font: string; reduced: boolean; onPress: () => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const soft = kind === 'read' ? colors.sunken : colors.statusClosedSoft;
   const solid = kind === 'read' ? colors.ink : colors.statusClosed;
   const tint = kind === 'read' ? colors.ink : colors.statusClosed;
@@ -141,7 +145,7 @@ function Action({ kind, label, armed, font, reduced, onPress }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   clip: { overflow: 'hidden' },
   row: { backgroundColor: colors.surface },
   panel: { position: 'absolute', top: 0, bottom: 0, overflow: 'hidden', flexDirection: 'row' },
@@ -150,4 +154,4 @@ const styles = StyleSheet.create({
   capsule: { height: sizes.button, borderRadius: sizes.button / 2, alignItems: 'center', justifyContent: 'center', gap: 2, overflow: 'hidden' },
   center: { alignItems: 'center', justifyContent: 'center', gap: 2 },
   label: { fontSize: 12, lineHeight: 16, maxWidth: 72, textAlign: 'center' },
-});
+}));

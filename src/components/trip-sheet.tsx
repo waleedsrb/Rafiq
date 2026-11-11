@@ -53,7 +53,9 @@ import type { LatLng } from '@/lib/places';
 import type { Rect } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
 import { useScreenCorners } from '@/theme/screen-corners';
-import { colors, fonts, shadows, sizes, space } from '@/theme/tokens';
+import { inkWash, wash } from '@/theme/palettes';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { fonts, shadows, sizes, space } from '@/theme/tokens';
 
 export type Detent = 'mini' | 'mid' | 'full';
 export type SheetAction = { label: string; onPress: () => void; secondary?: boolean; loading?: boolean };
@@ -149,6 +151,9 @@ export function TripSheet({
   /** The card can't grow to full height, only drop to the bar (Post a trip's time step, Nov 11). */
   noFull?: boolean;
 }) {
+  const { scheme: themeScheme } = useTheme();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
@@ -500,7 +505,7 @@ export function TripSheet({
                 tintColor={colors.glassTint}
                 // Always the light look: the app is light-only, but the phone's dark mode still
                 // reaches native glass and turned the card and the top buttons a dark grey.
-                colorScheme="light"
+                colorScheme={themeScheme}
                 isInteractive={at === 'mini'}
               />
               <View
@@ -510,7 +515,7 @@ export function TripSheet({
             </>
           ) : (
             <>
-              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              <BlurView intensity={60} tint={themeScheme} style={StyleSheet.absoluteFill} />
               <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
               <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} />
             </>
@@ -615,6 +620,7 @@ export function TripSheet({
 
 /** A step inside the card (Request, Rate, the driver): back arrow and a title. */
 export function StepHeader({ title, kicker, onBack }: { title: string; kicker?: string; onBack: () => void }) {
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl } = useFont();
   return (
@@ -630,7 +636,7 @@ export function StepHeader({ title, kicker, onBack }: { title: string; kicker?: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   top: { position: 'absolute', left: space.screen, right: space.screen, flexDirection: 'row', justifyContent: 'space-between' },
   card: {
     position: 'absolute',
@@ -639,10 +645,10 @@ const styles = StyleSheet.create({
   clip: {
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderColor: colors.glassEdge,
   },
   full: { position: 'absolute', top: 0, left: 0 },
-  cardFill: { backgroundColor: 'rgba(247,246,243,0.35)' }, // the frosted stand-in, close to the glass's look
+  cardFill: { backgroundColor: wash(colors.surface, 0.35) }, // the frosted stand-in, close to the glass's look
   head: { paddingHorizontal: 18, paddingBottom: space.sm },
   grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
   grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },
@@ -672,17 +678,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  barButtonQuiet: { backgroundColor: 'rgba(23,25,28,0.07)' },
+  barButtonQuiet: { backgroundColor: colors.fillStrong },
   barButtonText: { fontSize: 14, color: colors.onInk },
   step: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepBack: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(23,25,28,0.06)',
+    backgroundColor: inkWash(colors, 0.06),
     alignItems: 'center',
     justifyContent: 'center',
   },
   kicker: { fontSize: 12, lineHeight: 16, color: colors.inkSecondary },
   stepTitle: { fontSize: 19, lineHeight: 26, color: colors.ink },
-});
+}));
