@@ -112,3 +112,44 @@ export function useSeatCountsFor(tripIds: string[]) {
 
   return byTrip;
 }
+
+export type MySeatStatus = 'requested' | 'queued' | 'accepted';
+
+/** My own open booking on each of these trips (asked, in line, confirmed), live. */
+export function useMySeatsFor(tripIds: string[], me?: string | null) {
+  const [byTrip, setByTrip] = useState<Record<string, MySeatStatus>>({});
+  const key = [...tripIds].sort().join(',');
+
+  useEffect(() => {
+    if (!key || !me) {
+      setByTrip({});
+      return;
+    }
+    const ids = key.split(',');
+    let live = true;
+    const read = () =>
+      supabase
+        .from('bookings')
+        .select('trip_id, status')
+        .eq('passenger_id', me)
+        .in('trip_id', ids)
+        .in('status', ['requested', 'queued', 'accepted'])
+        .then(({ data }) => {
+          if (!live) return;
+          const next: Record<string, MySeatStatus> = {};
+          for (const row of (data as { trip_id: string; status: MySeatStatus }[] | null) ?? []) next[row.trip_id] = row.status;
+          setByTrip(next);
+        });
+    read();
+    const channel = supabase
+      .channel(`myseats:${me}:${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `passenger_id=eq.${me}` }, read)
+      .subscribe();
+    return () => {
+      live = false;
+      supabase.removeChannel(channel);
+    };
+  }, [key, me]);
+
+  return byTrip;
+}
