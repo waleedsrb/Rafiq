@@ -1,6 +1,6 @@
 // "When do you leave?" as a ruler you slide (look C, Nov 11): the day runs left to right in
-// 5-minute ticks under a fixed clay needle, and the big time above changes with it, all
-// digits at once. Each 5-minute step gives a light tick. The slide runs on the UI thread.
+// 5-minute ticks under a fixed clay needle, and the big time above rolls with it like an
+// odometer. Each 5-minute step gives a light tick. The slide and the roll run on the UI thread.
 //
 // Earlier times today can't be reached: the ruler stops at `min` (now + 30 minutes, on the
 // next half hour), so there is no "pick an upcoming time" error any more.
@@ -11,11 +11,11 @@
 // Digits and the ruler always run left to right, also in Arabic.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   runOnJS,
   scrollTo,
-  useAnimatedProps,
+  useAnimatedStyle,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useSharedValue,
@@ -37,6 +37,7 @@ const BAR_MAX = 40;
 
 const DIGIT = 56; // big time
 const DIGIT_H = 64;
+const HALF_H = 26; // AM/PM row
 
 /** 24-hour minutes in, "2:30" + PM out. */
 function parts(t: number) {
@@ -71,6 +72,8 @@ export function TimeRuler({
   // and the card (the parent) only hears the new time when the ruler comes to rest.
   // Before, every 5-minute tick re-drew the whole card and the drag stuttered.
   const cur = useSharedValue(minutes);
+  // Where the ruler is, in 5-minute steps, without rounding: the digits roll with it.
+  const steps = useSharedValue(Math.max(min, minutes) / STEP);
   const dragging = useSharedValue(false);
   const told = useRef(minutes);
   const lo = useSharedValue(min);
@@ -90,6 +93,7 @@ export function TimeRuler({
     if (w && told.current !== minutes) {
       told.current = minutes;
       cur.value = minutes;
+      steps.value = minutes / STEP;
       ref.current?.scrollTo({ x: xOf(minutes), animated: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,6 +109,7 @@ export function TimeRuler({
       dragging.value = true;
     },
     onScroll: (e) => {
+      steps.value = Math.max(lo.value / STEP, Math.min(LAST / STEP, e.contentOffset.x / PX));
       if (!dragging.value) return;
       const m = Math.max(lo.value, Math.min(LAST, Math.round(e.contentOffset.x / PX) * STEP));
       if (m !== cur.value) {
@@ -189,7 +194,7 @@ export function TimeRuler({
 
   return (
     <View style={styles.wrap}>
-      <LiveTime value={cur} initial={minutes} am={am} pm={pm} />
+      <Odometer steps={steps} am={am} pm={pm} />
       <View
         style={styles.ruler}
         onLayout={(e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width))}
@@ -210,7 +215,9 @@ export function TimeRuler({
             showsHorizontalScrollIndicator={false}
             contentOffset={{ x: xOf(minutes), y: 0 }}
             snapToInterval={PX}
-            decelerationRate="fast"
+            // Between iOS's "fast" (0.99) and "normal" (0.998): a flick keeps gliding and eases
+            // to a stop, but not so far that it overshoots the time you meant.
+            decelerationRate={0.994}
             scrollEventThrottle={16}
             onScroll={onScroll}
             nestedScrollEnabled
@@ -240,34 +247,55 @@ export function TimeRuler({
   );
 }
 
-const AnimatedInput = Animated.createAnimatedComponent(TextInput);
+const HOURS = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+const MINS = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55', '00'];
 
 /**
- * The big time, drawn on the UI thread so it keeps up with the finger. All digits change
- * together on each 5-minute step (no rolling columns). A read-only TextInput is the usual
- * Reanimated way to change text without a React render.
+ * The big time as an odometer tied to the ruler: the minutes roll with the finger (one row per
+ * 5-minute tick, so they always match the needle), and the hour and AM/PM roll over only
+ * while the minutes pass :55 to :00, the way a car's odometer carries. All on the UI thread.
  */
-function LiveTime({ value, initial, am, pm }: { value: SharedValue<number>; initial: number; am: string; pm: string }) {
+function Odometer({ steps, am, pm }: { steps: SharedValue<number>; am: string; pm: string }) {
   const { f } = useFont();
-  const clock = useAnimatedProps(() => {
-    const h = Math.floor(value.value / 60) % 24;
-    const m = value.value % 60;
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return { text: `${h12}:${m < 10 ? '0' : ''}${m}`, defaultValue: '' } as never;
+  const minStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -(steps.value % 12) * DIGIT_H }] }));
+  const hourStyle = useAnimatedStyle(() => {
+    const r = steps.value % 12;
+    const pos = (Math.floor(steps.value / 12) + (r > 11 ? r - 11 : 0)) % 12;
+    return { transform: [{ translateY: -pos * DIGIT_H }] };
   });
-  const half = useAnimatedProps(() => ({ text: Math.floor(value.value / 60) % 24 >= 12 ? pm : am, defaultValue: '' }) as never);
-  // First frame only; after that the UI thread writes the text.
-  const p = parts(initial);
+  const halfStyle = useAnimatedStyle(() => {
+    const r = steps.value % 144;
+    const pos = Math.floor(steps.value / 144) + (r > 143 ? r - 143 : 0);
+    return { transform: [{ translateY: -pos * HALF_H }] };
+  });
   return (
     <View style={styles.time} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <AnimatedInput
-        editable={false}
-        underlineColorAndroid="transparent"
-        style={styles.digits}
-        defaultValue={`${p.h12}:${String(p.m).padStart(2, '0')}`}
-        animatedProps={clock}
-      />
-      <AnimatedInput editable={false} style={[styles.ampm, { fontFamily: f.medium }]} defaultValue={p.pm ? pm : am} animatedProps={half} />
+      <Column style={hourStyle} items={HOURS} width={DIGIT * 1.25} align="right" />
+      <Text style={[styles.digitText, styles.colon]}>:</Text>
+      <Column style={minStyle} items={MINS} width={DIGIT * 1.25} />
+      <View style={styles.halfWindow}>
+        <Animated.View style={halfStyle}>
+          {[am, pm, am].map((s, i) => (
+            <Text key={i} style={[styles.ampm, { fontFamily: f.medium }]}>
+              {s}
+            </Text>
+          ))}
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+function Column({ style, items, width, align = 'left' }: { style: object; items: string[]; width: number; align?: 'left' | 'right' }) {
+  return (
+    <View style={[styles.window, { width }]}>
+      <Animated.View style={style}>
+        {items.map((s, i) => (
+          <Text key={i} style={[styles.digitText, { textAlign: align }]}>
+            {s}
+          </Text>
+        ))}
+      </Animated.View>
     </View>
   );
 }
@@ -275,18 +303,19 @@ function LiveTime({ value, initial, am, pm }: { value: SharedValue<number>; init
 const styles = StyleSheet.create({
   wrap: { gap: space.sm },
   time: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', direction: 'ltr' },
-  // Tabular digits so the time keeps its width as it changes.
-  digits: {
+  // Each column is a window one row tall; its strip of values slides behind it.
+  window: { height: DIGIT_H, overflow: 'hidden' },
+  digitText: {
     fontFamily: fonts.en.bold,
     fontSize: DIGIT,
+    lineHeight: DIGIT_H,
     height: DIGIT_H,
-    padding: 0,
     color: colors.ink,
     fontVariant: ['tabular-nums'],
-    minWidth: DIGIT * 2.6,
-    textAlign: 'right',
   },
-  ampm: { fontSize: 20, color: colors.ink, marginStart: 6, marginBottom: 10, padding: 0, minWidth: 34 },
+  colon: { width: DIGIT * 0.32, textAlign: 'center' },
+  halfWindow: { height: HALF_H, overflow: 'hidden', marginStart: 6, marginBottom: 10 },
+  ampm: { fontSize: 20, lineHeight: HALF_H, height: HALF_H, color: colors.ink },
   // Edge to edge inside the trip card (its body has 18pt sides).
   ruler: { height: H, marginHorizontal: -18, direction: 'ltr' },
   needle: { position: 'absolute', top: 0, bottom: H - BASE + 6, width: 2, borderRadius: 1, backgroundColor: colors.clay },

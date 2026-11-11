@@ -89,6 +89,7 @@ export function TripSheet({
   settled,
   start = 'mid',
   fitContent = true,
+  noFull = false,
   want,
   closing,
   onRequestClose,
@@ -132,6 +133,8 @@ export function TripSheet({
   /** Lower the middle height to fit short details (default). Off where the map behind
    *  expects the standard height (the pickup picker centres its pin above it). */
   fitContent?: boolean;
+  /** The card can't grow to full height, only drop to the bar (Post a trip's time step, Nov 11). */
+  noFull?: boolean;
 }) {
   const { t } = useT();
   const { f, rtl, direction } = useFont();
@@ -247,6 +250,10 @@ export function TripSheet({
   useEffect(() => {
     if (want) moveTo(want.to, true);
   }, [want?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Arriving on a step that can't be full height while full: settle to the middle.
+  useEffect(() => {
+    if (noFull && at === 'full') moveTo('mid', true);
+  }, [noFull]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drag the card (by its top or the bar) between the three heights.
   const startMove = () => setMoving(true);
@@ -262,7 +269,9 @@ export function TripSheet({
     },
     onUpdate: (e: { translationY: number }) => {
       'worklet';
-      pos.value = posOf(dragTop.value + e.translationY);
+      const v = posOf(dragTop.value + e.translationY);
+      // No full height here: a little give past the middle, like a rubber band, then it stops.
+      pos.value = noFull && v > 1 ? 1 + Math.min(0.03, (v - 1) * 0.15) : v;
     },
     onDeactivate: (e: { velocityY: number }) => {
       'worklet';
@@ -276,7 +285,7 @@ export function TripSheet({
         const d = [barTop, midTop, fullTop].map((x) => Math.abs(x - top));
         i = d.indexOf(Math.min(d[0], d[1], d[2]));
       }
-      goTo(DETENTS[i]);
+      goTo(DETENTS[noFull ? Math.min(i, 1) : i]);
     },
   };
   const panTop = usePanGesture(panConfig);
@@ -433,7 +442,7 @@ export function TripSheet({
                 <Pressable
                   accessibilityRole="adjustable"
                   accessibilityLabel={t('sheetHandle')}
-                  onPress={() => moveTo(at === 'full' ? 'mid' : 'full')}
+                  onPress={() => moveTo(noFull ? (at === 'mid' ? 'mini' : 'mid') : at === 'full' ? 'mid' : 'full')}
                   hitSlop={8}
                   style={styles.grabZone}
                 >
