@@ -14,14 +14,13 @@ import { Stars } from '@/components/stars';
 import { StatsRow } from '@/components/stats-row';
 import { Body, IconCircle, Label, ListRow, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
-import { shortName } from '@/lib/names';
 import { useT } from '@/lib/session';
 import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import { colors, space } from '@/theme/tokens';
 
 type PublicProfile = {
-  full_name: string;
+  name: string;
   id_verified: boolean;
   member_since: string;
   deleted: boolean;
@@ -77,7 +76,7 @@ export function PersonProfile({ id }: { id: string }) {
       year: 'numeric',
     }).format(new Date(iso));
   const isDriver = !!person.car_model;
-  const name = person.deleted ? t('deletedPerson') : shortName(person.full_name);
+  const name = person.deleted ? t('deletedPerson') : person.name;
   const since =
     isDriver && person.driving_since
       ? `${t('drivingSince')} ${month(person.driving_since)}`

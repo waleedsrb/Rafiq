@@ -1,4 +1,5 @@
--- Checks slice 2: no car no trip, and phone numbers only after acceptance.
+-- Checks slice 2: no car no trip; name and car after acceptance, phone and plate only
+-- from an hour before the trip (contact_privacy, Nov 11).
 begin;
 -- Slice 6: these tests create bookings directly, as if each had gone through request_seat().
 select set_config('rafiq.paying', 'on', false);
@@ -42,7 +43,8 @@ do $$ begin
   end if;
 end $$;
 
--- 4. The driver accepts. Now the passenger sees the driver's phone and car.
+-- 4. The driver accepts. A day out, the passenger sees the driver's short name and car,
+--    but not the phone or plate yet (they open an hour before the trip).
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', true);
 update public.bookings set status = 'accepted' where id = '00000000-0000-0000-0000-0000000000b1';
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', true);
@@ -50,19 +52,41 @@ do $$
 declare r record;
 begin
   select * into r from public.trip_contact('00000000-0000-0000-0000-0000000000b1');
-  if r.phone is distinct from '970591111111' or r.plate is distinct from '7-1234-95' or r.first_name <> 'Dana' then
-    raise exception 'FAIL: passenger got %', row_to_json(r);
+  if r.phone is not null or r.plate is not null or r.name <> 'Dana H.' or r.first_name <> 'Dana'
+     or r.car_model <> 'Kia Picanto' or r.car_color <> 'White'
+     or r.opens_at is distinct from (select departs_at - interval '60 minutes' from public.trips where id = '00000000-0000-0000-0000-0000000000c1') then
+    raise exception 'FAIL: passenger a day out got %', row_to_json(r);
   end if;
 end $$;
-
--- 5. The driver sees the passenger's phone, and no car fields.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', true);
 do $$
 declare r record;
 begin
   select * into r from public.trip_contact('00000000-0000-0000-0000-0000000000b1');
-  if r.phone is distinct from '970592222222' or r.plate is not null or r.first_name <> 'Amir' then
-    raise exception 'FAIL: driver got %', row_to_json(r);
+  if r.phone is not null or r.name <> 'Amir S.' then
+    raise exception 'FAIL: driver a day out got %', row_to_json(r);
+  end if;
+end $$;
+
+-- 5. 45 minutes before: the passenger gets phone and plate, the driver gets the
+--    passenger's phone and no car fields.
+update public.trips set departs_at = now() + interval '45 minutes' where id = '00000000-0000-0000-0000-0000000000c1';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', true);
+do $$
+declare r record;
+begin
+  select * into r from public.trip_contact('00000000-0000-0000-0000-0000000000b1');
+  if r.phone is distinct from '970591111111' or r.plate is distinct from '7-1234-95' then
+    raise exception 'FAIL: passenger 45 min before got %', row_to_json(r);
+  end if;
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', true);
+do $$
+declare r record;
+begin
+  select * into r from public.trip_contact('00000000-0000-0000-0000-0000000000b1');
+  if r.phone is distinct from '970592222222' or r.plate is not null or r.car_model is not null then
+    raise exception 'FAIL: driver 45 min before got %', row_to_json(r);
   end if;
 end $$;
 

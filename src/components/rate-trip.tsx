@@ -27,8 +27,8 @@ const TAGS = {
 type Loaded = {
   status: string;
   passenger_id: string;
-  passenger: { full_name: string };
-  trips: { id: string; driver_id: string; finished_at: string | null; driver: { full_name: string } };
+  passenger: { display_name: string };
+  trips: { id: string; driver_id: string; finished_at: string | null; driver: { display_name: string } };
 };
 
 export function useRateTrip(
@@ -52,7 +52,7 @@ export function useRateTrip(
     supabase
       .from('bookings')
       .select(
-        'status, passenger_id, passenger:profiles!bookings_passenger_id_fkey(full_name), trips!inner(id, driver_id, finished_at, driver:profiles!trips_driver_id_fkey(full_name))',
+        'status, passenger_id, passenger:profiles!bookings_passenger_id_fkey(display_name), trips!inner(id, driver_id, finished_at, driver:profiles!trips_driver_id_fkey(display_name))',
       )
       .eq('id', bookingId)
       .maybeSingle()
@@ -70,7 +70,7 @@ export function useRateTrip(
 
   const iAmPassenger = b.passenger_id === session.user.id;
   const role = iAmPassenger ? 'driver' : 'passenger';
-  const name = shortName(iAmPassenger ? b.trips.driver.full_name : b.passenger.full_name);
+  const name = shortName(iAmPassenger ? b.trips.driver.display_name : b.passenger.display_name);
   const open = b.status === 'completed' && !!b.trips.finished_at && ratingOpen(new Date(), new Date(b.trips.finished_at));
 
   async function send() {

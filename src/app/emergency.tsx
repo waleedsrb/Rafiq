@@ -23,9 +23,8 @@ export default function Emergency() {
   useEffect(() => {
     if (!session) return;
     supabase
-      .from('profiles')
+      .rpc('my_profile')
       .select('emergency_name, emergency_phone')
-      .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (!data?.emergency_phone) return;

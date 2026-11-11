@@ -46,7 +46,7 @@ do $$
 declare p record;
 begin
   select * into p from public.public_profile('00000000-0000-0000-0000-00000000020d');
-  perform pg_temp.check(p.full_name = 'Dana Haddad' and p.id_verified and p.driver_verified and p.founding_driver
+  perform pg_temp.check(p.name = 'Dana H.' and p.id_verified and p.driver_verified and p.founding_driver
                         and p.car_model = 'Kia Picanto' and not p.deleted and p.driving_since is not null,
                         'public profile: ' || row_to_json(p)::text);
   perform pg_temp.check(not exists (select 1 from information_schema.routines r

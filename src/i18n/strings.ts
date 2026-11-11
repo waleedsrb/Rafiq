@@ -283,6 +283,9 @@ export const strings = {
     en: 'When a trip you asked for is posted, or riders wait on your route',
   },
 
+  // Phone and plate open an hour before the trip (setting contact_reveal_minutes).
+  phonePlateAt: { ar_m: 'يظهر رقم الهاتف واللوحة الساعة {time}', en: 'Phone number and plate appear at {time}' },
+  phoneAt: { ar_m: 'يظهر رقم الهاتف الساعة {time}', en: 'Phone number appears at {time}' },
   remindHourBefore: { ar_m: 'سنذكّرك قبل الانطلاق بساعة.', en: "We'll remind you an hour before departure." },
 
   notifyCheckpoints: { ar_m: 'تنبيهات الحواجز', en: 'Checkpoint alerts' },

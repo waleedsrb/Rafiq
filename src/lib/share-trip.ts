@@ -28,9 +28,8 @@ export async function shareTrip(tripId: string, message: string, lang: 'ar' | 'e
 /** The Emergency sheet: call for help, or send the live trip to your emergency contact. */
 export async function openEmergency(tripId: string, userId: string, lang: 'ar' | 'en', t: T) {
   const { data: me } = await supabase
-    .from('profiles')
+    .rpc('my_profile')
     .select('emergency_name, emergency_phone')
-    .eq('id', userId)
     .maybeSingle();
   const contactName = (me?.emergency_name as string | null) ?? null;
   const contactPhone = (me?.emergency_phone as string | null) ?? null;

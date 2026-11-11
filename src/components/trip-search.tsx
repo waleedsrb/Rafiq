@@ -17,6 +17,7 @@ import { formatChipDay, shortTime, type DayPart } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
 import { NABLUS, place, placeName, RAMALLAH } from '@/lib/places';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
+import { carName } from '@/lib/names';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { countByDay, dayIndex, filterTrips, leavingSoon, PARTS, SEARCH_DAYS, searchDayStart } from '@/lib/trip-search';
@@ -32,6 +33,7 @@ export type Result = {
   driver_first_name: string;
   driver_last_initial: string;
   car_model: string | null;
+  car_color: string | null;
   driver_verified: boolean;
   /** Only verified women get these from search_trips(). */
   women_only: boolean;
@@ -323,7 +325,7 @@ function TimeFirstRow({
     Number(r.origin_km) > 0 ? `${t('fromPlace').replace('{place}', placeName(r.origin, lang))} · ${r.origin_km} ${t('kmUnit')}` : null,
     Number(r.destination_km) > 0 ? `${t('toPlace').replace('{place}', placeName(r.destination, lang))} · ${r.destination_km} ${t('kmUnit')}` : null,
   ];
-  const sub = [...where, r.women_only ? t('womenOnly') : null, r.car_model].filter(Boolean).join(' · ');
+  const sub = [...where, r.women_only ? t('womenOnly') : null, carName(r.car_model, r.car_color, lang)].filter(Boolean).join(' · ');
   const seatsText = full ? t('full') : `${r.seats_left} ${t('seatsFree')}`;
   return (
     <Pressable

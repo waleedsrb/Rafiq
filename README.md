@@ -37,10 +37,10 @@ Moving between cities in the West Bank today means waiting at a service-taxi sta
 flowchart LR
     A([Driver posts a trip]) --> B[Passenger finds it<br/>and requests a seat]
     B --> C{Driver answers<br/>in time?}
-    C -- Accepts --> D[Seat confirmed<br/>phone + plate revealed]
+    C -- Accepts --> D[Seat confirmed]
     C -- Declines --> X([Passenger searches again])
     C -- No answer --> E([Request expires<br/>automatically])
-    D --> F[Trip day: reminders,<br/>check-in, live position]
+    D --> F[Trip day: phone + plate an hour before,<br/>check-in, live position]
     F --> G([Arrive · pay cash · rate each other])
 ```
 
@@ -96,7 +96,7 @@ Checkpoints on a trip's way are filled in automatically from real drives on that
 | 🏅 **Founding driver** | A permanent badge for the first drivers who helped launch Rafiq. |
 | 📍 **Share my trip** | Send a live link to someone you trust while you ride. |
 
-Contact details and the plate only appear once a seat is confirmed, and drivers who cancel late again and again are paused from posting for a week.
+Contact details and the plate only appear an hour before a confirmed trip, and drivers who cancel late again and again are paused from posting for a week.
 
 ## The rules of the road
 
@@ -133,12 +133,14 @@ One account can be both passenger and driver; the driver side opens once a car i
 
 ### What each side sees, and when
 
-| Detail | Browsing | Request sent | Seat confirmed |
-|---|---|---|---|
-| Route, time, price, seats left | ✅ | ✅ | ✅ |
-| Driver's name, rating, reliability, car model | ✅ | ✅ | ✅ |
-| Profile photos | — | — | ✅ |
-| Phone number and plate | — | — | ✅ |
+| Detail | Browsing | Request sent | Seat confirmed | An hour before |
+|---|---|---|---|---|
+| Route, time, price, seats left | ✅ | ✅ | ✅ | ✅ |
+| Name as "Dana H.", rating, reliability, car model and colour | ✅ | ✅ | ✅ | ✅ |
+| Profile photos | — | — | ✅ | ✅ |
+| Phone number and plate | — | — | — | ✅ |
+
+Full names are never shown to other people, only to the admin checking the ID.
 
 ### Money (cash pilot)
 

@@ -63,8 +63,8 @@ which is why both arrive together.
 ## What changes for people
 
 - Email, Google and Apple accounts have no verified phone, so the profile step
-  asks for a mobile number. It is shown to the other side only after a seat is
-  accepted (same as before), and it is **not** checked by SMS in the pilot.
+  asks for a mobile number. It is shown to the other side only from an hour
+  before an accepted trip, and it is **not** checked by SMS in the pilot.
   The ID check by the admin is what makes an account trustworthy.
 - One person, one account: the same person signing in by phone and then by
   Google gets two accounts. Supabase links them automatically only when the
