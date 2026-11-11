@@ -1,26 +1,27 @@
-// Find a seat, design C1a "time first". There is no Search button: the week's trips for
-// one direction load once, and changing the day or the part of the day only filters
+// Find a seat, design C1a "time first". There is no Search button: the next 30 days of trips
+// for one direction load once, and changing the day or the part of the day only filters
 // what is already here, so the list changes in place without waiting.
 // Used by the search that grows out of Home's "Where to?" bar (search-morph.tsx)
 // and by the stand-alone results screen that other screens link to.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type HostInstance, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type HostInstance, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
+import { DayPills } from '@/components/day-pills';
 import { Icon } from '@/components/icon';
 import { StatsLine, useTripDriverStats } from '@/components/stats-line';
 import { pillBase, usePillColor, usePillSlide, usePillStyle, type PillSlide } from '@/components/pill-slide';
-import { Body, Button, Chip, PillChips, ltr, useFont } from '@/components/ui';
+import { Body, Button, Chip, ltr, useFont } from '@/components/ui';
 import { alertWindow } from '@/lib/alerts';
-import { formatChipDay, shortTime, type DayPart } from '@/lib/format';
+import { shortTime, type DayPart } from '@/lib/format';
 import { selectFeel } from '@/lib/haptics';
 import { NABLUS, place, placeName, RAMALLAH } from '@/lib/places';
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { carName } from '@/lib/names';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { countByDay, dayIndex, filterTrips, leavingSoon, PARTS, SEARCH_DAYS, searchDayStart } from '@/lib/trip-search';
+import { countByDay, dayIndex, filterTrips, leavingSoon, PARTS, AHEAD_DAYS, searchDayStart } from '@/lib/trip-search';
 import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
 import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
@@ -63,7 +64,6 @@ export type SearchState = {
   week: Result[] | null;
   loading: boolean;
   counts: number[];
-  dayLabels: string[];
 };
 
 /** Everything a search page needs: the question, and the week of answers for it. */
@@ -87,7 +87,8 @@ export function useTripSearch(start?: { origin?: City; destination?: City; day?:
     setLoading(true);
     const now = new Date();
     const from = searchDayStart(0, now);
-    const to = searchDayStart(SEARCH_DAYS, now);
+    // One search for every day the calendar reaches, so the day dots and switching days are instant.
+    const to = searchDayStart(AHEAD_DAYS + 1, now);
     supabase
       .rpc('search_trips', { p_origin: origin, p_destination: destination, p_from: from.toISOString(), p_to: to.toISOString() })
       .then(({ data }) => {
@@ -100,27 +101,17 @@ export function useTripSearch(start?: { origin?: City; destination?: City; day?:
   useEffect(() => () => void asked.current++, []);
 
   const counts = useMemo(() => countByDay(week ?? [], new Date()), [week]);
-  const dayLabels = useMemo(() => {
-    const now = new Date();
-    return Array.from({ length: SEARCH_DAYS }, (_, i) =>
-      i === 0 ? t('today') : i === 1 ? t('tomorrow') : formatChipDay(searchDayStart(i, now), lang),
-    );
-  }, [t, lang]);
-
   // Picking the town already at the other end flips the route instead of making it A -> A.
   const setOrigin = useCallback((c: City) => setRoute((r) => (c === r.destination ? { origin: c, destination: r.origin } : { ...r, origin: c })), []);
   const setDestination = useCallback((c: City) => setRoute((r) => (c === r.origin ? { origin: r.destination, destination: c } : { ...r, destination: c })), []);
   const swap = useCallback(() => setRoute((r) => ({ origin: r.destination, destination: r.origin })), []);
-  return { origin, destination, day, part, setOrigin, setDestination, swap, setDay, setPart, womenOnly, setWomenOnly, week, loading, counts, dayLabels };
+  return { origin, destination, day, part, setOrigin, setDestination, swap, setDay, setPart, womenOnly, setWomenOnly, week, loading, counts };
 }
 
-/** The day chips: one tap picks the day, the graphite pill glides there, and the list below changes in place. */
+/** The day pills: one tap picks the day, the graphite pill glides there, and the list below
+ *  changes in place. The calendar at the end reaches further days; dots mark days with trips. */
 export function DayChips({ s }: { s: SearchState }) {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-      <PillChips labels={s.dayLabels} selected={s.day} onPick={s.setDay} padding={14} />
-    </ScrollView>
-  );
+  return <DayPills day={s.day} onDay={s.setDay} dots={s.counts} padding={14} />;
 }
 
 /** The trips of the chosen day, part of the day and (for verified women) women-only switch. */

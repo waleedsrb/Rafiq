@@ -42,13 +42,16 @@ test('a departure lands on the chip of its local day', () => {
   assert.equal(dayIndex(new Date(2026, 10, 8, 23, 59).toISOString(), now), 0);
   assert.equal(dayIndex(new Date(2026, 10, 9, 0, 1).toISOString(), now), 1);
   assert.equal(dayIndex(new Date(2026, 10, 14, 7).toISOString(), now), 6);
-  assert.equal(dayIndex(new Date(2026, 10, 15, 7).toISOString(), now), -1);
+  assert.equal(dayIndex(new Date(2026, 10, 15, 7).toISOString(), now), 7);
+  assert.equal(dayIndex(new Date(2026, 11, 8, 7).toISOString(), now), 30);
+  assert.equal(dayIndex(new Date(2026, 11, 9, 7).toISOString(), now), -1);
+  assert.equal(dayIndex(new Date(2026, 10, 7, 7).toISOString(), now), -1);
 });
 
 test('the week is counted per day chip', () => {
   const now = new Date(2026, 10, 8, 9, 0);
   const t = (d: number, h: number) => ({ departs_at: new Date(2026, 10, d, h).toISOString() });
-  assert.deepEqual(countByDay([t(8, 10), t(9, 7), t(9, 18), t(13, 6)], now), [1, 2, 0, 0, 0, 1, 0]);
+  assert.deepEqual(countByDay([t(8, 10), t(9, 7), t(9, 18), t(13, 6)], now).slice(0, 7), [1, 2, 0, 0, 0, 1, 0]);
 });
 
 test('leaving soon means within the next hour', () => {

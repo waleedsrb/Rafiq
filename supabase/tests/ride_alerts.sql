@@ -75,6 +75,20 @@ do $$ begin
     raise exception 'FAIL: demand was %', (select json_agg(d) from public.alert_demand('osm-n246843686', 'osm-n293546203') d);
   end if;
 end $$;
+-- The time ruler's bars: all 4 cover the first half hour of the window, only the 5-hour
+-- alert reaches its last half hour, and the hour before the window is empty.
+do $$ declare
+  w timestamp := (date_trunc('hour', now()) + interval '2 days') at time zone 'Asia/Hebron';
+  first_slot int := (extract(hour from w) * 2)::int;
+  bars jsonb := (select jsonb_object_agg(d.slot, d.riders) from public.alert_demand_by_slot('osm-n246843686', 'osm-n293546203', w::date) d);
+begin
+  if first_slot + 9 <= 47 and (
+       (bars ->> first_slot::text)::int <> 4
+    or (bars ->> (first_slot + 9)::text)::int <> 1
+    or (first_slot >= 1 and bars ? (first_slot - 1)::text)) then
+    raise exception 'FAIL: slot demand was % (first slot %)', bars, first_slot;
+  end if;
+end $$;
 reset role;
 do $$ declare n record; begin
   if (select count(*) from public.notifications where kind = 'alert_driver_nudge') <> 1 then

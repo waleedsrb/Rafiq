@@ -16,20 +16,22 @@
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { CheckpointPicker, useWayChoices } from '@/components/checkpoint-picker';
 import { PickupMap } from '@/components/pickup-map';
 import { PlaceFields, PlaceResults, usePlaceSearch } from '@/components/place-search';
 import { RouteCard } from '@/components/route-card';
-import { TimeWheel } from '@/components/time-wheel';
+import { DayPills } from '@/components/day-pills';
+import { TimeRuler } from '@/components/time-ruler';
 import { TripHero } from '@/components/trip-hero';
 import { StepHeader, TripSheet, sheetMidTop, type SheetMini } from '@/components/trip-sheet';
-import { Body, Button, Chip, Field, ListRow, PillChips, Stepper, TextLink, ltr } from '@/components/ui';
+import { Body, Button, Chip, Field, ListRow, Stepper, TextLink, ltr } from '@/components/ui';
 import { photoGate, photoGateText } from '@/lib/avatar';
-import { formatChipDay, formatDay, formatLongDay, shortTime } from '@/lib/format';
+import { formatDay, formatLongDay, shortTime } from '@/lib/format';
 import { successFeel } from '@/lib/haptics';
+import { earliestToday, LAST, minutesOf, slotBars, untilWords } from '@/lib/leave-time';
 import { goBack } from '@/lib/nav';
 import { centreName, centrePoint, NABLUS, place, placeKm, RAMALLAH, routeName, type LatLng } from '@/lib/places';
 import { labelOk, movePickup, offerSpots, spotAt, type Pickup } from '@/lib/pickup';
@@ -38,6 +40,7 @@ import { WEEK, WORK_WEEK, toDbTime, toggleDay, weekdayName } from '@/lib/recurri
 import { isVerifiedWoman, useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { PRICE_MAX, SEATS_MAX, SEATS_MIN, suggestedPrice, type City } from '@/lib/trip-form';
+import { AHEAD_DAYS } from '@/lib/trip-search';
 import { inDrivingOrder } from '@/lib/way';
 import { colors, space } from '@/theme/tokens';
 
@@ -45,8 +48,8 @@ type Step = 'where' | 'pickup' | 'way' | 'when' | 'seats' | 'posted';
 type FormStep = Exclude<Step, 'posted'>;
 const STEPS: FormStep[] = ['where', 'pickup', 'when', 'seats'];
 // 'way' is not in the row of steps: it opens from Edit on the last step and goes back to it.
-const DAYS = 7; // today plus the next 6: drivers post a week ahead at most
-const WEEKLY = DAYS; // the "Weekly" pill sits after the days
+// Days: 0 = today .. AHEAD_DAYS (30, from the calendar); WEEKLY is the "Weekly" pill after them.
+const WEEKLY = -1;
 
 type LastTrip = {
   origin: City;
@@ -88,7 +91,13 @@ export default function NewTrip() {
 
   const [step, setStep] = useState<Step>('where');
   const [closing, setClosing] = useState(false);
-  const [day, setDay] = useState(() => Math.min(DAYS - 1, Math.max(0, Number(params.day) || 0)));
+  const [day, setDay] = useState(() => {
+    if (params.day !== undefined) return Math.min(AHEAD_DAYS, Math.max(0, Number(params.day) || 0));
+    // Nothing asked for: today, unless the usual 7:30 has already gone by.
+    const t = parseHm(params.time) ?? { h: 7, m: 30 };
+    const first = earliestToday(new Date());
+    return first !== null && t.h * 60 + t.m >= first ? 0 : 1;
+  });
   const [weekdays, setWeekdays] = useState<number[]>(WORK_WEEK);
   const [time, setTime] = useState(() => parseHm(params.time) ?? { h: 7, m: 30 });
   const [seats, setSeats] = useState(3);
@@ -129,6 +138,9 @@ export default function NewTrip() {
         if (!params.time) {
           const d = new Date(l.departs_at);
           setTime({ h: d.getHours(), m: d.getMinutes() });
+          // Your usual time has gone by today? Start on tomorrow instead.
+          const first = earliestToday(new Date());
+          if (params.day === undefined && (first === null || minutesOf(d) < first)) setDay((cur) => (cur === 0 ? 1 : cur));
         }
         setSeats(Math.min(SEATS_MAX, Math.max(SEATS_MIN, l.seats_total)));
         setPrice(Math.min(PRICE_MAX, Math.max(1, Math.round(Number(l.price_ils)))));
@@ -242,17 +254,31 @@ export default function NewTrip() {
     return d;
   }, [day, time.h, time.m, weekly]);
   const timePassed = !weekly && departs.getTime() <= Date.now();
-  const dayLabels = useMemo(
-    () => [
-      ...Array.from({ length: DAYS }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() + i);
-        return i === 0 ? t('today') : i === 1 ? t('tomorrow') : formatChipDay(d, lang);
-      }),
-      t('weeklyChip'),
-    ],
-    [t, lang],
-  );
+  // Today the ruler starts 30 minutes from now (on the half hour); other days start at midnight.
+  const nowMin = minutesOf(new Date());
+  const firstToday = earliestToday(new Date());
+  const minToday = day === 0 ? (firstToday ?? LAST) : 0;
+  const leaveMin = time.h * 60 + time.m;
+  // Switching to today with a time that has gone by moves the time up to the earliest one.
+  useEffect(() => {
+    if (day === 0 && firstToday !== null && leaveMin < firstToday) setTime({ h: Math.floor(firstToday / 60), m: firstToday % 60 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
+  // Riders with an open ride alert, per half hour of the chosen day (bars over the ruler).
+  const [bars, setBars] = useState<number[] | undefined>(undefined);
+  const barsDay = weekly ? null : departs.toLocaleDateString('en-CA');
+  useEffect(() => {
+    setBars(undefined);
+    if (step !== 'when' || !barsDay) return;
+    let live = true;
+    supabase.rpc('alert_demand_by_slot', { p_origin: origin, p_destination: destination, p_day: barsDay }).then(({ data, error: err }) => {
+      // Before the database function exists (or offline) there are simply no bars.
+      if (live && !err) setBars(slotBars(data as { slot: number; riders: number }[] | null));
+    });
+    return () => {
+      live = false;
+    };
+  }, [step, origin, destination, barsDay]);
   const whenText = weekly ? t('weeklyChip') : day === 0 ? t('today') : day === 1 ? t('tomorrow') : formatDay(departs, lang);
 
   // ─── Steps ────────────────────────────────────────────────────────────────────
@@ -448,9 +474,7 @@ export default function NewTrip() {
     } else if (form === 'when') {
       body = (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 2 }}>
-            <PillChips labels={dayLabels} selected={day} onPick={setDay} />
-          </ScrollView>
+          <DayPills day={day} onDay={setDay} extra={{ label: t('weeklyChip'), onPick: () => setDay(WEEKLY) }} />
           {weekly ? (
             <View style={styles.weekdays}>
               {WEEK.map((d) => (
@@ -458,12 +482,20 @@ export default function NewTrip() {
               ))}
             </View>
           ) : null}
-          <TimeWheel h={time.h} m={time.m} onChange={(h, m) => setTime({ h, m })} />
-          {timePassed ? (
-            <Body error small style={{ textAlign: 'center' }}>
-              {t('timeInvalid')}
+          {day === 0 && firstToday === null ? (
+            <Body muted style={{ textAlign: 'center' }}>
+              {t('noTimeToday')}
             </Body>
-          ) : null}
+          ) : (
+            <>
+              <TimeRuler minutes={leaveMin} min={minToday} onChange={(m) => setTime({ h: Math.floor(m / 60), m: m % 60 })} bars={bars} />
+              {!weekly ? (
+                <Body muted small style={{ textAlign: 'center' }}>
+                  {day === 0 ? t('leaveIn').replace('{t}', ltr(untilWords(Math.max(0, leaveMin - nowMin), lang === 'ar'))) : formatDay(departs, lang)}
+                </Body>
+              ) : null}
+            </>
+          )}
           {weekly ? (
             <Body muted small>
               {t('repeatHint')}

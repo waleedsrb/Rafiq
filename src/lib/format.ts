@@ -50,3 +50,15 @@ export function formatChipDay(d: Date, lang: Language): string {
 export function shortTime(d: Date): string {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+/** "November 2026" / "نوفمبر 2026", for the calendar's title. */
+export function formatMonth(d: Date, lang: Language): string {
+  return new Intl.DateTimeFormat(locale(lang), { month: 'long', year: 'numeric' }).format(d);
+}
+
+/** One-letter weekday names, Sunday first ("S M T W T F S" / "ح ن ث ر خ ج س"). */
+export function weekdayLetters(lang: Language): string[] {
+  const f = new Intl.DateTimeFormat(locale(lang), { weekday: 'narrow' });
+  // 2026-11-08 is a Sunday.
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(2026, 10, 8 + i)));
+}
