@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { byDay, countByDay, dayIndex, filterTrips, leavingSoon, searchDayStart } from './trip-search.ts';
+import { countByDay, dayIndex, filterTrips, leavingSoon, parsePart, searchDayStart } from './trip-search.ts';
 
 const at = (h: number, women = false) => ({ departs_at: new Date(2026, 10, 9, h, 0).toISOString(), women_only: women });
 
@@ -13,25 +13,28 @@ test('a day chip means local midnight that many days ahead', () => {
   assert.deepEqual(searchDayStart(3, new Date(2026, 10, 29, 8)), new Date(2026, 11, 2));
 });
 
-test('women only off keeps every trip, in order', () => {
-  const trips = [at(6), at(13, true), at(19)];
-  assert.deepEqual(filterTrips(trips, false), trips);
+test('no part chosen keeps the whole day, in order', () => {
+  const trips = [at(6), at(13), at(19)];
+  assert.deepEqual(filterTrips(trips, null, false), trips);
 });
 
-test('women only keeps only women-only trips', () => {
+test('a part keeps only its hours, with the same boundaries as the chips', () => {
+  const trips = [at(6), at(11), at(12), at(16), at(17), at(21)];
+  assert.deepEqual(filterTrips(trips, 'morning', false), [at(6), at(11)]);
+  assert.deepEqual(filterTrips(trips, 'afternoon', false), [at(12), at(16)]);
+  assert.deepEqual(filterTrips(trips, 'evening', false), [at(17), at(21)]);
+});
+
+test('women only keeps women-only trips and combines with the part', () => {
   const trips = [at(7, true), at(8), at(18, true)];
-  assert.deepEqual(filterTrips(trips, true), [at(7, true), at(18, true)]);
+  assert.deepEqual(filterTrips(trips, null, true), [at(7, true), at(18, true)]);
+  assert.deepEqual(filterTrips(trips, 'morning', true), [at(7, true)]);
 });
 
-test('no day picked: every trip, a day at a time, keeping the server order within a day', () => {
-  const now = new Date(2026, 10, 8, 9, 0);
-  const t = (id: string, d: number, h: number) => ({ id, departs_at: new Date(2026, 10, d, h).toISOString() });
-  // The server puts exact towns first, then nearby ones; across days that order restarts.
-  const server = [t('a', 9, 7), t('b', 8, 18), t('c', 9, 6), t('d', 7, 6), t('e', 8, 10)];
-  assert.deepEqual(
-    byDay(server, now).map((r) => r.id),
-    ['b', 'e', 'a', 'c'],
-  );
+test('route params only accept a real part of the day', () => {
+  assert.equal(parsePart('evening'), 'evening');
+  assert.equal(parsePart('night'), null);
+  assert.equal(parsePart(undefined), null);
 });
 
 test('a departure lands on the chip of its local day', () => {
