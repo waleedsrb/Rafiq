@@ -9,8 +9,10 @@ tags: [trip-day]
     file: common/sign-in.yaml
     env:
       EMAIL: e2e-rider@rafiq.test
+# The question sits inside the tappable Home card, which Android reads out as one line,
+# hence the .* around the words.
 - extendedWaitUntil:
-    visible: "Did you ride with Dana\\?"
+    visible: ".*Did you ride with Dana\\?.*"
     timeout: 20000
 # The nudge also landed in the inbox.
 - tapOn: "Notifications.*"
@@ -25,7 +27,7 @@ tags: [trip-day]
     timeout: 20000
 - tapOn:
     id: "hero-yes-rode"
-- assertVisible: "Saved: you rode"
+- assertVisible: ".*Saved: you rode.*"
 - extendedWaitUntil:
     notVisible: "Undo.*"
     timeout: 20000

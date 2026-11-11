@@ -9,7 +9,7 @@ tags: [trip-day]
     env:
       EMAIL: e2e-driver@rafiq.test
 - extendedWaitUntil:
-    visible: "Due .* min ago · .*"
+    visible: ".*Due .* min ago · .*"
     timeout: 20000
 - tapOn: "Notifications.*"
 - extendedWaitUntil:
@@ -23,11 +23,11 @@ tags: [trip-day]
     timeout: 20000
 - tapOn:
     id: "hero-all-in-start"
-- assertVisible: "Starting the trip"
+- assertVisible: ".*Starting the trip.*"
 - extendedWaitUntil:
     notVisible: "Undo.*"
     timeout: 20000
 - extendedWaitUntil:
-    visible: "On the road.*"
+    visible: ".*On the road.*"
     timeout: 20000
 - takeScreenshot: 05-on-the-road

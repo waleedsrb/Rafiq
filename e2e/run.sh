@@ -18,7 +18,12 @@ flow() {
   echo "::group::$name"
   # An empty mailbox, so the sign-in reads this flow's code and not an older one.
   curl -fsS -X DELETE http://localhost:54324/api/v1/messages >/dev/null
-  maestro test --format junit --output "$OUT/$name.xml" --debug-output "$OUT/$name" "flows/$name.yaml"
+  if ! maestro test --format junit --output "$OUT/$name.xml" --debug-output "$OUT/$name" "flows/$name.yaml"; then
+    # Keep what the phone showed when it failed: a screenshot and the tree of views Maestro saw.
+    adb exec-out screencap -p > "$OUT/$name-failed.png" || true
+    maestro hierarchy > "$OUT/$name-failed-hierarchy.json" 2>/dev/null || true
+    exit 1
+  fi
   for check in "$@"; do sql "sql/$check.sql"; done
   echo "::endgroup::"
 }
