@@ -65,7 +65,7 @@ export default function MyTrips() {
         .from('bookings')
         .select(`id, status, trips!inner(${TRIP_COLS})`)
         .eq('passenger_id', me)
-        .in('status', ['completed', 'no_show'])
+        .in('status', ['completed', 'no_show', 'not_confirmed', 'disputed'])
         .limit(30),
       supabase
         .from('trips')
@@ -90,13 +90,25 @@ export default function MyTrips() {
         key: b.id,
         trip: b.trips,
         asDriver: false,
-        detail: b.status === 'no_show' ? t('status_no_show') : stars ? `${t('youRated')} ${ltr(stars)}★` : t('status_completed'),
+        detail:
+          b.status === 'no_show' || b.status === 'not_confirmed' || b.status === 'disputed'
+            ? t(`status_${b.status}`)
+            : stars
+              ? `${t('youRated')} ${ltr(stars)}★`
+              : t('status_completed'),
         rateBooking: b.status === 'completed' && !stars ? b.id : undefined,
       });
     }
     for (const trip of (pastDrives.data as DriverTrip[] | null) ?? []) {
       const riders = trip.bookings.filter((b) => b.status === 'completed').length;
-      rows.push({ key: trip.id, trip, asDriver: true, detail: `${t('tabAsDriver')} · ${ltr(riders)} ${t(riders === 1 ? 'ridersOne' : 'ridersMany')}` });
+      // A trip nobody started in the app, and nobody confirmed afterwards.
+      const unconfirmed = riders === 0 && trip.bookings.some((b) => b.status === 'not_confirmed');
+      rows.push({
+        key: trip.id,
+        trip,
+        asDriver: true,
+        detail: `${t('tabAsDriver')} · ${unconfirmed ? t('status_not_confirmed') : `${ltr(riders)} ${t(riders === 1 ? 'ridersOne' : 'ridersMany')}`}`,
+      });
     }
     rows.sort((a, b) => b.trip.departs_at.localeCompare(a.trip.departs_at));
     setPast(rows);

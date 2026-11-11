@@ -297,7 +297,11 @@ export function TripDetails({
           ? 'youCancelledNote'
           : status === 'no_show'
             ? 'leftWithoutYou'
-            : null;
+            : status === 'not_confirmed'
+              ? 'notConfirmedNote'
+              : status === 'disputed'
+                ? 'disputedNote'
+                : null;
   const findOthers = () => onFindOthers({ origin: trip.origin, destination: trip.destination, departs_at: trip.departs_at });
   const callDriver = () => {
     if (contact?.phone) Linking.openURL(telLink(contact.phone)).catch(() => {});

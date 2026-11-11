@@ -316,6 +316,7 @@ export function Body({
   signal,
   small,
   style,
+  numberOfLines,
 }: {
   children: ReactNode;
   muted?: boolean;
@@ -323,10 +324,13 @@ export function Body({
   signal?: boolean;
   small?: boolean;
   style?: StyleProp<TextStyle>;
+  /** Keep to this many lines, ending with "…" (the Home hero keeps every line to one). */
+  numberOfLines?: number;
 }) {
   const { f } = useFont();
   return (
     <Text
+      numberOfLines={numberOfLines}
       style={[
         small ? styles.small : styles.body,
         { fontFamily: f.regular },

@@ -14,8 +14,10 @@ import {
   IdleDriver,
   IdlePassenger,
   RateBlock,
+  RequestBlock,
   SeatBlock,
   type DriveInfo,
+  type RequestInfo,
   type Route,
   type SeatInfo,
 } from '@/components/home-hero';
@@ -26,7 +28,17 @@ import { useTripSearch } from '@/components/trip-search';
 import { Body, GlassButton, ListRow, TabScreen, useFont } from '@/components/ui';
 import { formatLongDay } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
-import { heroLink, pickHero, usualTime, type CancelledHero, type DriveHero, type RateHero, type SeatHero } from '@/lib/home-state';
+import {
+  heroLink,
+  pickHero,
+  usualTime,
+  type CancelledHero,
+  type DriveHero,
+  type RateHero,
+  type RequestHero,
+  type RiderAnswer,
+  type SeatHero,
+} from '@/lib/home-state';
 import { useBookingChanges } from '@/lib/live';
 import { useUnreadCount } from '@/lib/notifications';
 import { NABLUS, RAMALLAH } from '@/lib/places';
@@ -49,7 +61,16 @@ type TripCols = {
   started_at: string | null;
   driver: { display_name: string } | null;
 };
-type SeatRow = { id: string; status: 'requested' | 'accepted'; created_at: string; respond_by: string | null; trips: TripCols };
+type SeatRow = {
+  id: string;
+  status: 'requested' | 'accepted';
+  created_at: string;
+  respond_by: string | null;
+  here_at: string | null;
+  boarded_at: string | null;
+  rider_answer: RiderAnswer | null;
+  trips: TripCols;
+};
 type DriveRow = {
   id: string;
   origin: City;
@@ -57,6 +78,7 @@ type DriveRow = {
   departs_at: string;
   started_at: string | null;
   seats_total: number;
+  no_go_reason: string | null;
   bookings: {
     id: string;
     status: string;
@@ -64,15 +86,16 @@ type DriveRow = {
     created_at: string;
     respond_by: string | null;
     boarded_at: string | null;
-    passenger: { display_name: string } | null;
+    passenger_id: string;
+    passenger: { display_name: string; avatar_path: string | null } | null;
   }[];
 };
 type Ended = { id: string; trips: { id: string; departs_at: string; finished_at: string | null; driver: { display_name: string } | null } };
 
 type Loaded = {
-  seat: (SeatHero & { info: SeatInfo }) | null;
-  drive: (DriveHero & { info: DriveInfo }) | null;
-  driveWithRequests: (DriveHero & { info: DriveInfo }) | null;
+  seats: (SeatHero & { info: SeatInfo })[];
+  drives: (DriveHero & { info: DriveInfo })[];
+  requests: (RequestHero & { info: RequestInfo })[];
   cancelled: (CancelledHero & { driver: string | null }) | null;
   rate: (RateHero & { driver: string | null }) | null;
   route: Route | null;
@@ -83,27 +106,53 @@ type Loaded = {
 
 function toDrive(trip: DriveRow): DriveHero & { info: DriveInfo } {
   const accepted = trip.bookings.filter((b) => b.status === 'accepted');
-  const pending = trip.bookings
-    .filter((b) => b.status === 'requested' && b.respond_by)
-    .sort((a, b) => a.respond_by!.localeCompare(b.respond_by!));
-  const first = pending[0];
+  const pending = trip.bookings.filter((b) => b.status === 'requested' && b.respond_by);
+  const booked = accepted.reduce((n, b) => n + b.seats, 0);
   return {
     tripId: trip.id,
     departsAt: trip.departs_at,
     startedAt: trip.started_at,
-    pending: pending.length,
+    riders: accepted.length,
+    noGoReason: trip.no_go_reason,
     info: {
+      tripId: trip.id,
       departsAt: trip.departs_at,
       startedAt: trip.started_at,
       origin: trip.origin,
       destination: trip.destination,
       seatsTotal: trip.seats_total,
-      booked: accepted.reduce((n, b) => n + b.seats, 0),
+      booked,
       asked: pending.reduce((n, b) => n + b.seats, 0),
       riders: accepted.filter((b) => b.boarded_at).reduce((n, b) => n + b.seats, 0),
-      firstPending: first ? { name: first.passenger?.display_name ?? null, createdAt: first.created_at, respondBy: first.respond_by! } : null,
+      people: accepted.length,
+      inCar: accepted.filter((b) => b.boarded_at).length,
     },
   };
+}
+
+/** Every request waiting on your trips that haven't started, with what the hero row needs. */
+function toRequests(trip: DriveRow): (RequestHero & { info: RequestInfo })[] {
+  if (trip.started_at) return [];
+  const left = trip.seats_total - trip.bookings.filter((b) => b.status === 'accepted').reduce((n, b) => n + b.seats, 0);
+  return trip.bookings
+    .filter((b) => b.status === 'requested' && b.respond_by)
+    .map((b) => ({
+      bookingId: b.id,
+      tripId: trip.id,
+      respondBy: b.respond_by!,
+      createdAt: b.created_at,
+      fits: b.seats <= left,
+      info: {
+        bookingId: b.id,
+        name: b.passenger?.display_name ?? '',
+        avatarPath: b.passenger?.avatar_path ?? null,
+        seed: b.passenger_id,
+        seats: b.seats,
+        createdAt: b.created_at,
+        respondBy: b.respond_by!,
+        fits: b.seats <= left,
+      },
+    }));
 }
 
 export default function Home() {
@@ -179,7 +228,7 @@ export default function Home() {
       // Your next seat (asked for or confirmed).
       supabase
         .from('bookings')
-        .select(`id, status, created_at, respond_by, trips!inner(${tripCols})`)
+        .select(`id, status, created_at, respond_by, here_at, boarded_at, rider_answer, trips!inner(${tripCols})`)
         .eq('passenger_id', me)
         .in('status', ['requested', 'accepted'])
         .gte('trips.departs_at', since)
@@ -189,7 +238,7 @@ export default function Home() {
       supabase
         .from('trips')
         .select(
-          'id, origin, destination, departs_at, started_at, seats_total, bookings(id, status, seats, created_at, respond_by, boarded_at, passenger:profiles!bookings_passenger_id_fkey(display_name))',
+          'id, origin, destination, departs_at, started_at, seats_total, no_go_reason, bookings(id, status, seats, created_at, respond_by, boarded_at, passenger_id, passenger:profiles!bookings_passenger_id_fkey(display_name, avatar_path))',
         )
         .eq('driver_id', me)
         .is('cancelled_at', null)
@@ -233,9 +282,8 @@ export default function Home() {
       supabase.from('driver_details').select('verified_at').eq('driver_id', me).maybeSingle(),
     ]);
 
-    const seatList = ((seats.data as unknown as SeatRow[] | null) ?? []).sort((a, b) => a.trips.departs_at.localeCompare(b.trips.departs_at));
-    const s = seatList[0];
-    const driveList = ((drives.data as unknown as DriveRow[] | null) ?? []).map(toDrive);
+    const seatList = (seats.data as unknown as SeatRow[] | null) ?? [];
+    const driveRows = (drives.data as unknown as DriveRow[] | null) ?? [];
     const rated = new Set(((ratings.data as { booking_id: string }[] | null) ?? []).map((r) => r.booking_id));
     const c = ((cancelled.data as unknown as Ended[] | null) ?? [])[0];
     const r = ((ended.data as unknown as Ended[] | null) ?? []).find((b) => !rated.has(b.id) && b.trips.finished_at);
@@ -252,27 +300,31 @@ export default function Home() {
     }
 
     setData({
-      seat: s
-        ? {
-            bookingId: s.id,
-            tripId: s.trips.id,
-            status: s.status,
-            departsAt: s.trips.departs_at,
-            startedAt: s.trips.started_at,
-            info: {
-              status: s.status,
-              departsAt: s.trips.departs_at,
-              startedAt: s.trips.started_at,
-              createdAt: s.created_at,
-              respondBy: s.respond_by,
-              origin: s.trips.origin,
-              destination: s.trips.destination,
-              driver: s.trips.driver?.display_name ?? null,
-            },
-          }
-        : null,
-      drive: driveList[0] ?? null,
-      driveWithRequests: driveList.find((d) => d.pending > 0 && !d.startedAt) ?? null,
+      seats: seatList.map((s) => ({
+        bookingId: s.id,
+        tripId: s.trips.id,
+        status: s.status,
+        departsAt: s.trips.departs_at,
+        startedAt: s.trips.started_at,
+        hereAt: s.here_at,
+        boardedAt: s.boarded_at,
+        riderAnswer: s.rider_answer,
+        info: {
+          bookingId: s.id,
+          status: s.status,
+          departsAt: s.trips.departs_at,
+          startedAt: s.trips.started_at,
+          createdAt: s.created_at,
+          respondBy: s.respond_by,
+          origin: s.trips.origin,
+          destination: s.trips.destination,
+          driver: s.trips.driver?.display_name ?? null,
+          hereAt: s.here_at,
+          boardedAt: s.boarded_at,
+        },
+      })),
+      drives: driveRows.map(toDrive),
+      requests: driveRows.flatMap(toRequests),
       cancelled: c ? { bookingId: c.id, tripId: c.trips.id, departsAt: c.trips.departs_at, driver: c.trips.driver?.display_name ?? null } : null,
       rate: r ? { bookingId: r.id, finishedAt: r.trips.finished_at!, driver: r.trips.driver?.display_name ?? null } : null,
       route: ls ? { origin: ls.trips.origin, destination: ls.trips.destination } : ld ? { origin: ld.origin, destination: ld.destination } : null,
@@ -296,9 +348,9 @@ export default function Home() {
       data
         ? pickHero(
             {
-              seat: data.seat,
-              drive: data.drive,
-              driveWithRequests: data.driveWithRequests,
+              seats: data.seats,
+              drives: data.drives,
+              requests: data.requests,
               cancelled: data.cancelled,
               rate: data.rate,
               dismissed: later,
@@ -311,7 +363,7 @@ export default function Home() {
   );
 
   // Tick once a second while a countdown or "leaves in" is on screen.
-  const ticking = !!hero && (hero.kind === 'seat' || hero.kind === 'drive');
+  const ticking = !!hero && (hero.kind === 'seat' || hero.kind === 'drive' || hero.kind === 'request');
   useEffect(() => {
     if (!ticking) return;
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -324,10 +376,17 @@ export default function Home() {
 
   let block = null;
   if (hero && data) {
-    if (hero.kind === 'seat' && data.seat) block = <SeatBlock seat={data.seat.info} phase={hero.phase} now={now} />;
+    const seatInfo = hero.kind === 'seat' ? data.seats.find((x) => x.bookingId === hero.seat.bookingId)?.info : undefined;
+    const driveInfo =
+      hero.kind === 'drive' || hero.kind === 'request'
+        ? data.drives.find((x) => x.tripId === (hero.kind === 'drive' ? hero.drive.tripId : hero.request.tripId))?.info
+        : undefined;
+    if (hero.kind === 'seat' && seatInfo) block = <SeatBlock key={seatInfo.bookingId} seat={seatInfo} phase={hero.phase} now={now} onChanged={load} />;
     else if (hero.kind === 'drive') {
-      const d = hero.drive.tripId === data.driveWithRequests?.tripId ? data.driveWithRequests : data.drive;
-      if (d) block = <DriveBlock drive={d.info} phase={hero.phase} now={now} />;
+      if (driveInfo) block = <DriveBlock key={driveInfo.tripId} drive={driveInfo} phase={hero.phase} now={now} onChanged={load} />;
+    } else if (hero.kind === 'request') {
+      const r = data.requests.find((x) => x.bookingId === hero.request.bookingId)?.info;
+      if (r && driveInfo) block = <RequestBlock key={r.bookingId} request={r} drive={driveInfo} count={hero.count} now={now} onChanged={load} />;
     } else if (hero.kind === 'cancelled' && data.cancelled)
       block = <CancelledBlock departsAt={data.cancelled.departsAt} driver={data.cancelled.driver} onOpen={open} onLater={() => putOff(data.cancelled!.bookingId)} />;
     else if (hero.kind === 'rate' && data.rate)
@@ -337,19 +396,21 @@ export default function Home() {
   }
 
   // The route whose checkpoints we show: the trip on top, else your usual route.
+  const heroTrip =
+    hero?.kind === 'seat'
+      ? data?.seats.find((x) => x.bookingId === hero.seat.bookingId)?.info
+      : hero?.kind === 'drive' || hero?.kind === 'request'
+        ? data?.drives.find((x) => x.tripId === (hero.kind === 'drive' ? hero.drive.tripId : hero.request.tripId))?.info
+        : undefined;
   const heroRoute: { origin: City; destination: City } =
-    (hero?.kind === 'seat' && data?.seat?.info) ||
-    (hero?.kind === 'drive' && hero.drive.tripId === data?.driveWithRequests?.tripId && data.driveWithRequests?.info) ||
-    (hero?.kind === 'drive' && data?.drive?.info) ||
-    (hero?.kind === 'idleDriver' && data?.driving?.route) ||
-    data?.route || { origin: RAMALLAH, destination: NABLUS };
+    heroTrip || (hero?.kind === 'idleDriver' && data?.driving?.route) || data?.route || { origin: RAMALLAH, destination: NABLUS };
 
   // The quiet row under the search: the other role, or (already driving) one more trip.
   const quiet =
     hero?.kind === 'idleDriver'
       ? 'seat'
-      : hero?.kind === 'drive'
-        ? hero.phase === 'onTheRoad'
+      : hero?.kind === 'drive' || hero?.kind === 'request'
+        ? hero.kind === 'drive' && hero.phase === 'onTheRoad'
           ? null
           : 'another'
         : hero

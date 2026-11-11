@@ -48,7 +48,7 @@ export function inboxIcon(kind: string) {
   if (kind.startsWith('checkpoint_') || kind === 'way_changed') return 'barricade' as const;
   if (kind.startsWith('rate') || kind.startsWith('rated')) return 'star' as const;
   if (kind.startsWith('alert_')) return 'bell' as const;
-  if (kind.includes('cancel') || kind === 'declined' || kind === 'expired' || kind === 'no_show') return 'x' as const;
+  if (kind.includes('cancel') || kind === 'declined' || kind === 'expired' || kind === 'no_show' || kind === 'trip_no_go') return 'x' as const;
   return 'clock' as const;
 }
 

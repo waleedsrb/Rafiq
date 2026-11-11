@@ -101,15 +101,15 @@ function codeView(phone: string) {
   code.focus();
 }
 
-// ─── Pages: ID checks and checkpoints ───────────────────────────────────────
-type Page = 'checks' | 'checkpoints';
-const page = (): Page => (location.hash === '#checkpoints' ? 'checkpoints' : 'checks');
+// ─── Pages: ID checks, checkpoints, disputed seats ───────────────────────────
+type Page = 'checks' | 'checkpoints' | 'disputed';
+const page = (): Page => (location.hash === '#checkpoints' ? 'checkpoints' : location.hash === '#disputed' ? 'disputed' : 'checks');
 window.addEventListener('hashchange', () => currentUser && open());
 
 function nav() {
   const link = (to: Page, label: string) =>
-    el('a', { href: to === 'checks' ? '#' : '#checkpoints', class: `navlink${page() === to ? ' on' : ''}`, textContent: label });
-  return el('nav', { class: 'nav' }, link('checks', 'ID checks'), link('checkpoints', 'Checkpoints'));
+    el('a', { href: to === 'checks' ? '#' : `#${to}`, class: `navlink${page() === to ? ' on' : ''}`, textContent: label });
+  return el('nav', { class: 'nav' }, link('checks', 'ID checks'), link('checkpoints', 'Checkpoints'), link('disputed', 'Disputed seats'));
 }
 
 async function open() {
@@ -125,7 +125,70 @@ async function open() {
       ),
     );
   }
-  return page() === 'checkpoints' ? checkpointsView() : queueView();
+  return page() === 'checkpoints' ? checkpointsView() : page() === 'disputed' ? disputedView() : queueView();
+}
+
+// ─── Disputed seats ─────────────────────────────────────────────────────────
+// A trip that never started in the app, where the driver and a rider said opposite things
+// (see supabase/migrations/20261111150000_unstarted_trips.sql). These count for nobody.
+type Disputed = {
+  booking_id: string;
+  trip_id: string;
+  departs_at: string;
+  origin: string;
+  destination: string;
+  driver_id: string;
+  passenger_id: string;
+  driver_says: string | null;
+  rider_says: string | null;
+  ticked_in: boolean;
+  started: boolean;
+  decided_at: string;
+};
+const DRIVER_SAYS: Record<string, string> = {
+  started: 'Started the trip',
+  checkpoint_closed: 'A checkpoint was closed',
+  nobody_came: 'Nobody came',
+  couldnt_go: "I couldn't go",
+};
+const RIDER_SAYS: Record<string, string> = {
+  in_car: "I'm in the car",
+  rode: 'I rode',
+  driver_absent: "The driver didn't come",
+  didnt_go: "I didn't go",
+};
+
+async function disputedView() {
+  show(el('p', { class: 'muted', textContent: 'Loading…' }));
+  const { data, error } = await supabase.rpc('admin_disputed_seats');
+  if (error) return show(nav(), el('p', { class: 'error', textContent: error.message }));
+  const rows = (data ?? []) as Disputed[];
+  const ids = [...new Set(rows.flatMap((r) => [r.driver_id, r.passenger_id]))];
+  const { data: names } = ids.length ? await supabase.rpc('admin_full_names', { p_ids: ids }) : { data: [] };
+  const fullName = new Map(((names ?? []) as { id: string; full_name: string }[]).map((n) => [n.id, n.full_name]));
+  const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+
+  show(
+    nav(),
+    el('h1', { textContent: 'Disputed seats' }),
+    el('p', { class: 'muted small', textContent: 'The driver and the rider answered differently. Nobody\'s score changed. Newest first.' }),
+    rows.length
+      ? el(
+          'div',
+          {},
+          ...rows.map((r) =>
+            el(
+              'section',
+              { class: 'cp' },
+              el('div', { class: 'cp-head' }, el('strong', { textContent: `${r.origin} → ${r.destination}` }), el('span', { class: 'muted small', textContent: when(r.departs_at) })),
+              el('p', {}, `Driver ${fullName.get(r.driver_id) ?? 'Unknown'}: `, el('strong', { textContent: DRIVER_SAYS[r.driver_says ?? ''] ?? (r.ticked_in ? 'Ticked them as in the car' : 'Said nothing') })),
+              el('p', {}, `Rider ${fullName.get(r.passenger_id) ?? 'Unknown'}: `, el('strong', { textContent: RIDER_SAYS[r.rider_says ?? ''] ?? 'Said nothing' })),
+              el('p', { class: 'muted small', textContent: `Decided ${when(r.decided_at)} · booking ${r.booking_id}` }),
+            ),
+          ),
+        )
+      : el('p', { class: 'empty', textContent: 'No disputed seats.' }),
+  );
 }
 
 // ─── The queue ──────────────────────────────────────────────────────────────
