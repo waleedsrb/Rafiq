@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<title>رمز الدخول إلى رفيق</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; padding:0; background:#F7F6F3; }
+  a { color:#17191C; }
+  @media (max-width:520px) {
+    .wrap { padding:20px 12px !important; }
+    .card { padding:28px 22px !important; }
+    .code { font-size:34px !important; letter-spacing:8px !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#F7F6F3;">
+  <!-- Preview line in the inbox list; hidden in the email itself. -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#F7F6F3;">
+    رمزك {{ .Token }} · Your code {{ .Token }}
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F7F6F3;">
+    <tr>
+      <td class="wrap" align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
+
+          <!-- Wordmark -->
+          <tr>
+            <td dir="rtl" style="padding:0 6px 20px 6px;text-align:right;">
+              <span style="font-family:'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;font-size:26px;font-weight:700;color:#17191C;">رفيق</span>
+              <span style="font-family:'IBM Plex Sans',Helvetica,Arial,sans-serif;font-size:13px;font-weight:500;color:#6B6E73;padding-right:6px;">Rafiq</span>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td class="card" style="background:#FFFFFF;border:1px solid #E7E5E0;border-radius:16px;padding:36px 32px;">
+
+              <!-- Arabic -->
+              <div dir="rtl" style="text-align:right;font-family:'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;">
+                <div style="font-size:24px;line-height:34px;font-weight:700;color:#17191C;">رمز الدخول إلى رفيق</div>
+                <div style="font-size:15px;line-height:26px;color:#6B6E73;padding-top:6px;">أدخل هذا الرمز في التطبيق لإكمال تسجيل الدخول.</div>
+              </div>
+
+              <!-- The code -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 14px 0;">
+                <tr>
+                  <td dir="ltr" align="center" style="background:#F7F6F3;border:1px solid #E7E5E0;border-radius:16px;padding:22px 8px;">
+                    <span class="code" style="font-family:'IBM Plex Sans',Helvetica,Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;letter-spacing:12px;color:#17191C;">{{ .Token }}</span>
+                  </td>
+                </tr>
+              </table>
+
+              <div dir="rtl" style="text-align:center;font-family:'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;font-size:13px;line-height:22px;color:#6B6E73;">
+                صالح لمدة ساعة · Valid for one hour
+              </div>
+
+              <!-- Hairline -->
+              <div style="height:1px;background:#E7E5E0;margin:28px 0;line-height:1px;font-size:1px;">&nbsp;</div>
+
+              <!-- English -->
+              <div dir="ltr" style="text-align:left;font-family:'IBM Plex Sans',Helvetica,Arial,sans-serif;">
+                <div style="font-size:18px;line-height:26px;font-weight:700;color:#17191C;">Your Rafiq sign-in code</div>
+                <div style="font-size:14px;line-height:22px;color:#6B6E73;padding-top:4px;">Type this code in the app to finish signing in.</div>
+              </div>
+
+              <!-- Safety note: clay only here, because it asks for attention -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:26px;">
+                <tr>
+                  <td style="border-right:2px solid #B4583B;padding:2px 12px 2px 0;" dir="rtl">
+                    <div style="font-family:'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;font-size:13px;line-height:22px;color:#17191C;text-align:right;">
+                      لا تشارك هذا الرمز مع أحد، ولا حتى مع فريق رفيق.
+                    </div>
+                    <div dir="ltr" style="font-family:'IBM Plex Sans',Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#6B6E73;text-align:right;">
+                      Never share this code, not even with the Rafiq team.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:22px 6px 0 6px;">
+              <div dir="rtl" style="text-align:right;font-family:'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;font-size:12px;line-height:20px;color:#6B6E73;">
+                لم تطلب هذا الرمز؟ تجاهل هذه الرسالة، ولن يتغيّر شيء في حسابك.
+              </div>
+              <div dir="ltr" style="text-align:left;font-family:'IBM Plex Sans',Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#6B6E73;padding-top:4px;">
+                Didn't ask for this code? Ignore this email and nothing changes.
+              </div>
+              <div style="text-align:center;font-family:'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;font-size:12px;line-height:20px;color:#A9ACB2;padding-top:18px;">
+                رفيق · مشوارك بين المدن، مضمون
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,46 @@
+# Amir, a verified passenger, signs in, finds Dana's trip and asks for a seat (cash).
+# A new passenger's Home offers the two pilot routes; Ramallah → Nablus opens the results.
+appId: app.rafiq
+name: Passenger finds the trip and requests a seat
+tags: [ride]
+---
+- runFlow:
+    file: common/sign-in.yaml
+    env:
+      EMAIL: e2e-rider@rafiq.test
+- tapOn: "Ramallah.*Nablus"
+- extendedWaitUntil:
+    visible:
+      id: "trip-row"
+    timeout: 20000
+    optional: true
+# Dana's card offers today until it gets late, then tomorrow.
+- runFlow:
+    when:
+      notVisible:
+        id: "trip-row"
+    commands:
+      - tapOn: "Tomorrow"
+      - extendedWaitUntil:
+          visible:
+            id: "trip-row"
+          timeout: 20000
+- assertVisible: ".*Dana H\\..*"
+- tapOn:
+    id: "trip-row"
+- extendedWaitUntil:
+    visible:
+      id: "request-seat"
+    timeout: 20000
+- tapOn:
+    id: "request-seat"
+- extendedWaitUntil:
+    visible:
+      id: "send-request"
+    timeout: 20000
+- tapOn:
+    id: "send-request"
+- extendedWaitUntil:
+    visible: "Waiting for the driver to accept"
+    timeout: 20000
+- takeScreenshot: 02-seat-requested

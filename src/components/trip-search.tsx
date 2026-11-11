@@ -320,6 +320,7 @@ function TimeFirstRow({
   const seatsText = full ? t('full') : `${r.seats_left} ${t('seatsFree')}`;
   return (
     <Pressable
+      testID="trip-row"
       accessibilityRole="button"
       accessibilityLabel={`${shortTime(new Date(r.departs_at))}, ${name}, ${seatsText}, ${r.price_ils}₪`}
       ref={ref}

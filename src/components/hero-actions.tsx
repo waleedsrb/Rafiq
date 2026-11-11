@@ -35,6 +35,7 @@ export function Capsule({
   hug,
   icon,
   disabled,
+  testID,
 }: {
   label: string;
   /** The full sentence a screen reader says, when the label is shortened. */
@@ -44,11 +45,14 @@ export function Capsule({
   hug?: boolean;
   icon?: IconName;
   disabled?: boolean;
+  /** A stable name for the end-to-end tests (e2e/). */
+  testID?: string;
 }) {
   const { f } = useFont();
   const solid = variant === 'solid';
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={a11y ?? label}
       onPress={() => {

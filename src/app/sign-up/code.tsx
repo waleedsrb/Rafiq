@@ -82,6 +82,7 @@ export default function CodeStep() {
           );
         })}
         <TextInput
+          testID="code-input"
           ref={input}
           autoFocus
           value={code}

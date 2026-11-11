@@ -426,6 +426,7 @@ function OtherWays() {
           onPress={() => run('google', signInWithGoogle)}
         />
         <WayButton
+          testID="sign-in-email"
           icon={<Icon name="envelope" size={18} />}
           label={t('withEmail')}
           onPress={() => {
@@ -449,7 +450,9 @@ function WayButton({
   latin,
   busy,
   onPress,
+  testID,
 }: {
+  testID?: string;
   icon: ReactNode;
   label: string;
   latin?: boolean;
@@ -459,6 +462,7 @@ function WayButton({
   const { f } = useFont();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}

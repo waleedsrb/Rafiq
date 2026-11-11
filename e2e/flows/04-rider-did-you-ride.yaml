@@ -1,0 +1,32 @@
+# Trip day, when nobody tapped Start (PR #128). run.sh has moved the trip 50 minutes into
+# the past and run the nudge job, so Amir got "Did you ride with Dana?" in his inbox, and
+# Home asks the same question with one-tap answers.
+appId: app.rafiq
+name: Passenger answers "Did you ride?"
+tags: [trip-day]
+---
+- runFlow:
+    file: common/sign-in.yaml
+    env:
+      EMAIL: e2e-rider@rafiq.test
+- extendedWaitUntil:
+    visible: "Did you ride with Dana\\?"
+    timeout: 20000
+# The nudge also landed in the inbox.
+- tapOn: "Notifications.*"
+- extendedWaitUntil:
+    visible: "Did you ride with Dana\\?"
+    timeout: 20000
+- takeScreenshot: 04-rider-inbox
+- back
+- extendedWaitUntil:
+    visible:
+      id: "hero-yes-rode"
+    timeout: 20000
+- tapOn:
+    id: "hero-yes-rode"
+- assertVisible: "Saved: you rode"
+- extendedWaitUntil:
+    notVisible: "Undo.*"
+    timeout: 20000
+- takeScreenshot: 04-rider-answered

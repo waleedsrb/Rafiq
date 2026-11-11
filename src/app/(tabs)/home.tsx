@@ -427,7 +427,7 @@ export default function Home() {
         </Body>
       }
       largeTitle={
-        <Text style={[styles.greeting, { fontFamily: f.bold }]}>
+        <Text testID="home-greeting" style={[styles.greeting, { fontFamily: f.bold }]}>
           {greeting}
           {rtl ? '، ' : ', '}
           {firstName}
