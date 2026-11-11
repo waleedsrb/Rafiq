@@ -22,6 +22,8 @@ flow() {
     # Keep what the phone showed when it failed: a screenshot and the tree of views Maestro saw.
     adb exec-out screencap -p > "$OUT/$name-failed.png" || true
     maestro hierarchy > "$OUT/$name-failed-hierarchy.json" 2>/dev/null || true
+    echo "Words on the screen when it failed:"
+    python3 scripts/screen-words.py "$OUT/$name-failed-hierarchy.json" || true
     exit 1
   fi
   for check in "$@"; do sql "sql/$check.sql"; done
