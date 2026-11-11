@@ -65,6 +65,7 @@ export function useRequestSeat(
     setPaying(false);
     if (err) {
       if (err.message.includes('profile photo')) return setError(t('photoNeeded'));
+      if (err.message.includes('trip is full')) return setError(t('tripFullNow'));
       return setError(err.message.includes('women only') ? t('womenOnlyTrip') : t('somethingWrong'));
     }
     await askForPush();
@@ -90,6 +91,7 @@ export function useRequestSeat(
     if (err) {
       if (err.message.includes('women only')) return setError(t('womenOnlyTrip'));
       if (err.message.includes('profile photo')) return setError(t('photoNeeded'));
+      if (err.message.includes('trip is full')) return setError(t('tripFullNow'));
       return setError(err.message.includes('declined') ? t('cardDeclined') : t('somethingWrong'));
     }
     // Now is when notifications make sense: "tell me when the driver answers".

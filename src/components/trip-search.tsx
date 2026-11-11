@@ -23,6 +23,8 @@ import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { byDay, countByDay, dayIndex, filterTrips, leavingSoon, AHEAD_DAYS, searchDayStart } from '@/lib/trip-search';
 import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
+import { useSeatCountsFor } from '@/lib/live';
+import { seatView, type SeatCounts, type SeatKind } from '@/lib/seat-line';
 import { colors, fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
 export type Result = {
@@ -211,6 +213,8 @@ export function SearchResults({
 
   const { ofDay, shown } = dayTrips(s, now);
   const driverStats = useTripDriverStats(ofDay.map((r) => r.id));
+  // Confirmed and waiting seats, live, so every square shows who holds it.
+  const seatCounts = useSeatCountsFor(ofDay.map((r) => r.id));
 
   // A trip grows out of its row, over the results (see trip-sheet.tsx).
   const open = onOpenTrip ?? openInLayer;
@@ -257,7 +261,7 @@ export function SearchResults({
             {isNearby(r) && (i === 0 || !isNearby(shown[i - 1]) || (everyDay && dayOf(shown[i - 1]) !== dayOf(r))) ? (
               <Body muted small>{t('nearbyTrips')}</Body>
             ) : null}
-            <TimeFirstRow r={r} last={i === shown.length - 1 || (everyDay && dayOf(shown[i + 1]) !== dayOf(r))} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} onPress={(from) => open(r.id, from)} />
+            <TimeFirstRow r={r} last={i === shown.length - 1 || (everyDay && dayOf(shown[i + 1]) !== dayOf(r))} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} counts={seatCounts[r.id] ?? null} onPress={(from) => open(r.id, from)} />
           </Animated.View>
         ))}
       </View>
@@ -274,19 +278,24 @@ function TimeFirstRow({
   last,
   soon,
   stats,
+  counts,
   onPress,
 }: {
   r: Result;
   last: boolean;
   soon: boolean;
   stats: Parameters<typeof StatsLine>[0]['stats'];
+  counts: SeatCounts | null;
   /** Gets where the row is on screen, so the trip can grow out of it. */
   onPress: (from: Rect | null) => void;
 }) {
   const ref = useRef<HostInstance>(null);
   const { t, lang } = useT();
   const { f } = useFont();
-  const full = r.seats_left <= 0;
+  // Live counts when we have them; until then the free count from the search.
+  const view = counts ? seatView(r.seats_total, counts) : null;
+  const seatKinds: SeatKind[] = view?.seats ?? Array.from({ length: r.seats_total }, (_, i) => (i < r.seats_total - r.seats_left ? 'confirmed' : 'free'));
+  const full = (view ? view.free : r.seats_left) <= 0;
   const name = r.driver_last_initial ? `${r.driver_first_name} ${r.driver_last_initial}.` : r.driver_first_name;
   // A nearby trip says where it really goes: "From Bitunia · 3 km".
   const where = [
@@ -294,7 +303,7 @@ function TimeFirstRow({
     Number(r.destination_km) > 0 ? `${t('toPlace').replace('{place}', placeName(r.destination, lang))} · ${r.destination_km} ${t('kmUnit')}` : null,
   ];
   const sub = [...where, r.women_only ? t('womenOnly') : null, carName(r.car_model, r.car_color, lang)].filter(Boolean).join(' · ');
-  const seatsText = full ? t('full') : `${r.seats_left} ${t('seatsFree')}`;
+  const seatsText = full ? t('full') : `${view ? view.free : r.seats_left} ${t('seatsFree')}`;
   return (
     <Pressable
       accessibilityRole="button"
@@ -322,20 +331,19 @@ function TimeFirstRow({
         <StatsLine stats={stats} showReliability={false} />
       </View>
       <View style={styles.end}>
-        {full ? <Text style={[styles.meta, { fontFamily: f.regular }]}>{t('full')}</Text> : <SeatSquares left={r.seats_left} total={r.seats_total} />}
+        <SeatSquares seats={seatKinds} />
         <Text style={styles.price}>{ltr(`${r.price_ils}₪`)}</Text>
       </View>
     </Pressable>
   );
 }
 
-/** Taken seats dark, free seats light: how full the car is, at a glance. */
-function SeatSquares({ left, total }: { left: number; total: number }) {
-  const taken = Math.max(0, total - left);
+/** One square per seat: confirmed dark, waiting for the driver clay, free light. */
+function SeatSquares({ seats }: { seats: SeatKind[] }) {
   return (
     <View style={styles.seats}>
-      {Array.from({ length: Math.min(total, 8) }, (_, i) => (
-        <View key={i} style={[styles.seat, i >= taken && styles.seatFree]} />
+      {seats.slice(0, 8).map((k, i) => (
+        <View key={i} style={[styles.seat, k === 'waiting' && styles.seatWaiting, k === 'free' && styles.seatFree]} />
       ))}
     </View>
   );
@@ -363,5 +371,6 @@ const styles = StyleSheet.create({
   price: { fontFamily: fonts.en.medium, fontSize: 13, color: colors.inkSecondary },
   seats: { flexDirection: 'row', gap: 3, direction: 'ltr' },
   seat: { width: 9, height: 9, borderRadius: 2.5, backgroundColor: colors.ink },
+  seatWaiting: { backgroundColor: colors.clay },
   seatFree: { backgroundColor: colors.lineStrong, opacity: 0.45 },
 });
