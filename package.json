@@ -52,5 +52,6 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'"
   },
-  "private": true
+  "private": true,
+  "license": "UNLICENSED"
 }
