@@ -32,6 +32,11 @@ create function net.http_post(
 ) returns bigint language sql as $$
   insert into net.sent (url, body) values (url, body) returning id
 $$;
+-- Where pg_net keeps the answers (tests insert fake ones with the id http_post returned).
+create table net._http_response (
+  id bigint primary key, status_code int, content_type text, headers jsonb,
+  content text, timed_out boolean, error_msg text, created timestamptz default now()
+);
 
 -- Stand-in for Supabase Storage: just the tables and helper our policies use.
 create schema storage;
