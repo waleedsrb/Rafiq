@@ -33,7 +33,7 @@ import { photoGate, photoGateText } from '@/lib/avatar';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatDay, formatTime } from '@/lib/format';
 import { useBookingChanges, useTripChanges } from '@/lib/live';
-import { shortName } from '@/lib/names';
+import { carName, shortName } from '@/lib/names';
 import { pushAfterDialog } from '@/lib/nav';
 import { centreName, routeName } from '@/lib/places';
 import { telLink } from '@/lib/phone';
@@ -66,7 +66,7 @@ type Trip = {
   pickup_lng: number | null;
   // The checkpoints the driver goes through (empty on trips posted before Nov 10).
   checkpoint_ids: string[] | null;
-  profiles: { full_name: string; avatar_path: string | null }; // the driver, joined through trips.driver_id
+  profiles: { display_name: string; avatar_path: string | null }; // the driver, joined through trips.driver_id
   trip_series: { weekdays: number[]; stopped_at: string | null } | null; // set when the trip repeats weekly
 };
 
@@ -107,6 +107,8 @@ export function TripDetails({
   const [trip, setTrip] = useState<Trip | null>(null);
   const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
   const [driverVerified, setDriverVerified] = useState(false);
+  // Car model and colour, shown while booking (plate only later, see trip_contact()).
+  const [car, setCar] = useState<{ car_model: string | null; car_color: string | null } | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
@@ -126,7 +128,7 @@ export function TripDetails({
       supabase
         .from('trips')
         .select(
-          'id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, profiles!trips_driver_id_fkey(full_name, avatar_path), trip_series(weekdays, stopped_at)',
+          'id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, profiles!trips_driver_id_fkey(display_name, avatar_path), trip_series(weekdays, stopped_at)',
         )
         .eq('id', tripId)
         .single(),
@@ -140,7 +142,10 @@ export function TripDetails({
     ]);
     const loaded = (tripRes.data as unknown as Trip | null) ?? null;
     setTrip(loaded);
-    if (loaded) supabase.rpc('is_verified_driver', { p_driver_id: loaded.driver_id }).then(({ data }) => setDriverVerified(data === true));
+    if (loaded) {
+      supabase.rpc('is_verified_driver', { p_driver_id: loaded.driver_id }).then(({ data }) => setDriverVerified(data === true));
+      supabase.rpc('public_profile', { p_person: loaded.driver_id }).then(({ data }) => setCar(((data as typeof car[] | null) ?? [])[0] ?? null));
+    }
     setSeatsLeft((seatsRes.data as number | null) ?? null);
     setStatus(bookingRes.data?.status ?? null);
     setBookingId(bookingRes.data?.id ?? null);
@@ -269,7 +274,7 @@ export function TripDetails({
           ? null // inside the 15-minute grace of a late booking
           : t('lateCancelNote');
 
-  const driverName = shortName(trip.profiles.full_name);
+  const driverName = shortName(trip.profiles.display_name);
   const driverStats = stats[trip.driver_id];
   const mine = trip.driver_id === session?.user.id;
   const canRequest = status === null && !trip.cancelled_at && (seatsLeft ?? 0) > 0 && !mine;
@@ -383,6 +388,7 @@ export function TripDetails({
       {endedNote || status === 'requested' ? null : (
         <>
           {trip.trip_series && !trip.trip_series.stopped_at ? <ListRow icon="calendar" title={repeatsText(trip.trip_series.weekdays)} /> : null}
+          {car?.car_model ? <ListRow icon="carProfile" title={carName(car.car_model, car.car_color, lang)} /> : null}
           <ListRow icon="mapPin" title={pickupLabel} subtitle={t('pickupRow')} last={!!trip.cancelled_at} />
           {trip.cancelled_at ? null : (
             <ListRow

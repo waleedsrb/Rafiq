@@ -1,5 +1,6 @@
 // Who to call and which car to look for. Shown only on an accepted booking;
-// the data comes from trip_contact(), which returns nothing otherwise.
+// the data comes from trip_contact(), which returns nothing otherwise. Name and car come
+// straight away; phone and plate only from opens_at (an hour before the trip).
 
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { PlateArt } from '@/components/plate-art';
 import { ListRow, ltr } from '@/components/ui';
+import { formatTime } from '@/lib/format';
 import { formatPhone, telLink } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -15,10 +17,14 @@ import { colors, space } from '@/theme/tokens';
 
 export type Contact = {
   first_name: string;
+  /** "Dana H.": full names are never shown to other people. */
+  name: string;
   phone: string | null;
   car_model: string | null;
   car_color: string | null;
   plate: string | null;
+  /** When phone and plate appear. */
+  opens_at: string;
 };
 
 export function useContact(bookingId: string | null) {
@@ -33,13 +39,20 @@ export function useContact(bookingId: string | null) {
 }
 
 export function ContactCard({ contact: c, avatarPath, seed }: { contact: Contact; avatarPath?: string | null; seed?: string | null }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const waiting = !c.phone && new Date(c.opens_at).getTime() > Date.now();
   return (
     <View>
       <ListRow
-        leading={<Avatar path={avatarPath} name={c.first_name} seed={seed} />}
-        title={c.first_name}
-        subtitle={c.phone ? ltr(formatPhone(c.phone)) : t('driverLabel')}
+        leading={<Avatar path={avatarPath} name={c.name} seed={seed} />}
+        title={c.name}
+        subtitle={
+          c.phone
+            ? ltr(formatPhone(c.phone))
+            : waiting
+              ? t('phonePlateAt').replace('{time}', ltr(formatTime(new Date(c.opens_at), lang)))
+              : t('driverLabel')
+        }
         trailing={
           c.phone ? (
             <Pressable

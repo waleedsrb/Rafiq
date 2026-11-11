@@ -36,9 +36,8 @@ export default function Settings() {
     useCallback(() => {
       if (!session) return;
       supabase
-        .from('profiles')
+        .rpc('my_profile')
         .select('notify_trips, notify_alerts, notify_checkpoints, ask_near_checkpoints, emergency_name')
-        .eq('id', session.user.id)
         .maybeSingle()
         .then(({ data }) => setPrefs((data as Prefs | null) ?? null));
     }, [session]),

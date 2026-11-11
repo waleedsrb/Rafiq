@@ -16,10 +16,11 @@ type Kind = keyof typeof SLOTS;
 
 type Request = {
   id: string;
+  user_id: string;
   kind: Kind;
   photos: string[];
   submitted_at: string;
-  profiles: { full_name: string; gender: string | null; avatar_path: string | null } | null;
+  profiles: { full_name?: string; gender: string | null; avatar_path: string | null } | null;
 };
 
 const app = document.getElementById('app')!;
@@ -133,11 +134,17 @@ async function queueView() {
 
   const { data, error } = await supabase
     .from('verifications')
-    .select('id, kind, photos, submitted_at, profiles!verifications_user_id_fkey(full_name, gender, avatar_path)')
+    .select('id, user_id, kind, photos, submitted_at, profiles!verifications_user_id_fkey(gender, avatar_path)')
     .eq('status', 'pending')
     .order('submitted_at'); // oldest first: first come, first served
   if (error) return show(el('p', { class: 'error', textContent: error.message }));
   const rows = (data ?? []) as unknown as Request[];
+  // Other people only ever see "Dana H."; admins get the full name to compare with the ID.
+  if (rows.length) {
+    const { data: names } = await supabase.rpc('admin_full_names', { p_ids: rows.map((r) => r.user_id) });
+    const fullName = new Map(((names ?? []) as { id: string; full_name: string }[]).map((n) => [n.id, n.full_name]));
+    for (const r of rows) if (r.profiles) r.profiles.full_name = fullName.get(r.user_id) ?? 'Unknown';
+  }
 
   const paths = rows.flatMap((r) => r.photos);
   const signed = paths.length ? ((await supabase.storage.from('verification').createSignedUrls(paths, 600)).data ?? []) : [];

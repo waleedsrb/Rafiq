@@ -47,9 +47,8 @@ export default function Account() {
         .maybeSingle()
         .then(({ data }) => setCar(data ?? null));
       supabase
-        .from('profiles')
+        .rpc('my_profile')
         .select('created_at, emergency_name')
-        .eq('id', me)
         .maybeSingle()
         .then(({ data }) => setExtra((data as Extra | null) ?? null));
       // Trips, reliability and rating (trip day, slice 9).

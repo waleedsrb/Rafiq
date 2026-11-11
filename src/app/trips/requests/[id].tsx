@@ -80,7 +80,7 @@ type Request = {
   here_at: string | null;
   boarded_at: string | null;
   passenger_id: string;
-  profiles: { full_name: string; avatar_path: string | null }; // the passenger
+  profiles: { display_name: string; avatar_path: string | null }; // the passenger
 };
 
 type Step = 'details' | 'rider' | 'arrived' | 'way';
@@ -118,7 +118,7 @@ export default function DriverTrip() {
         .single(),
       supabase
         .from('bookings')
-        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(full_name, avatar_path)')
+        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(display_name, avatar_path)')
         .eq('trip_id', id)
         .order('created_at'),
     ]);
@@ -184,7 +184,7 @@ export default function DriverTrip() {
     act(r.id, () => supabase.from('bookings').update({ status }).eq('id', r.id));
   // Decline is a small ✕ now, easy to tap by accident, so it asks first.
   async function declineAsk(r: Request) {
-    const name = shortName(r.profiles.full_name).split(' ')[0];
+    const name = shortName(r.profiles.display_name).split(' ')[0];
     const ok = await confirm({
       title: t('declineAskTitle').replace('{name}', name),
       body: t('declineAskBody'),
@@ -309,7 +309,7 @@ export default function DriverTrip() {
   const toRate: RideToRate[] = rode.map((r) => ({
     bookingId: r.id,
     passengerId: r.passenger_id,
-    name: shortName(r.profiles.full_name),
+    name: shortName(r.profiles.display_name),
     avatarPath: r.profiles.avatar_path,
     seats: r.seats,
     given: rated[r.id] ?? null,
@@ -340,7 +340,7 @@ export default function DriverTrip() {
           car={car}
           riders={requests
             .filter((r) => r.status === 'accepted' && r.boarded_at)
-            .map((r) => ({ id: r.id, name: shortName(r.profiles.full_name), avatarPath: r.profiles.avatar_path, seed: r.passenger_id }))}
+            .map((r) => ({ id: r.id, name: shortName(r.profiles.display_name), avatarPath: r.profiles.avatar_path, seed: r.passenger_id }))}
           dark={dark}
           onToggleDark={() => setDark((d) => !d)}
           onArrive={arrive}
@@ -458,7 +458,7 @@ export default function DriverTrip() {
           {asking.map((r, i) => (
             <View key={r.id} style={[styles.ask, i > 0 && styles.askLine]}>
               <RequestRow
-                name={shortName(r.profiles.full_name)}
+                name={shortName(r.profiles.display_name)}
                 seats={r.seats}
                 avatarPath={r.profiles.avatar_path}
                 seed={r.passenger_id}
@@ -534,8 +534,8 @@ export default function DriverTrip() {
             <ListRow
               key={r.id}
               last={i === rode.length - 1}
-              leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} />}
-              title={shortName(r.profiles.full_name)}
+              leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.display_name} seed={r.passenger_id} />}
+              title={shortName(r.profiles.display_name)}
               subtitle={`${ltr(r.seats)} ${t('seatOne')} · ${ltr(`${r.seats * price}₪`)}`}
               trailing={rated[r.id] ? <Stars value={rated[r.id]} /> : undefined}
               onPress={rated[r.id] ? undefined : () => openRider(r.passenger_id)}
@@ -555,8 +555,8 @@ export default function DriverTrip() {
             <ListRow
               key={r.id}
               last={i === earlier.length - 1}
-              leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} size={32} />}
-              title={shortName(r.profiles.full_name)}
+              leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.display_name} seed={r.passenger_id} size={32} />}
+              title={shortName(r.profiles.display_name)}
               subtitle={t(`status_${r.status}` as StringKey)}
             />
           ))}
@@ -573,7 +573,7 @@ export default function DriverTrip() {
   let mini: SheetMini = { sub: `${route} · ${t('seatsLine').replace('{booked}', ltr(booked)).replace('{total}', ltr(total))}` };
   const firstAsk = asking[0];
   if (firstAsk && !trip.cancelled_at) {
-    const name = shortName(firstAsk.profiles.full_name).split(' ')[0];
+    const name = shortName(firstAsk.profiles.display_name).split(' ')[0];
     const left = firstAsk.respond_by ? ` · ${formatCountdown(new Date(firstAsk.respond_by).getTime() - now.getTime())}` : '';
     mini = {
       sub: `${t('requestFrom').replace('{name}', name)}${left}`,
@@ -587,7 +587,7 @@ export default function DriverTrip() {
         <Button label={t('startTrip')} icon="steeringWheel" onPress={start} loading={busy === 'trip'} disabled={!allIn} />
         {allIn ? null : (
           <Body muted small style={{ textAlign: 'center' }}>
-            {t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.full_name).split(' ')[0]).join('، '))}
+            {t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.display_name).split(' ')[0]).join('، '))}
           </Body>
         )}
       </>
@@ -595,7 +595,7 @@ export default function DriverTrip() {
     if (!firstAsk) {
       mini = allIn
         ? { sub: t('allInCar'), tone: 'ok', action: { label: t('startTrip'), onPress: start, loading: busy === 'trip' } }
-        : { sub: t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.full_name).split(' ')[0]).join('، ')) };
+        : { sub: t('waitingForName').replace('{name}', notIn.map((r) => shortName(r.profiles.display_name).split(' ')[0]).join('، ')) };
     }
   } else if (state === 'finished') {
     if (canRate && unrated.length > 0) {
@@ -614,7 +614,7 @@ export default function DriverTrip() {
 
   // Steps replace the details in the same card.
   const riderRow = requests.find((r) => r.passenger_id === riderId);
-  const riderName = riderRow ? shortName(riderRow.profiles.full_name) : null;
+  const riderName = riderRow ? shortName(riderRow.profiles.display_name) : null;
   const minutes = trip.started_at && trip.finished_at ? Math.max(1, Math.round((+new Date(trip.finished_at) - +new Date(trip.started_at)) / 60_000)) : null;
   const page =
     step === 'rider' && riderId
@@ -700,15 +700,17 @@ function RiderRow({
   checkIn: ReactNode;
   note: ReactNode;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const contact = useContact(r.id);
   const phone = contact?.phone ?? null;
+  // Before the hour-before mark the phone is hidden; say when it appears.
+  const opensAt = !phone && contact && new Date(contact.opens_at).getTime() > Date.now() ? new Date(contact.opens_at) : null;
   return (
     <View style={[styles.rider, !last && styles.riderLine]}>
       <ListRow
         last
-        leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.full_name} seed={r.passenger_id} />}
-        title={shortName(r.profiles.full_name)}
+        leading={<Avatar path={r.profiles.avatar_path} name={r.profiles.display_name} seed={r.passenger_id} />}
+        title={shortName(r.profiles.display_name)}
         onPress={onOpen}
         subtitle={
           <View style={{ gap: 2 }}>
@@ -716,6 +718,11 @@ function RiderRow({
               {ltr(r.seats)} {t('seatOne')}
               {phone ? ` · ${ltr(formatPhone(phone))}` : ''}
             </Body>
+            {opensAt ? (
+              <Body muted small>
+                {t('phoneAt').replace('{time}', ltr(formatTime(opensAt, lang)))}
+              </Body>
+            ) : null}
             {note}
           </View>
         }
@@ -723,7 +730,7 @@ function RiderRow({
           phone ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${t('call')} ${shortName(r.profiles.full_name)}`}
+              accessibilityLabel={`${t('call')} ${shortName(r.profiles.display_name)}`}
               onPress={() => Linking.openURL(telLink(phone)).catch(() => {})}
               style={({ pressed }) => [styles.call, pressed && { opacity: 0.7 }]}
             >

@@ -47,7 +47,7 @@ type TripCols = {
   destination: City;
   departs_at: string;
   started_at: string | null;
-  driver: { full_name: string } | null;
+  driver: { display_name: string } | null;
 };
 type SeatRow = { id: string; status: 'requested' | 'accepted'; created_at: string; respond_by: string | null; trips: TripCols };
 type DriveRow = {
@@ -64,10 +64,10 @@ type DriveRow = {
     created_at: string;
     respond_by: string | null;
     boarded_at: string | null;
-    passenger: { full_name: string } | null;
+    passenger: { display_name: string } | null;
   }[];
 };
-type Ended = { id: string; trips: { id: string; departs_at: string; finished_at: string | null; driver: { full_name: string } | null } };
+type Ended = { id: string; trips: { id: string; departs_at: string; finished_at: string | null; driver: { display_name: string } | null } };
 
 type Loaded = {
   seat: (SeatHero & { info: SeatInfo }) | null;
@@ -101,7 +101,7 @@ function toDrive(trip: DriveRow): DriveHero & { info: DriveInfo } {
       booked: accepted.reduce((n, b) => n + b.seats, 0),
       asked: pending.reduce((n, b) => n + b.seats, 0),
       riders: accepted.filter((b) => b.boarded_at).reduce((n, b) => n + b.seats, 0),
-      firstPending: first ? { name: first.passenger?.full_name ?? null, createdAt: first.created_at, respondBy: first.respond_by! } : null,
+      firstPending: first ? { name: first.passenger?.display_name ?? null, createdAt: first.created_at, respondBy: first.respond_by! } : null,
     },
   };
 }
@@ -173,7 +173,7 @@ export default function Home() {
     const since = new Date(Date.now() - LOOKBACK_MS).toISOString();
     const dayAgo = new Date(Date.now() - DAY_MS).toISOString();
     const nowIso = new Date().toISOString();
-    const tripCols = 'id, origin, destination, departs_at, started_at, driver:profiles(full_name)';
+    const tripCols = 'id, origin, destination, departs_at, started_at, driver:profiles(display_name)';
 
     const [seats, drives, cancelled, ended, ratings, lastSeat, lastDrive, car] = await Promise.all([
       // Your next seat (asked for or confirmed).
@@ -189,7 +189,7 @@ export default function Home() {
       supabase
         .from('trips')
         .select(
-          'id, origin, destination, departs_at, started_at, seats_total, bookings(id, status, seats, created_at, respond_by, boarded_at, passenger:profiles!bookings_passenger_id_fkey(full_name))',
+          'id, origin, destination, departs_at, started_at, seats_total, bookings(id, status, seats, created_at, respond_by, boarded_at, passenger:profiles!bookings_passenger_id_fkey(display_name))',
         )
         .eq('driver_id', me)
         .is('cancelled_at', null)
@@ -199,7 +199,7 @@ export default function Home() {
       // A seat whose driver cancelled in the last day, for a trip that hasn't left yet.
       supabase
         .from('bookings')
-        .select(`id, trips!inner(id, departs_at, cancelled_at, finished_at, driver:profiles(full_name))`)
+        .select(`id, trips!inner(id, departs_at, cancelled_at, finished_at, driver:profiles(display_name))`)
         .eq('passenger_id', me)
         .eq('status', 'cancelled')
         .not('trips.cancelled_at', 'is', null)
@@ -209,7 +209,7 @@ export default function Home() {
       // A trip you finished in the last day, to rate.
       supabase
         .from('bookings')
-        .select(`id, trips!inner(id, departs_at, finished_at, driver:profiles(full_name))`)
+        .select(`id, trips!inner(id, departs_at, finished_at, driver:profiles(display_name))`)
         .eq('passenger_id', me)
         .eq('status', 'completed')
         .gte('trips.finished_at', dayAgo)
@@ -267,14 +267,14 @@ export default function Home() {
               respondBy: s.respond_by,
               origin: s.trips.origin,
               destination: s.trips.destination,
-              driver: s.trips.driver?.full_name ?? null,
+              driver: s.trips.driver?.display_name ?? null,
             },
           }
         : null,
       drive: driveList[0] ?? null,
       driveWithRequests: driveList.find((d) => d.pending > 0 && !d.startedAt) ?? null,
-      cancelled: c ? { bookingId: c.id, tripId: c.trips.id, departsAt: c.trips.departs_at, driver: c.trips.driver?.full_name ?? null } : null,
-      rate: r ? { bookingId: r.id, finishedAt: r.trips.finished_at!, driver: r.trips.driver?.full_name ?? null } : null,
+      cancelled: c ? { bookingId: c.id, tripId: c.trips.id, departsAt: c.trips.departs_at, driver: c.trips.driver?.display_name ?? null } : null,
+      rate: r ? { bookingId: r.id, finishedAt: r.trips.finished_at!, driver: r.trips.driver?.display_name ?? null } : null,
       route: ls ? { origin: ls.trips.origin, destination: ls.trips.destination } : ld ? { origin: ld.origin, destination: ld.destination } : null,
       driving: ld && canDrive ? { route: { origin: ld.origin, destination: ld.destination }, time: usualTime(ld.departs_at) } : null,
       prefersDriving,

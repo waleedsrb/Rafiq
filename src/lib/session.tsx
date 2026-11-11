@@ -47,11 +47,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<Session | null>(null);
   const [apply] = useState(() =>
     createAuthSync<Session, Profile>(
-      async (userId) => {
+      // my_profile() reads the signed-in user from the token, so the id isn't passed on.
+      async () => {
         const { data, error } = await supabase
-          .from('profiles')
+          .rpc('my_profile')
           .select('id, full_name, gender, language, id_verified_at, gender_verified_at, avatar_path')
-          .eq('id', userId)
           .maybeSingle();
         if (error) throw error;
         return (data as Profile | null) ?? null;
