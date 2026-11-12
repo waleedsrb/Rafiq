@@ -85,7 +85,11 @@ jobs:
       - name: Build the APK
         working-directory: android
         # x86_64 only: that is what the emulator runs, and it builds four times faster.
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+        # Gradle downloads its plugins from the internet; a failed download once broke the
+        # build before it began (Nov 12), so a failed build gets one more try.
+        run: |
+          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon ||
+            { echo "Build failed, trying once more"; sleep 30; ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon; }
 
       # ── The phone: an emulator, Maestro, and the flows ──────────────────────────
       - name: Install Maestro
