@@ -1,4 +1,4 @@
-import { MARK_BOUNDARY, ROAD_CONTOUR, ROAD_DISTANCE } from './intro-contours.ts';
+import { ROAD_CONTOUR, ROAD_DISTANCE } from './intro-contours.ts';
 
 export const INTRO_END = 7900;
 export const REVEAL_END = 6450;
@@ -30,17 +30,30 @@ export function roadDrawing(time: number) {
   return d + 'Z';
 }
 
-export function expandedInk(time: number) {
+/**
+ * How far the ink spreads beyond the R's outline. The screen draws the outline
+ * (INK_ENVELOPE) filled plus stroked with round joins at twice this width, which
+ * is the R grown evenly in every direction: a smooth edge at every size. (A union
+ * of disks along sampled points used to leave scalloped spikes as it shrank.)
+ */
+export function inkSpread(time: number) {
   'worklet';
-  const radius = 640 * (1 - progress(time, 4600, 6320));
-  let d = INK_ENVELOPE;
-  // Union of filled disks avoids the self-intersections of a very thick stroke.
-  if (radius > 0.01) {
-    for (const [x, y] of MARK_BOUNDARY) {
-      d += `M${x + radius},${y}a${radius},${radius} 0 1 1 ${-2 * radius},0a${radius},${radius} 0 1 1 ${2 * radius},0Z`;
-    }
-  }
-  return d;
+  return 640 * (1 - progress(time, 4600, 6320));
+}
+
+/**
+ * Dark look only. The road is drawn in light on graphite (a road at night).
+ * When the camera starts pulling back the road dims into the dark, and then the
+ * R lights up around it. Doing it in two steps keeps the colours from passing
+ * through each other as a muddy grey, and keeps the zoomed-in screen dark.
+ */
+export function nightRoadFade(time: number) {
+  'worklet';
+  return progress(time, 4250, 5050);
+}
+export function nightInkRise(time: number) {
+  'worklet';
+  return progress(time, 5450, 6300);
 }
 
 export function sceneTransform(time: number, centerY: number) {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ROAD_CONTOUR, ROAD_DISTANCE } from './intro-contours.ts';
-import { expandedInk, INTRO_END, progress, REVEAL_END, ROAD_CUTOUT, roadDrawing, sceneTransform, UI_START } from './intro-motion.ts';
+import { INTRO_END, inkSpread, nightInkRise, nightRoadFade, progress, REVEAL_END, ROAD_CUTOUT, roadDrawing, sceneTransform, UI_START } from './intro-motion.ts';
 
 test('the road starts empty and completes before the pullback', () => {
   assert.equal(roadDrawing(0), '');
@@ -45,6 +45,22 @@ test('motion settles before controls appear, including the reduced-motion endpoi
   assert.ok(UI_START > REVEAL_END);
   assert.equal(progress(INTRO_END, UI_START, UI_START + 550), 1);
   assert.equal(progress(-100, UI_START, UI_START + 550), 0);
-  assert.doesNotMatch(expandedInk(0), /NaN|Infinity/);
-  assert.doesNotMatch(expandedInk(REVEAL_END), /NaN|Infinity/);
+});
+
+test('the ink shrinks smoothly onto the exact R by the reveal', () => {
+  assert.equal(inkSpread(0), 640);
+  assert.equal(inkSpread(REVEAL_END), 0);
+  let previous = Infinity;
+  for (let t = 0; t <= REVEAL_END; t += 25) {
+    const spread = inkSpread(t);
+    assert.ok(Number.isFinite(spread) && spread <= previous);
+    previous = spread;
+  }
+});
+
+test('in the dark look the road and R finish their colour swap before the exact mark appears', () => {
+  assert.equal(nightRoadFade(0), 0);
+  assert.equal(nightInkRise(0), 0);
+  assert.equal(nightRoadFade(REVEAL_END), 1);
+  assert.equal(nightInkRise(REVEAL_END), 1);
 });
