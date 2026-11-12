@@ -2,14 +2,15 @@
 // AM/PM and the day, then the route (and the driver).
 
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Body, useFont } from '@/components/ui';
 import { clock, formatLongDay } from '@/lib/format';
 import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
-import { colors, fonts, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { fonts, space } from '@/theme/tokens';
 
 export function TripHero({
   label,
@@ -24,6 +25,7 @@ export function TripHero({
   destination: City;
   driver?: string;
 }) {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f, rtl } = useFont();
   const d = new Date(departsAt);
@@ -47,9 +49,9 @@ export function TripHero({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
   time: { fontFamily: fonts.en.bold, fontSize: 56, lineHeight: 62, color: colors.ink, letterSpacing: -1.6 },
   part: { fontSize: 15, color: colors.inkSecondary, flexShrink: 1 },
   route: { fontSize: 22, lineHeight: 30, color: colors.ink },
-});
+}));

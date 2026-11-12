@@ -147,8 +147,8 @@ export default function MyTrips() {
               destination={b.trips.destination}
               departsAt={b.trips.departs_at}
               priceIls={b.trips.price_ils}
-              signal={b.status === 'requested' ? t('status_requested') : undefined}
-              detail={b.status === 'requested' ? undefined : t(`status_${b.status}` as StringKey)}
+              signal={b.status === 'requested' || b.status === 'queued' ? t(`status_${b.status}` as StringKey) : undefined}
+              detail={b.status === 'requested' || b.status === 'queued' ? undefined : t(`status_${b.status}` as StringKey)}
               onPress={(from) => openTrip(b.trips.id, from)}
             />
           ))}

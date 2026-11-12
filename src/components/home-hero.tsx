@@ -27,7 +27,8 @@ import { reliabilityText, type Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { SETTLE_AFTER_HOURS, START_OPENS_MIN } from '@/lib/trip-day';
-import { colors, fonts, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { fonts, space } from '@/theme/tokens';
 
 export type Route = { origin: City; destination: City };
 
@@ -45,6 +46,8 @@ function Big({
   captionSignal?: boolean;
   captionEnd?: ReactNode;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <View style={{ gap: space.xs }}>
@@ -67,6 +70,7 @@ function Big({
 
 /** "Back" at the end of the caption line, for the second step of a question. */
 function BackLink({ onPress }: { onPress: () => void }) {
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   return (
@@ -78,6 +82,8 @@ function BackLink({ onPress }: { onPress: () => void }) {
 
 /** A big heading in place of a number, for states with no time to show. */
 function Heading({ caption, title, signal }: { caption: string; title: string; signal?: boolean }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <View style={{ gap: space.xs }}>
@@ -98,6 +104,7 @@ function RouteLine({ origin, destination, extra }: { origin: City; destination: 
 }
 
 function Buttons({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.buttons}>{children}</View>;
 }
 
@@ -144,6 +151,7 @@ export function SeatBlock({
   now: Date;
   onChanged: () => void;
 }) {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const { time, pm } = timeParts(seat.departsAt);
@@ -298,6 +306,7 @@ type Found = { id: string; departs_at: string; seats_left: number; price_ils: nu
  * (today, else tomorrow), P3 when nothing is posted yet (offer a ride alert).
  */
 export function IdlePassenger({ route, verified }: { route: Route | null; verified: boolean }) {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { session } = useSession();
   const [found, setFound] = useState<{ trip: Found | null; day: 0 | 1; count: number } | null>(null);
@@ -563,6 +572,8 @@ export function RequestBlock({
   now: Date;
   onChanged: () => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const { time, pm } = timeParts(drive.departsAt);
@@ -664,6 +675,8 @@ const RING_C = 2 * Math.PI * 18.5;
  * (riders with an alert waiting); without demand, your usual departure time.
  */
 export function IdleDriver({ route, time, stats }: { route: Route; time: string; stats: Stats | null }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const [demand, setDemand] = useState<{ on_date: string; waiting: number } | null | undefined>(undefined);
@@ -726,7 +739,7 @@ export function IdleDriver({ route, time, stats }: { route: Route; time: string;
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   caption: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
   // Room at the end for the small round arrow Home puts on a hero that opens a screen.
   captionRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.md, paddingEnd: 36 },
@@ -753,4 +766,4 @@ const styles = StyleSheet.create({
   chips: { gap: space.sm },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   statText: { fontSize: 13, color: colors.ink },
-});
+}));

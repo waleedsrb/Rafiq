@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { checkStatus } from './check-status.ts';
+import { checkStatus, slotsFor } from './check-status.ts';
 
 const base = { idVerifiedAt: null, car: null, last: null };
 
@@ -34,4 +34,10 @@ test('a verified ID does not make someone a verified driver', () => {
   const s = checkStatus({ ...base, kind: 'driver', idVerifiedAt: '2026-11-11T10:00:00Z', car: { verifiedAt: null } });
   assert.equal(s.state, 'none');
   assert.equal(s.hasCar, true);
+});
+
+test('a driver with a verified ID sends only licence and car', () => {
+  assert.deepEqual(slotsFor('driver', true), ['licence', 'car']);
+  assert.deepEqual(slotsFor('driver', false), ['id', 'licence', 'car']);
+  assert.deepEqual(slotsFor('passenger', true), ['id']);
 });

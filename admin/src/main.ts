@@ -13,6 +13,12 @@ const supabase = createClient(url ?? 'http://localhost:54321', anonKey ?? 'missi
 
 const SLOTS = { passenger: ['ID card'], driver: ['ID card', 'Driving licence', 'Car and plate'] } as const;
 type Kind = keyof typeof SLOTS;
+const SLOT_NAMES: Record<string, string> = { id: 'ID card', licence: 'Driving licence', car: 'Car and plate' };
+/** "<uid>/licence-123.jpg" -> "Driving licence". */
+function slotLabel(path: string): string | undefined {
+  const file = path.split('/').pop() ?? '';
+  return SLOT_NAMES[file.split('-')[0]];
+}
 
 type Request = {
   id: string;
@@ -251,7 +257,10 @@ function requestCard(r: Request, urlFor: Map<string, string>) {
     ...r.photos.map((path, i) => {
       const src = urlFor.get(path) ?? '';
       // Opens full size in a new tab so you can zoom in on small print.
-      return el('a', { class: 'photo', href: src, target: '_blank', rel: 'noopener' }, el('img', { src, alt: SLOTS[r.kind][i] ?? '' }), SLOTS[r.kind][i] ?? '');
+      // Label by the file name (id-…, licence-…, car-…): a driver whose ID is already
+      // verified sends only licence and car, so the position alone isn't enough.
+      const label = slotLabel(path) ?? SLOTS[r.kind][i] ?? '';
+      return el('a', { class: 'photo', href: src, target: '_blank', rel: 'noopener' }, el('img', { src, alt: label }), label);
     }),
   );
 

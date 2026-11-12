@@ -1,15 +1,18 @@
 // Account tab = "Your profile": who you are, your numbers, and everything that isn't a trip
-// (ID check, car, emergency contact, settings).
+// (car, emergency contact, settings). Steps still to do (photo, ID check, driver check) sit
+// in their own group at the top and disappear once done; the seal by your name stays.
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import * as Updates from 'expo-updates';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { StatsRow } from '@/components/stats-row';
-import { Body, ListRow, TabScreen, ltr, useFont } from '@/components/ui';
+import { Body, IconCircle, ListRow, SectionTitle, TabScreen, ltr, useFont } from '@/components/ui';
+import { accountSteps, type StepKey } from '@/lib/account-steps';
+import type { CheckState } from '@/lib/check-status';
 import { removeAvatar, setAvatar } from '@/lib/avatar';
 import { sendTestCrash } from '@/lib/crash';
 import { askForPhoto } from '@/lib/photo-pick';
@@ -20,11 +23,29 @@ import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import { useCheckStatus } from '@/lib/verification';
 import type { StringKey } from '@/i18n/strings';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
+
+const STEP_TITLE: Record<StepKey, StringKey> = { photo: 'addProfilePhoto', id: 'idCheckRow', driver: 'driverCheckRow' };
+const STEP_SUB: Record<StepKey, StringKey> = { photo: 'stepPhotoSub', id: 'stepIdSub', driver: 'stepDriverSub' };
+
+/** What a step needs: why it's there, or (once sent) where it stands. Clay only when it needs you again. */
+function StepSubtitle({ stepKey, state }: { stepKey: StepKey; state: CheckState }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
+  const { t } = useT();
+  const { f } = useFont();
+  const text = state === 'pending' || state === 'rejected' ? t(`checkState_${state}` as StringKey) : t(STEP_SUB[stepKey]);
+  return (
+    <Text style={[styles.meta, { fontFamily: f.regular }, state === 'rejected' && { color: colors.clay }]}>{text}</Text>
+  );
+}
 
 type Extra = { created_at: string; emergency_name: string | null };
 
 export default function Account() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const { profile, session, refreshProfile } = useSession();
@@ -93,6 +114,18 @@ export default function Account() {
     : null;
   const role = car ? t('rolePassengerDriver') : t('rolePassenger');
 
+  // Steps still to do; each one leaves the list once it's done.
+  const steps = accountSteps({
+    hasPhoto: !!avatarPath,
+    id: idCheck?.state ?? null,
+    driver: driverCheck?.state ?? null,
+    hasCar: !!car,
+  });
+  function openStep(key: StepKey) {
+    if (key === 'photo') editPhoto();
+    else router.push({ pathname: '/verify', params: { kind: key === 'driver' ? 'driver' : 'passenger' } });
+  }
+
   return (
     <TabScreen
       title={t('yourProfile')}
@@ -129,32 +162,33 @@ export default function Account() {
         </>
       }
     >
+      {steps.length > 0 ? (
+        <View style={styles.steps}>
+          <View style={styles.stepsHead}>
+            <SectionTitle>{t('stepsTitle')}</SectionTitle>
+            <Text style={[styles.meta, { fontFamily: f.regular }]}>{t('stepsLeft').replace('{n}', String(steps.length))}</Text>
+          </View>
+          {steps.map((step, i) => (
+            <ListRow
+              key={step.key}
+              last={i === steps.length - 1}
+              leading={<IconCircle letter={String(i + 1)} />}
+              title={t(STEP_TITLE[step.key])}
+              subtitle={<StepSubtitle stepKey={step.key} state={step.state} />}
+              onPress={() => openStep(step.key)}
+            />
+          ))}
+        </View>
+      ) : null}
       <View>
-        {avatarPath ? null : (
-          <ListRow icon="camera" title={t('addProfilePhoto')} subtitle={t('profilePhotoWhy')} onPress={editPhoto} />
-        )}
         <ListRow
           icon="carProfile"
           title={car ? t('myCar') : t('addYourCar')}
           subtitle={car ? `${car.car_model} · ${car.car_color} · ${ltr(car.plate)}` : undefined}
           onPress={() => router.push('/car')}
         />
-        <ListRow
-          icon="identificationCard"
-          title={t('idCheckRow')}
-          subtitle={idCheck ? t(`checkState_${idCheck.state}` as StringKey) : undefined}
-          onPress={() => router.push({ pathname: '/verify', params: { kind: 'passenger' } })}
-        />
         {car ? (
           <ListRow icon="wallet" title={t('earningsTitle')} subtitle={t('earningsRowSub')} onPress={() => router.push('/earnings')} />
-        ) : null}
-        {car ? (
-          <ListRow
-            icon="sealCheck"
-            title={t('driverCheckRow')}
-            subtitle={driverCheck ? t(`checkState_${driverCheck.state}` as StringKey) : undefined}
-            onPress={() => router.push({ pathname: '/verify', params: { kind: 'driver' } })}
-          />
         ) : null}
         <ListRow
           icon="shieldCheck"
@@ -189,7 +223,9 @@ function buildLabel() {
   return `${sha}${when}`;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
+  steps: { marginBottom: space.lg },
+  stepsHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   build: { fontSize: 11, color: colors.inkSecondary, textAlign: 'center', marginTop: space.lg },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -208,4 +244,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

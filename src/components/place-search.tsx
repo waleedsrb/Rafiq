@@ -19,7 +19,8 @@ import { place, placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
-import { colors, radii, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, space } from '@/theme/tokens';
 
 export type End = 'origin' | 'destination';
 type Region = 'west_bank' | 'settlement' | 'jerusalem' | 'outside';
@@ -85,6 +86,8 @@ export function PlaceFields({
   /** The field lost its caret (a tap outside it, the keyboard's own dismiss). */
   onBlur?: () => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f, rtl, direction } = useFont();
   const field = (end: End) => {
@@ -147,6 +150,8 @@ export function PlaceFields({
  * place; the end at the other side is left out, so a route can't be A to A.
  */
 export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch; exclude?: City; onPick: (id: City) => void }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f, direction } = useFont();
   const hits = search.hits?.filter((h) => h.id !== exclude) ?? null;
@@ -219,13 +224,13 @@ export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch;
 /** Height PlaceFields takes (two fields and the gap): the search header grows by this. */
 export const PLACE_FIELDS_H = 44 * 2 + 6;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   fields: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
   dots: { width: 20, alignItems: 'center', justifyContent: 'center', gap: 3 },
   dotStart: { width: 10, height: 10, borderRadius: 5, borderWidth: 2.5, borderColor: colors.ink, backgroundColor: colors.card },
   dotLine: { width: 1.5, height: 30, backgroundColor: colors.lineStrong },
   dotEnd: { width: 10, height: 10, borderRadius: 2, backgroundColor: colors.ink },
-  field: { height: 44, borderRadius: 22, backgroundColor: 'rgba(23,25,28,0.05)', paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  field: { height: 44, borderRadius: 22, backgroundColor: colors.fill, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
   fieldOn: { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.ink, paddingHorizontal: 12 },
   fieldText: { flex: 1, fontSize: 15, color: colors.ink },
   input: { flex: 1, fontSize: 15, color: colors.ink, paddingVertical: 0 },
@@ -236,4 +241,4 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 13, color: colors.inkSecondary },
   flag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.capsule, backgroundColor: colors.sunken },
   flagText: { fontSize: 12, color: colors.inkSecondary },
-});
+}));

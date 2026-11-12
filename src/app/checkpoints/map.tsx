@@ -8,9 +8,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckpointsMap, RouteMap } from '@/components/route-map';
 import { BackButton, TopBar } from '@/components/ui';
 import type { City } from '@/lib/trip-form';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export default function FullMap() {
+  const { c: colors } = useTheme();
   const params = useLocalSearchParams<{ origin?: City; destination?: City; checkpoints?: string }>();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();

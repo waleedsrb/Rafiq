@@ -8,10 +8,11 @@ import { LAUNCH_FADE } from '@/components/launch-timing';
 import { RoadReveal } from '@/components/road-reveal';
 import { markLaunchSeen, readLaunchMode, type LaunchMode } from '@/lib/launch-state';
 import { useT } from '@/lib/session';
-import { colors } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
 
 /** Mounted once above the navigator, never in response to AppState or a route. */
 export function LaunchGate({ loading, children }: { loading: boolean; children: ReactNode }) {
+  const styles = useStyles();
   const { t } = useT();
   const reduced = useReducedMotion();
   const [mode, setMode] = useState<LaunchMode | null>(null);
@@ -59,9 +60,10 @@ export function LaunchGate({ loading, children }: { loading: boolean; children: 
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.ink },
+const useStyles = makeStyles((colors) => ({
+  // Graphite in both looks, like the native splash it takes over from.
+  root: { flex: 1, backgroundColor: colors.graphite },
   content: { flex: 1 },
   concealed: { display: 'none' },
-  cover: { backgroundColor: colors.ink },
-});
+  cover: { backgroundColor: colors.graphite },
+}));

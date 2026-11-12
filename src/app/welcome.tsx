@@ -40,7 +40,9 @@ import { selectFeel } from '@/lib/haptics';
 import { useSession, useT } from '@/lib/session';
 import { appleSignInAvailable, signInWithApple, signInWithGoogle, type SignInResult } from '@/lib/social-sign-in';
 import { track } from '@/lib/track';
-import { colors, fonts, radii, sizes, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { light } from '@/theme/palettes';
+import { fonts, radii, sizes, space } from '@/theme/tokens';
 
 const STORIES = [
   { title: 'story1Title', body: 'story1Body' },
@@ -50,9 +52,10 @@ const STORIES = [
 ] as const;
 const STORY_MS = 4500;
 
-// The card is graphite, so it has its own quiet palette.
+// The card is graphite in both looks (light and dark), so it has its own quiet palette
+// and white text (colors.white, not onInk, which turns dark in dark mode).
 const card = {
-  bg: colors.ink,
+  bg: light.graphite,
   raised: '#2E3136',
   line: '#3E4147',
   dim: '#5A5D63',
@@ -65,6 +68,7 @@ const card = {
 const calm = Easing.bezier(0.2, 0.8, 0.2, 1);
 
 export default function Welcome() {
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const { setChosenLanguage } = useSession();
@@ -127,6 +131,7 @@ export default function Welcome() {
 
 /** The graphite card that plays the four stories. */
 function StoryCard() {
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl } = useFont();
   const { height } = useWindowDimensions();
@@ -189,6 +194,7 @@ function StoryCard() {
 }
 
 function Segment({ state, progress }: { state: 'done' | 'now' | 'next'; progress: SharedValue<number> }) {
+  const styles = useStyles();
   const fill = useAnimatedStyle(() => ({
     width: `${(state === 'done' ? 1 : state === 'now' ? progress.value : 0) * 100}%`,
   }));
@@ -201,6 +207,8 @@ function Segment({ state, progress }: { state: 'done' | 'now' | 'next'; progress
 
 /** Story 1: a car glides from Ramallah to Nablus while your seat fills in. */
 function SeatStory() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl } = useFont();
   const drive = useSharedValue(0);
@@ -225,7 +233,7 @@ function SeatStory() {
         <Text style={[styles.cardLabel, { fontFamily: f.medium }]}>{t('nablus')}</Text>
       </View>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-        <View style={[styles.seat, { backgroundColor: colors.onInk }]} />
+        <View style={[styles.seat, { backgroundColor: colors.white }]} />
         <View style={[styles.seat, styles.seatEmpty]}>
           <Animated.View entering={ZoomIn.delay(650).duration(260).easing(calm)} style={[styles.seat, styles.seatMine]}>
             <Icon name="check" size={18} color={card.bg} />
@@ -243,6 +251,8 @@ function SeatStory() {
 
 /** Story 2: the driver's checks tick in one by one, then the plate writes itself. */
 function DriverStory() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   const checks: [IconName, 'idVerified' | 'licenseVerified' | 'carVerified'][] = [
@@ -263,7 +273,7 @@ function DriverStory() {
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {checks.map(([icon, key], k) => (
           <Animated.View key={key} entering={FadeInDown.delay(380 + k * 140).duration(280).easing(calm)} style={styles.checkChip}>
-            <Icon name={icon} size={12} color={colors.onInk} />
+            <Icon name={icon} size={12} color={colors.white} />
             <Text style={[styles.checkText, { fontFamily: f.medium }]}>{t(key)}</Text>
           </Animated.View>
         ))}
@@ -277,6 +287,7 @@ function DriverStory() {
 
 /** Story 3: a car rolls down the road and each checkpoint lights up as it passes. */
 function CheckpointStory() {
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   const ROAD = 200;
@@ -312,6 +323,7 @@ function CheckpointStory() {
 }
 
 function CpPill({ name, status, color, delay, f }: { name: string; status: string; color: string; delay: number; f: string }) {
+  const styles = useStyles();
   return (
     <Animated.View entering={FadeIn.delay(delay).duration(260)} style={styles.cpPill}>
       <Text numberOfLines={1} style={[styles.cpText, { fontFamily: f }]}>
@@ -323,6 +335,7 @@ function CpPill({ name, status, color, delay, f }: { name: string; status: strin
 
 /** A status dot with a soft ring that breathes out from it. */
 function Pulse({ color, delay = 0 }: { color: string; delay?: number }) {
+  const styles = useStyles();
   const ring = useSharedValue(0);
   useEffect(() => {
     ring.value = withDelay(delay, withRepeat(withTiming(1, { duration: 1600, easing: Easing.out(Easing.quad) }), -1));
@@ -338,6 +351,8 @@ function Pulse({ color, delay = 0 }: { color: string; delay?: number }) {
 
 /** Story 4: three riders slide together, and the women-only badge pops in. */
 function WomenStory() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl } = useFont();
   const breathe = useSharedValue(0);
@@ -360,7 +375,7 @@ function WomenStory() {
                 .easing(calm)}
               style={[styles.person, k > 0 && { marginStart: -16 }, { backgroundColor: k === 1 ? card.line : card.raised }]}
             >
-              <Icon name="user" size={26} color={colors.onInk} />
+              <Icon name="user" size={26} color={colors.white} />
             </Animated.View>
           ))}
         </View>
@@ -374,6 +389,7 @@ function WomenStory() {
 }
 
 function FemaleIcon() {
+  const { c: colors } = useTheme();
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth={2} strokeLinecap="round">
       <Circle cx={12} cy={9} r={5} />
@@ -383,6 +399,7 @@ function FemaleIcon() {
 }
 
 function AppleIcon() {
+  const { c: colors } = useTheme();
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill={colors.ink}>
       <Path d="M16.5 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.9-3-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 6.9 1.2 9.1.8 1.1 1.7 2.3 2.9 2.3 1.1 0 1.6-.7 3-.7s1.8.7 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.7zM14.3 5.8c.6-.8 1.1-1.8 1-2.8-.9 0-2 .6-2.6 1.4-.6.7-1.1 1.7-1 2.7 1 .1 2-.5 2.6-1.3z" />
@@ -459,6 +476,8 @@ function WayButton({
   busy?: boolean;
   onPress: () => void;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { f } = useFont();
   return (
     <Pressable
@@ -474,7 +493,7 @@ function WayButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wordmark: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   markWrap: { alignSelf: 'center' },
   wordmarkAr: { fontSize: 22, color: colors.ink },
@@ -503,13 +522,13 @@ const styles = StyleSheet.create({
   },
   segments: { flexDirection: 'row', gap: 4 },
   segment: { flex: 1, height: 3, borderRadius: 2, backgroundColor: card.line, overflow: 'hidden' },
-  segmentFill: { height: 3, borderRadius: 2, backgroundColor: colors.onInk },
+  segmentFill: { height: 3, borderRadius: 2, backgroundColor: colors.white },
   stage: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  storyTitle: { fontSize: 24, lineHeight: 32, color: colors.onInk, letterSpacing: -0.3 },
+  storyTitle: { fontSize: 24, lineHeight: 32, color: colors.white, letterSpacing: -0.3 },
   storyBody: { fontSize: 14, lineHeight: 22, color: card.muted },
   cardLabel: { fontSize: 13, color: card.muted },
 
-  heroTime: { fontFamily: fonts.en.bold, fontSize: 56, lineHeight: 60, color: colors.onInk, letterSpacing: -1.6 },
+  heroTime: { fontFamily: fonts.en.bold, fontSize: 56, lineHeight: 60, color: colors.white, letterSpacing: -1.6 },
   dottedRoad: { height: 0, borderTopWidth: 2, borderColor: card.dim, borderStyle: 'dashed' },
   carChip: {
     position: 'absolute',
@@ -517,13 +536,13 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: colors.onInk,
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   seat: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   seatEmpty: { borderWidth: 1.5, borderColor: card.dim, borderStyle: 'dashed' },
-  seatMine: { position: 'absolute', top: -1.5, start: -1.5, backgroundColor: colors.onInk },
+  seatMine: { position: 'absolute', top: -1.5, start: -1.5, backgroundColor: colors.white },
   priceChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -533,10 +552,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: card.line,
   },
-  priceText: { fontSize: 13, color: colors.onInk },
+  priceText: { fontSize: 13, color: colors.white },
 
   avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: card.raised, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 30, color: colors.onInk },
+  avatarText: { fontSize: 30, color: colors.white },
   avatarBadge: {
     position: 'absolute',
     bottom: 0,
@@ -544,7 +563,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.onInk,
+    backgroundColor: colors.white,
     borderWidth: 3,
     borderColor: card.bg,
     alignItems: 'center',
@@ -560,7 +579,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  checkText: { fontSize: 11, color: colors.onInk },
+  checkText: { fontSize: 11, color: colors.white },
   plateWrap: { marginTop: 4, borderRadius: 6, overflow: 'hidden' },
 
   road: { position: 'absolute', top: 0, bottom: 0, start: 149, width: 2, backgroundColor: card.dim },
@@ -574,7 +593,7 @@ const styles = StyleSheet.create({
     backgroundColor: card.bg,
     justifyContent: 'center',
   },
-  cpText: { fontSize: 12, color: colors.onInk },
+  cpText: { fontSize: 12, color: colors.white },
   pulseBox: { width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
   pulseRing: { position: 'absolute', width: 14, height: 14, borderRadius: 7 },
   pulseDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: card.bg },
@@ -585,7 +604,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.onInk,
+    backgroundColor: colors.white,
     borderWidth: 2,
     borderColor: card.bg,
     alignItems: 'center',
@@ -607,7 +626,7 @@ const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 16,
     borderRadius: 18,
-    backgroundColor: colors.onInk,
+    backgroundColor: colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -629,4 +648,4 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   wayText: { fontSize: 14, color: colors.ink },
-});
+}));

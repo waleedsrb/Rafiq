@@ -1,8 +1,9 @@
 // Driver: add or edit your car. Required before posting a trip
 // (the database refuses a trip without one: see require_car()).
 
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { PlateArt } from '@/components/plate-art';
@@ -12,7 +13,8 @@ import { goBack } from '@/lib/nav';
 import { normalizePlate } from '@/lib/plate';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 // Common car colours as swatches; "another colour" opens a text field.
 const SWATCHES: { key: StringKey; hex: string }[] = [
@@ -25,6 +27,7 @@ const SWATCHES: { key: StringKey; hex: string }[] = [
 ];
 
 export default function Car() {
+  const styles = useStyles();
   const { t } = useT();
   const { session } = useSession();
   const [model, setModel] = useState('');
@@ -74,9 +77,15 @@ export default function Car() {
       plate: normalized,
       updated_at: new Date().toISOString(),
     });
+    if (err) {
+      setSaving(false);
+      return setError(t('somethingWrong'));
+    }
+    // A new car (or a changed one) needs the driver check: go straight to its photos.
+    const { data } = await supabase.from('driver_details').select('verified_at').eq('driver_id', session.user.id).maybeSingle();
     setSaving(false);
-    if (err) return setError(t('somethingWrong'));
-    goBack();
+    if (data && !data.verified_at) router.replace({ pathname: '/verify', params: { kind: 'driver' } });
+    else goBack();
   }
 
   return (
@@ -158,11 +167,11 @@ export default function Car() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   swatchRing: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   swatchRingOn: { borderColor: colors.ink },
   swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.lineStrong },
   swatchOther: { backgroundColor: colors.sunken, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
   preview: { alignItems: 'center', gap: space.sm, marginTop: space.sm },
-});
+}));

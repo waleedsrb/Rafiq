@@ -11,6 +11,16 @@ export const PHOTO_SLOTS = {
 } as const satisfies Record<CheckKind, readonly string[]>;
 export type PhotoSlot = (typeof PHOTO_SLOTS)[CheckKind][number];
 
+/**
+ * The photos to ask for right now. A driver whose ID is already verified (as a passenger)
+ * sends only the licence and the car: no need to send the ID twice. The database checks
+ * the same rule (20261111203000_driver_check_skips_id.sql).
+ */
+export function slotsFor(kind: CheckKind, idVerified: boolean): readonly PhotoSlot[] {
+  if (kind === 'driver' && idVerified) return PHOTO_SLOTS.driver.filter((s) => s !== 'id');
+  return PHOTO_SLOTS[kind];
+}
+
 export type CheckStatus = {
   state: CheckState;
   reason: string | null; // why it was rejected

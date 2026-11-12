@@ -2,14 +2,14 @@
 // Used under a driver's or passenger's name wherever someone decides whether to ride.
 
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { ltr, useFont } from '@/components/ui';
 import { useT } from '@/lib/session';
 import { isNew, ratingText, reliabilityText, tripsKey, type Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 /** Stats for a list of people, keyed by person id. */
 export function usePeopleStats(ids: string[]) {
@@ -49,6 +49,8 @@ export function StatsLine({
   /** "Founding driver" helps a rider pick a driver; it means nothing to a driver choosing riders. */
   showBadge?: boolean;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   if (!stats) return null;
@@ -78,8 +80,8 @@ export function StatsLine({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   text: { fontSize: 14, color: colors.inkSecondary, flexShrink: 1 },
   fixed: { flexShrink: 0 },
-});
+}));

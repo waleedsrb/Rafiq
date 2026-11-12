@@ -4,7 +4,7 @@
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { Body, Button, IconCircle, Screen, Title, useFont } from '@/components/ui';
@@ -13,23 +13,28 @@ import { goBack } from '@/lib/nav';
 import { askForPhoto, type Picked } from '@/lib/photo-pick';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { PHOTO_SLOTS, uploadCheckPhoto, useCheckStatus, type CheckKind, type PhotoSlot } from '@/lib/verification';
-import { colors, radii, space } from '@/theme/tokens';
+import { slotsFor, uploadCheckPhoto, useCheckStatus, type CheckKind, type PhotoSlot } from '@/lib/verification';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, space } from '@/theme/tokens';
 
 const SLOT_ICON: Record<PhotoSlot, IconName> = { id: 'identificationCard', licence: 'identificationCard', car: 'car' };
 
 export default function Verify() {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const params = useLocalSearchParams<{ kind?: string }>();
   const kind: CheckKind = params.kind === 'driver' ? 'driver' : 'passenger';
   const { t } = useT();
   const { f } = useFont();
-  const { session, refreshProfile } = useSession();
+  const { session, profile, refreshProfile } = useSession();
   const { status, reload } = useCheckStatus(session?.user.id, kind);
   const [photos, setPhotos] = useState<Partial<Record<PhotoSlot, Picked>>>({});
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const slots = PHOTO_SLOTS[kind];
+  // ID already verified? A driver then sends only the licence and car.
+  const idVerified = !!profile?.id_verified_at;
+  const slots = slotsFor(kind, idVerified);
   const allPicked = slots.every((s) => photos[s]);
 
   // Take or choose the photo for one slot (camera/photos pop-up first on a phone).
@@ -103,7 +108,7 @@ export default function Verify() {
       }
     >
       <Title>{t(kind === 'driver' ? 'verifyDriverTitle' : 'verifyPassengerTitle')}</Title>
-      <Body muted>{t(kind === 'driver' ? 'verifyDriverBody' : 'verifyPassengerBody')}</Body>
+      <Body muted>{t(kind === 'driver' ? (idVerified ? 'verifyDriverBodyIdDone' : 'verifyDriverBody') : 'verifyPassengerBody')}</Body>
 
       {status.state === 'rejected' ? (
         <View style={styles.rejected}>
@@ -161,7 +166,7 @@ export default function Verify() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   statusBlock: { alignItems: 'center', gap: space.md, paddingTop: space.xl },
   rejected: { backgroundColor: colors.claySoft, borderRadius: radii.md, padding: space.md, gap: 4 },
   slot: {
@@ -181,4 +186,4 @@ const styles = StyleSheet.create({
   slotAction: { alignItems: 'center', gap: 6 },
   slotSub: { fontSize: 14, color: colors.inkSecondary },
   privacy: { alignItems: 'center', gap: space.sm, marginTop: space.xs },
-});
+}));

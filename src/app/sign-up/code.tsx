@@ -1,18 +1,20 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { Body, Screen, TextLink, Title, ltr } from '@/components/ui';
 import { formatPhone } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/lib/track';
-import { colors, fonts, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { fonts, space } from '@/theme/tokens';
 
 const LENGTH = 6;
 const RESEND_AFTER = 45; // seconds before the person may ask for a new code
 
 export default function CodeStep() {
+  const styles = useStyles();
   const { t } = useT();
   // Arrives with either a phone (SMS code) or an email (emailed code).
   const { phone, email } = useLocalSearchParams<{ phone?: string; email?: string }>();
@@ -116,7 +118,7 @@ export default function CodeStep() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   boxes: { flexDirection: 'row', direction: 'ltr', justifyContent: 'space-between', marginTop: space.md },
   box: {
     width: 48,
@@ -131,4 +133,4 @@ const styles = StyleSheet.create({
   boxActive: { borderWidth: 2, borderColor: colors.ink },
   digit: { fontFamily: fonts.en.bold, fontSize: 24, color: colors.ink },
   hiddenInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.011, color: 'transparent' },
-});
+}));

@@ -2,16 +2,21 @@
 // marks the pickup. The pin never moves; the map slides under it (like Apple Maps'
 // "move the map to adjust"), so it's easy to place with one thumb.
 //
-// The map only covers the part of the screen above the trip card, so its middle (where
-// the pin sits, and what onMove reports: the region's centre) is what you can actually see.
+// The map fills the whole screen, like the route map on a trip, so it is still there behind
+// the card when the card is folded down to its bar. (It used to stop at the card's top edge,
+// which left a bare grey block under it once the card was folded away.) The pin, though,
+// sits in the middle of the part you can see above the card at its middle height, so what
+// onMove reports is the point under the pin's tip, not the map's centre.
 
 import { useEffect, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import MapView from 'react-native-maps';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import MapView, { type Region } from 'react-native-maps';
 
 import { Icon } from '@/components/icon';
 import type { LatLng } from '@/lib/places';
-import { colors, shadows } from '@/theme/tokens';
+import { NIGHT as NIGHT_MAP } from '@/components/route-map';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { shadows } from '@/theme/tokens';
 
 // About 600 m across: close enough to see the street, far enough to see the square.
 const SPAN = 0.006;
@@ -28,29 +33,52 @@ export function PickupMap({
   /** Where the card starts (window y): the map stops there. */
   visibleBottom: number;
 }) {
+  const { dark: themeDark } = useTheme();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const ref = useRef<MapView>(null);
-  const height = visibleBottom + 28; // the card's rounded corners overlap the map a little
+  const { width: W, height: H } = useWindowDimensions();
+  // The pin's tip: the middle of what you see above the card (whose rounded corners overlap
+  // the map a little), so it is where the old, shorter map had its centre.
+  const tipY = (visibleBottom + 28) / 2;
+  // How far the tip is above the map's centre, in points.
+  const above = H / 2 - tipY;
+  // Degrees of latitude per point. The map reports its real span as it moves; until then,
+  // work it out from the width (the map fits SPAN across, and a degree of latitude is
+  // longer on screen than one of longitude by 1/cos(latitude)).
+  const perPt = useRef(degPerPt(center.latitude, W));
+  const centreFor = (at: LatLng): Region => ({
+    latitude: at.latitude - above * perPt.current,
+    longitude: at.longitude,
+    latitudeDelta: SPAN * (H / W),
+    longitudeDelta: SPAN,
+  });
 
   useEffect(() => {
-    ref.current?.animateToRegion({ ...center, latitudeDelta: SPAN, longitudeDelta: SPAN }, 280);
+    ref.current?.animateToRegion(centreFor(center), 280);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [center.key]);
 
   return (
-    <View style={{ height, backgroundColor: colors.sunken }}>
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.sunken }]}>
       <MapView
         ref={ref}
         style={StyleSheet.absoluteFill}
-        initialRegion={{ ...center, latitudeDelta: SPAN, longitudeDelta: SPAN }}
+        initialRegion={centreFor(center)}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
+        userInterfaceStyle={themeDark ? 'dark' : 'light'}
+        customMapStyle={Platform.OS === 'android' && themeDark ? NIGHT_MAP : undefined}
         rotateEnabled={false}
         pitchEnabled={false}
         toolbarEnabled={false}
         showsBuildings={false}
         showsTraffic={false}
-        onRegionChangeComplete={(r) => onMove({ latitude: r.latitude, longitude: r.longitude })}
+        onRegionChangeComplete={(r) => {
+          if (r.latitudeDelta > 0) perPt.current = r.latitudeDelta / H;
+          onMove({ latitude: r.latitude + above * perPt.current, longitude: r.longitude });
+        }}
       />
-      <View pointerEvents="none" style={[styles.pinWrap, { top: height / 2 - PIN }]}>
+      <View pointerEvents="none" style={[styles.pinWrap, { top: tipY - PIN }]}>
         <View style={styles.pin}>
           <Icon name="mapPin" size={22} color={colors.onInk} />
         </View>
@@ -61,8 +89,11 @@ export function PickupMap({
   );
 }
 
+/** Degrees of latitude per point on a map SPAN degrees of longitude wide. */
+const degPerPt = (latitude: number, width: number) => (SPAN / width) * Math.cos((latitude * Math.PI) / 180);
+
 const PIN = 52; // from the pin's top to its point
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   pinWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   pin: {
     width: 40,
@@ -76,5 +107,5 @@ const styles = StyleSheet.create({
     ...shadows.float,
   },
   stem: { width: 3, height: 12, backgroundColor: colors.ink },
-  dot: { width: 8, height: 4, borderRadius: 4, backgroundColor: 'rgba(23,25,28,0.3)' },
-});
+  dot: { width: 8, height: 4, borderRadius: 4, backgroundColor: colors.scrim },
+}));

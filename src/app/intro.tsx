@@ -3,15 +3,18 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RafiqMark, MARK_RATIO } from '@/components/rafiq-mark';
 import { Button, useFont } from '@/components/ui';
 import { useT } from '@/lib/session';
-import { colors, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export default function Intro() {
+  const { dark: themeDark } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
   const { width, height } = useWindowDimensions();
@@ -22,7 +25,7 @@ export default function Intro() {
   const markHeight = 615 * 0.225 * width / 360;
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style={themeDark ? 'light' : 'dark'} />
       <View style={{ position: 'absolute', top: centerY * width / 360 - markHeight / 2, left: (width - markHeight * MARK_RATIO) / 2 }}>
         <RafiqMark size={markHeight} />
       </View>
@@ -45,11 +48,11 @@ export default function Intro() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.surface },
   ui: { position: 'absolute', left: space.lg, right: space.lg, gap: 10 },
   name: { fontSize: 40, lineHeight: 48, color: colors.ink, textAlign: 'center', letterSpacing: -0.4 },
   line: { fontSize: 16, lineHeight: 24, color: colors.inkSecondary, textAlign: 'center', marginBottom: 18 },
   secondary: { height: 44, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { fontSize: 16, color: colors.ink },
-});
+}));

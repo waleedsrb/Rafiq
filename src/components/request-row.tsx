@@ -14,7 +14,8 @@ import { StatsLine } from '@/components/stats-line';
 import { ltr, useFont } from '@/components/ui';
 import type { Stats } from '@/lib/stats';
 import { useT } from '@/lib/session';
-import { colors, fonts, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { fonts, space } from '@/theme/tokens';
 
 const AVATAR = 44;
 const RING = 54;
@@ -51,6 +52,8 @@ export function RequestRow({
   accepting: boolean;
   disabled: boolean;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl } = useFont();
   const left = Math.max(0, Math.min(1, progress));
@@ -127,7 +130,7 @@ export function RequestRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: space.sm },
   ring: { width: RING, height: RING, alignItems: 'center', justifyContent: 'center' },
   left: {
@@ -164,4 +167,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   acceptText: { fontSize: 15, color: colors.onInk },
-});
+}));

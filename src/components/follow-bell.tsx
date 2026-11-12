@@ -1,15 +1,17 @@
 // The bell on a checkpoint: tap it to follow (the bell fills in, gives a little ring and
 // a confirming buzz), tap again to stop following.
 
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
 import { selectFeel, successFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export function FollowBell({ following, onToggle }: { following: boolean; onToggle: () => void }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const scale = useSharedValue(1);
   const tilt = useSharedValue(0);
@@ -50,7 +52,7 @@ export function FollowBell({ following, onToggle }: { following: boolean; onTogg
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   circle: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.sunken, alignItems: 'center', justifyContent: 'center' },
   on: { backgroundColor: colors.ink },
-});
+}));

@@ -15,7 +15,18 @@
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+  type KeyboardEvent,
+} from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -42,7 +53,9 @@ import type { LatLng } from '@/lib/places';
 import type { Rect } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
 import { useScreenCorners } from '@/theme/screen-corners';
-import { colors, fonts, shadows, sizes, space } from '@/theme/tokens';
+import { inkWash, wash } from '@/theme/palettes';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { fonts, shadows, sizes, space } from '@/theme/tokens';
 
 export type Detent = 'mini' | 'mid' | 'full';
 export type SheetAction = { label: string; onPress: () => void; secondary?: boolean; loading?: boolean };
@@ -66,6 +79,8 @@ const STEP_EASE = Easing.bezier(0.2, 0, 0, 1);
 const STEP_SLIDE = 16;
 const STEP_MS = 280;
 const CLOSE = { damping: 30, stiffness: 280, mass: 1, overshootClamping: true };
+// The iOS keyboard's own curve (near enough), so the card rides up with it rather than after it.
+const KB_EASE = Easing.bezier(0.38, 0.7, 0.125, 1);
 // A flick faster than this (points per second) moves one height in that direction.
 const FLICK = 600;
 
@@ -136,6 +151,9 @@ export function TripSheet({
   /** The card can't grow to full height, only drop to the bar (Post a trip's time step, Nov 11). */
   noFull?: boolean;
 }) {
+  const { scheme: themeScheme } = useTheme();
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl, direction } = useFont();
   const insets = useSafeAreaInsets();
@@ -167,6 +185,12 @@ export function TripSheet({
 
   const p = useSharedValue(settled ? 1 : 0);
   const pos = useSharedValue(POS[start]);
+  // The keyboard: how far its top edge is above the bottom of the screen (0 = none). While it
+  // is up, the card's bottom edge sits just above it instead of near the screen's bottom, so a
+  // field you type in (the pickup spot's name) stays on screen. Before, the card stayed put and
+  // the keyboard simply covered its lower half.
+  const kb = useSharedValue(0);
+  const scrollY = useSharedValue(0);
   const dragTop = useSharedValue(0);
   const [at, setAt] = useState<Detent>(start);
   const [moving, setMoving] = useState(false);
@@ -195,9 +219,10 @@ export function TripSheet({
   // The card's frame at a height.
   const frameAt = (v: number) => {
     'worklet';
+    const bottom = Math.max(cardBottom, kb.value + M);
     if (v >= 1) {
       const top = topOf(v);
-      return { top, left: M, width: W - 2 * M, height: H - cardBottom - top, radius: R };
+      return { top, left: M, width: W - 2 * M, height: H - bottom - top, radius: R };
     }
     const k = Math.max(0, v);
     const mix = (a: number, b: number) => a + (b - a) * k;
@@ -205,12 +230,15 @@ export function TripSheet({
       top: mix(barTop, midTop),
       left: mix(BAR_SIDE, M),
       width: mix(W - 2 * BAR_SIDE, W - 2 * M),
-      height: mix(BAR_H, H - cardBottom - midTop),
+      height: mix(BAR_H, H - bottom - midTop),
       radius: mix(BAR_H / 2, R),
     };
   };
 
+  // Where the card is, or is on its way to (a step asking for room, the keyboard).
+  const aim = useRef<Detent>(start);
   const landed = (d: Detent) => {
+    aim.current = d;
     setAt(d);
     setMoving(false);
   };
@@ -225,6 +253,7 @@ export function TripSheet({
         });
   };
   const moveTo = (d: Detent, soft = false) => {
+    aim.current = d;
     setMoving(true);
     goTo(d, soft);
   };
@@ -255,8 +284,62 @@ export function TripSheet({
     if (noFull && at === 'full') moveTo('mid', true);
   }, [noFull]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Drag the card (by its top or the bar) between the three heights.
-  const startMove = () => setMoving(true);
+  // The keyboard coming up gives the card the full height (at the middle height only a sliver
+  // would be left above the keyboard), then scrolls the field you're typing in into view; when
+  // it goes, the card goes back to the height it had. iOS only: Android resizes the window.
+  const kbMoved = useRef<Detent | null>(null);
+  const kbTop = useRef(0);
+  const footNow = useRef(0);
+  footNow.current = footer ? footH : 0;
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    let reveal: ReturnType<typeof setTimeout> | null = null;
+    const show = (e: KeyboardEvent) => {
+      const lift = Math.max(0, H - e.endCoordinates.screenY);
+      const duration = e.duration || 250;
+      kbTop.current = lift;
+      kb.value = withTiming(lift, { duration, easing: KB_EASE });
+      if (lift > 0 && !noFull && aim.current === 'mid') {
+        kbMoved.current = 'mid';
+        moveTo('full', true);
+      }
+      if (reveal) clearTimeout(reveal);
+      reveal = setTimeout(revealFocused, Math.max(duration, 380) + 40);
+    };
+    const hide = (e: KeyboardEvent) => {
+      kbTop.current = 0;
+      kb.value = withTiming(0, { duration: e.duration || 250, easing: KB_EASE });
+      if (kbMoved.current) {
+        moveTo(kbMoved.current, true);
+        kbMoved.current = null;
+      }
+    };
+    const subs = [Keyboard.addListener('keyboardWillShow', show), Keyboard.addListener('keyboardWillHide', hide)];
+    return () => {
+      subs.forEach((sub) => sub.remove());
+      if (reveal) clearTimeout(reveal);
+    };
+  }, [H, noFull]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Scroll the details just enough that the focused field clears the pinned button above the keyboard.
+  const revealFocused = () => {
+    const input = TextInput.State.currentlyFocusedInput();
+    if (!input) return;
+    input.measureInWindow((_x, y, _w, h) => {
+      const visibleBottom = H - Math.max(cardBottom, kbTop.current + M) - footNow.current - space.md;
+      const over = y + h - visibleBottom;
+      if (over > 0) scrollRef.current?.scrollTo({ y: scrollY.value + over, animated: true });
+    });
+  };
+
+  // Drag the card (by its top or the bar) between the three heights. Dragging it puts the
+  // keyboard away, like an iOS sheet, and the card then stays where you put it.
+  const startMove = () => {
+    setMoving(true);
+    if (kbTop.current > 0) {
+      kbMoved.current = null;
+      Keyboard.dismiss();
+    }
+  };
   const panConfig = {
     enabled: !closing,
     activeOffsetY: [-8, 8] as [number, number],
@@ -293,6 +376,9 @@ export function TripSheet({
 
   // Pull the details down past their top (iOS rubber band) to drop one height.
   const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
     onEndDrag: (e) => {
       if (e.contentOffset.y < -70) {
         runOnJS(startMove)();
@@ -373,6 +459,7 @@ export function TripSheet({
         };
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    Keyboard.dismiss(); // a field on the last step has nothing to type into on this one
   }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const time = shortTime(new Date(departsAt));
 
@@ -418,7 +505,7 @@ export function TripSheet({
                 tintColor={colors.glassTint}
                 // Always the light look: the app is light-only, but the phone's dark mode still
                 // reaches native glass and turned the card and the top buttons a dark grey.
-                colorScheme="light"
+                colorScheme={themeScheme}
                 isInteractive={at === 'mini'}
               />
               <View
@@ -428,7 +515,7 @@ export function TripSheet({
             </>
           ) : (
             <>
-              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              <BlurView intensity={60} tint={themeScheme} style={StyleSheet.absoluteFill} />
               <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
               <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} />
             </>
@@ -533,6 +620,7 @@ export function TripSheet({
 
 /** A step inside the card (Request, Rate, the driver): back arrow and a title. */
 export function StepHeader({ title, kicker, onBack }: { title: string; kicker?: string; onBack: () => void }) {
+  const styles = useStyles();
   const { t } = useT();
   const { f, rtl } = useFont();
   return (
@@ -548,7 +636,7 @@ export function StepHeader({ title, kicker, onBack }: { title: string; kicker?: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   top: { position: 'absolute', left: space.screen, right: space.screen, flexDirection: 'row', justifyContent: 'space-between' },
   card: {
     position: 'absolute',
@@ -557,10 +645,10 @@ const styles = StyleSheet.create({
   clip: {
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderColor: colors.glassEdge,
   },
   full: { position: 'absolute', top: 0, left: 0 },
-  cardFill: { backgroundColor: 'rgba(247,246,243,0.35)' }, // the frosted stand-in, close to the glass's look
+  cardFill: { backgroundColor: wash(colors.surface, 0.35) }, // the frosted stand-in, close to the glass's look
   head: { paddingHorizontal: 18, paddingBottom: space.sm },
   grabZone: { alignSelf: 'center', paddingTop: 8, paddingBottom: 10, paddingHorizontal: 24 },
   grab: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong },
@@ -590,17 +678,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  barButtonQuiet: { backgroundColor: 'rgba(23,25,28,0.07)' },
+  barButtonQuiet: { backgroundColor: colors.fillStrong },
   barButtonText: { fontSize: 14, color: colors.onInk },
   step: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepBack: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(23,25,28,0.06)',
+    backgroundColor: inkWash(colors, 0.06),
     alignItems: 'center',
     justifyContent: 'center',
   },
   kicker: { fontSize: 12, lineHeight: 16, color: colors.inkSecondary },
   stepTitle: { fontSize: 19, lineHeight: 26, color: colors.ink },
-});
+}));

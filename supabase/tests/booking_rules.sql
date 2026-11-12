@@ -72,15 +72,24 @@ select pg_temp.expect_error($$
   update public.bookings set status = 'accepted' where id = '00000000-0000-0000-0000-0000000000b1'
 $$, 'Only the driver');
 
--- The driver accepts the first; the second no longer fits.
+-- One seat: the first ask holds it, the second rider waits in line (seat holds).
+do $$ begin
+  if (select status from public.bookings where id = '00000000-0000-0000-0000-0000000000b2') <> 'queued' then
+    raise exception 'FAIL: second rider should be in line';
+  end if;
+end $$;
+
+-- The driver accepts the first; the one in line can't be accepted past the line.
 select pg_temp.act_as('00000000-0000-0000-0000-00000000000d');
 update public.bookings set status = 'accepted' where id = '00000000-0000-0000-0000-0000000000b1';
 select pg_temp.expect_error($$
   update public.bookings set status = 'accepted' where id = '00000000-0000-0000-0000-0000000000b2'
-$$, 'Not enough seats');
-update public.bookings set status = 'declined' where id = '00000000-0000-0000-0000-0000000000b2';
+$$, 'Cannot move');
 
--- Declined is final.
+-- The rider in line gives up. Cancelled is final.
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a2');
+update public.bookings set status = 'cancelled' where id = '00000000-0000-0000-0000-0000000000b2';
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000d');
 select pg_temp.expect_error($$
   update public.bookings set status = 'accepted' where id = '00000000-0000-0000-0000-0000000000b2'
 $$, 'Cannot move');

@@ -11,7 +11,7 @@
 // /trips/[id] screen for links from notifications.
 
 import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { ContactCard, useContact } from '@/components/contact-card';
@@ -32,19 +32,21 @@ import type { StringKey } from '@/i18n/strings';
 import { photoGate, photoGateText } from '@/lib/avatar';
 import { confirm } from '@/lib/dialog';
 import { formatCountdown, formatDay, formatTime } from '@/lib/format';
-import { useBookingChanges, useTripChanges } from '@/lib/live';
+import { useBookingChanges, useSeatCounts, useTripChanges } from '@/lib/live';
 import { carName, shortName } from '@/lib/names';
 import { pushAfterDialog } from '@/lib/nav';
 import { centreName, routeName } from '@/lib/places';
 import { telLink } from '@/lib/phone';
 import { freeCancel } from '@/lib/rules';
+import { seatView, type SeatKind } from '@/lib/seat-line';
 import { useSession, useT } from '@/lib/session';
 import { openEmergency, shareTrip } from '@/lib/share-trip';
 import { supabase } from '@/lib/supabase';
 import { startOpen, tripState } from '@/lib/trip-day';
 import type { City } from '@/lib/trip-form';
 import { TripOpenerContext, type Rect } from '@/lib/trip-layer';
-import { colors, radii, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radii, space } from '@/theme/tokens';
 
 type Payment = { status: 'held' | 'charged' | 'released' | 'refunded'; total_ils: number; card_brand: string; card_last4: string };
 
@@ -54,6 +56,7 @@ type Trip = {
   origin: City;
   destination: City;
   departs_at: string;
+  seats_total: number;
   price_ils: number;
   cancelled_at: string | null;
   cancelled_late: boolean | null;
@@ -93,6 +96,8 @@ export function TripDetails({
   /** Android back: a step goes back to the details, the details close. */
   backRef?: MutableRefObject<(() => void) | null>;
 }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
   const { session, profile } = useSession();
@@ -105,7 +110,6 @@ export function TripDetails({
   const moveTo = (to: Detent) => setWant((w) => ({ to, key: (w?.key ?? 0) + 1 }));
 
   const [trip, setTrip] = useState<Trip | null>(null);
-  const [seatsLeft, setSeatsLeft] = useState<number | null>(null);
   const [driverVerified, setDriverVerified] = useState(false);
   // Car model and colour, shown while booking (plate only later, see trip_contact()).
   const [car, setCar] = useState<{ car_model: string | null; car_color: string | null } | null>(null);
@@ -124,15 +128,14 @@ export function TripDetails({
 
   const load = useCallback(async () => {
     if (!session || !tripId) return;
-    const [tripRes, seatsRes, bookingRes] = await Promise.all([
+    const [tripRes, bookingRes] = await Promise.all([
       supabase
         .from('trips')
         .select(
-          'id, driver_id, origin, destination, departs_at, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, profiles!trips_driver_id_fkey(display_name, avatar_path), trip_series(weekdays, stopped_at)',
+          'id, driver_id, origin, destination, departs_at, seats_total, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, profiles!trips_driver_id_fkey(display_name, avatar_path), trip_series(weekdays, stopped_at)',
         )
         .eq('id', tripId)
         .single(),
-      supabase.rpc('seats_left', { p_trip_id: tripId }),
       supabase
         .from('bookings')
         .select('id, status, respond_by, accepted_at, created_at, here_at')
@@ -146,7 +149,6 @@ export function TripDetails({
       supabase.rpc('is_verified_driver', { p_driver_id: loaded.driver_id }).then(({ data }) => setDriverVerified(data === true));
       supabase.rpc('public_profile', { p_person: loaded.driver_id }).then(({ data }) => setCar(((data as typeof car[] | null) ?? [])[0] ?? null));
     }
-    setSeatsLeft((seatsRes.data as number | null) ?? null);
     setStatus(bookingRes.data?.status ?? null);
     setBookingId(bookingRes.data?.id ?? null);
     setRespondBy(bookingRes.data?.respond_by ?? null);
@@ -182,6 +184,9 @@ export function TripDetails({
     const timer = setInterval(() => setNow(new Date()), status === 'requested' ? 1000 : 15_000);
     return () => clearInterval(timer);
   }, [status]);
+
+  // Confirmed, waiting and in-line seats, live for everyone looking at this trip.
+  const counts = useSeatCounts(tripId);
 
   const contact = useContact(status === 'accepted' || status === 'completed' ? bookingId : null);
   const stats = usePeopleStats(trip ? [trip.driver_id] : []);
@@ -238,11 +243,12 @@ export function TripDetails({
   async function cancel() {
     if (!trip || !bookingId) return;
     const withdraw = status === 'requested';
+    const leaveLine = status === 'queued';
     const late = status === 'accepted' && !freeCancel(new Date(), new Date(trip.departs_at), acceptedAt ? new Date(acceptedAt) : null);
     const ok = await confirm({
-      title: t(withdraw ? 'withdrawTitle' : late ? 'lateCancelTitle' : 'cancelConfirmTitle'),
-      body: t(withdraw ? 'withdrawBody' : late ? 'lateCancelBody' : 'cancelConfirmBody'),
-      yes: t(withdraw ? 'yesWithdraw' : 'yesCancel'),
+      title: t(leaveLine ? 'leaveLineTitle' : withdraw ? 'withdrawTitle' : late ? 'lateCancelTitle' : 'cancelConfirmTitle'),
+      body: t(leaveLine ? 'leaveLineBody' : withdraw ? 'withdrawBody' : late ? 'lateCancelBody' : 'cancelConfirmBody'),
+      yes: t(leaveLine ? 'yesLeave' : withdraw ? 'yesWithdraw' : 'yesCancel'),
       no: t('keep'),
       // A late cancel costs money: that's a warning. A free one is just a question.
       tone: late ? 'warning' : 'neutral',
@@ -277,11 +283,13 @@ export function TripDetails({
   const driverName = shortName(trip.profiles.display_name);
   const driverStats = stats[trip.driver_id];
   const mine = trip.driver_id === session?.user.id;
-  const canRequest = status === null && !trip.cancelled_at && (seatsLeft ?? 0) > 0 && !mine;
+  const seats = seatView(trip.seats_total, counts);
+  const canRequest = status === null && !trip.cancelled_at && seats.action !== 'full' && !mine;
+  const joinsLine = seats.action === 'line';
   const state = tripState(trip);
   // The driver cancelled a trip I had asked to ride on.
   const driverCancelled = !!trip.cancelled_at && status === 'cancelled';
-  const canCancel = (status === 'requested' || status === 'accepted') && departs > new Date() && state === 'scheduled';
+  const canCancel = (status === 'requested' || status === 'queued' || status === 'accepted') && departs > new Date() && state === 'scheduled';
   // Trip day phases for a confirmed seat.
   const findCar = status === 'accepted' && state === 'scheduled' && startOpen(now, departs);
   const onRoad = status === 'accepted' && state === 'underway';
@@ -357,6 +365,10 @@ export function TripDetails({
       <Body muted small>
         {t('sentRequestTo')} {driverName}
       </Body>
+    ) : status === 'queued' ? (
+      <Body small style={{ fontFamily: f.medium, color: colors.clay }}>
+        {t('youAreInLine')}
+      </Body>
     ) : null;
 
   let countdown = null;
@@ -388,8 +400,8 @@ export function TripDetails({
   );
   const driverRow = (
     <View>
-      {driverLine(!!endedNote || driverCancelled || status === 'requested')}
-      {endedNote || status === 'requested' ? null : (
+      {driverLine(!!endedNote || driverCancelled || status === 'requested' || status === 'queued')}
+      {endedNote || status === 'requested' || status === 'queued' ? null : (
         <>
           {trip.trip_series && !trip.trip_series.stopped_at ? <ListRow icon="calendar" title={repeatsText(trip.trip_series.weekdays)} /> : null}
           {car?.car_model ? <ListRow icon="carProfile" title={carName(car.car_model, car.car_color, lang)} /> : null}
@@ -398,7 +410,7 @@ export function TripDetails({
             <ListRow
               last
               icon="armchair"
-              title={seatsLeft !== null ? (seatsLeft > 0 ? `${ltr(seatsLeft)} ${t('seatsFree')}` : t('full')) : ''}
+              title={seats.free > 0 ? `${ltr(seats.free)} ${t('seatsFree')}` : t('full')}
               subtitle={`${price} ${t('perSeat')}`}
             />
           )}
@@ -455,6 +467,21 @@ export function TripDetails({
       {status === 'accepted' && state === 'scheduled' && !findCar && departs.getTime() - now.getTime() < 3 * 60 * 60 * 1000 ? (
         <Body muted small>
           {t('checkInOpens')}
+        </Body>
+      ) : null}
+
+      {/* Who holds which seat, live: confirmed, waiting for the driver, free. */}
+      {!trip.cancelled_at && !endedNote && state === 'scheduled' && (status === null || status === 'requested' || status === 'queued') ? (
+        <SeatLine seats={seats.seats} inLine={counts?.in_line ?? 0} />
+      ) : null}
+      {status === 'queued' ? (
+        <Body muted small>
+          {t('inLineExplain')}
+        </Body>
+      ) : null}
+      {canRequest && joinsLine ? (
+        <Body muted small>
+          {t('joinLineHint')}
         </Body>
       ) : null}
 
@@ -527,10 +554,17 @@ export function TripDetails({
         <Body muted small style={{ textAlign: 'center' }}>
           {t('detailsAfterAccept')}
         </Body>
-        <Button testID="request-seat" label={`${t('requestSeat')} · ${price}`} onPress={request} />
+        <Button testID="request-seat" label={`${t(joinsLine ? 'joinLine' : 'requestSeat')} · ${price}`} onPress={request} />
       </>
     );
-    mini = { sub: `${route} · ${price}`, action: { label: t('requestSeat'), onPress: request } };
+    mini = { sub: `${route} · ${price}`, action: { label: t(joinsLine ? 'joinLine' : 'requestSeat'), onPress: request } };
+  } else if (canCancel && status === 'queued') {
+    footer = <Button variant="secondary" label={t('leaveLine')} onPress={cancel} loading={sending} />;
+    mini = {
+      sub: t('youAreInLine'),
+      tone: 'clay',
+      action: { label: t('leaveLineShort'), onPress: cancel, secondary: true, loading: sending },
+    };
   } else if (canCancel && status === 'requested') {
     footer = <Button variant="secondary" label={t('withdrawRequest')} onPress={cancel} loading={sending} />;
     mini = {
@@ -598,8 +632,37 @@ export function TripDetails({
   );
 }
 
+/** One slim capsule per seat (confirmed, waiting, free), with the same in words. */
+function SeatLine({ seats, inLine }: { seats: SeatKind[]; inLine: number }) {
+  const styles = useStyles();
+  const { t } = useT();
+  const n = (k: SeatKind) => seats.filter((s) => s === k).length;
+  const words = [
+    n('confirmed') ? `${ltr(n('confirmed'))} ${t('seatConfirmedWord')}` : null,
+    n('waiting') ? `${ltr(n('waiting'))} ${t('seatWaitingWord')}` : null,
+    n('free') ? `${ltr(n('free'))} ${t('seatFreeWord')}` : null,
+    inLine ? `${ltr(inLine)} ${t('inLineCount')}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <View style={styles.seatLine} accessible accessibilityLabel={words}>
+      <View style={styles.seatRow}>
+        {seats.map((s, i) => (
+          <View key={i} style={[styles.seat, s === 'confirmed' ? styles.seatConfirmed : s === 'waiting' ? styles.seatWaiting : styles.seatFree]} />
+        ))}
+      </View>
+      <Body muted small>
+        {words}
+      </Body>
+    </View>
+  );
+}
+
 /** "Verified driver" with the seal, under the driver's name. */
 function VerifiedLine({ founding }: { founding?: boolean }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const { t } = useT();
   return (
     <View style={styles.labelRow}>
@@ -614,9 +677,11 @@ function VerifiedLine({ founding }: { founding?: boolean }) {
 
 /** A calm note in a soft box: what happened, in plain words. */
 export function Note({ text, icon, tone }: { text: string; icon?: IconName; tone?: 'ok' }) {
+  const { c: colors } = useTheme();
+  const styles = useStyles();
   const fg = tone === 'ok' ? colors.statusOpen : colors.inkSecondary;
   return (
-    <View style={[styles.note, { backgroundColor: tone === 'ok' ? colors.statusOpenSoft : 'rgba(23,25,28,0.05)' }]}>
+    <View style={[styles.note, { backgroundColor: tone === 'ok' ? colors.statusOpenSoft : colors.fill }]}>
       {icon ? <Icon name={icon} size={16} color={fg} /> : null}
       <Body small style={{ color: fg, flex: 1 }}>
         {text}
@@ -625,8 +690,14 @@ export function Note({ text, icon, tone }: { text: string; icon?: IconName; tone
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   findCar: { gap: 10, paddingVertical: space.md, alignItems: 'flex-start', borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  seatLine: { gap: 8, paddingVertical: space.sm },
+  seatRow: { flexDirection: 'row', gap: 6 },
+  seat: { flex: 1, height: 8, borderRadius: 4 },
+  seatConfirmed: { backgroundColor: colors.ink },
+  seatWaiting: { backgroundColor: colors.clay },
+  seatFree: { backgroundColor: colors.lineStrong, opacity: 0.45 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: radii.md },
-});
+}));
