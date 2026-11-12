@@ -43,7 +43,14 @@ how we test something that normally takes an hour of waiting.
 ## Running it
 
 On GitHub: the "End-to-end" workflow runs on pull requests that change the app or the
-database, and from the Actions tab (Run workflow). If it fails, open the run and download
+database, after every merge to main, every night, and from the Actions tab (Run workflow).
+Pull requests run the **smoke** set (flows 01-03: post, request, accept); main, the nightly
+run and Run workflow run the **full** set. Locally, `SUITE=smoke bash e2e/run.sh` does the same.
+
+A design-only pull request (colours, spacing, fonts, icons, copy, animation) can skip it
+with the label **design**. The full run still follows on main and that night. Don't use it
+when the change touches what a screen does: buttons, navigation, forms, data, or anything
+a flow taps or reads (search the code for `testID=`). If it fails, open the run and download
 the `e2e-output` artifact: it has screenshots and Maestro's logs for each flow.
 
 On a computer with Docker, Android Studio's emulator and Maestro installed:
