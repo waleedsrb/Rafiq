@@ -150,10 +150,16 @@ export function GlassButton({
   onPress,
   flip,
   iconColor,
+  tint,
   children,
 }: {
   icon?: IconName;
   label: string;
+  /**
+   * Gives the glass a body. Untinted glass over a plain page has nothing behind it to bend and
+   * all but disappears (only a faint rim shows), so a button floating over a flat band needs it.
+   */
+  tint?: string;
   onPress?: () => void;
   flip?: boolean;
   /** Defaults to ink. Clay only when the button signals something (Home's unread bell). */
@@ -177,6 +183,7 @@ export function GlassButton({
         <GlassView
           style={[StyleSheet.absoluteFill, styles.glassInner, { borderRadius: sizes.touch / 2 }]}
           glassEffectStyle="regular"
+          tintColor={tint}
           colorScheme={themeScheme}
           isInteractive
         >

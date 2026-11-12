@@ -140,6 +140,9 @@ export function DayPills({
           <View style={[styles.pin, { end: Math.max(0, inset - 2) }, marked && styles.ring]}>
             <GlassButton
               key={glassKey}
+              // The row's band is the page's own colour: a white body and a hairline edge make
+              // the glass read as a raised button instead of vanishing into it (Waleed, Nov 12).
+              tint={colors.glassFill}
               label={far !== null ? `${t('pickDate')}: ${formatDay(searchDayStart(far, new Date()), lang)}` : t('pickDate')}
               onPress={toggle}
             >
@@ -149,6 +152,7 @@ export function DayPills({
                 <Icon name="calendar" size={20} color={colors.ink} />
               )}
             </GlassButton>
+            {marked ? null : <View pointerEvents="none" style={styles.glassEdge} />}
           </View>
         </View>
         {open ? (
@@ -446,6 +450,8 @@ const useStyles = makeStyles((colors) => ({
   frost: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong },
   frostWash: { backgroundColor: wash(colors.surface, 0.8) },
   // The calendar marked (month open, or a far day picked): an ink ring around the glass.
+  // A sibling, not a parent: a border on the glass's own view would flatten it.
+  glassEdge: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: CIRCLE / 2, borderWidth: 1, borderColor: colors.hairline },
   ring: { borderRadius: CIRCLE / 2 + 2, borderWidth: 2, borderColor: colors.ink, margin: -2 },
   glassDate: { fontFamily: fonts.en.bold, fontSize: 16, color: colors.ink, fontVariant: ['tabular-nums'] },
   // At least a month tall; taller only when what it holds is (the weekly chips).
