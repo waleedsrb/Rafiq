@@ -45,11 +45,18 @@ python3 scripts/hooks.py 2>"$OUT/hooks.log" &
 HOOKS_PID=$!
 trap 'kill $HOOKS_PID 2>/dev/null || true' EXIT
 
-flow 00-new-rider-signs-up     check-00-signed-up
+# SUITE=smoke (pull requests): the core ride only, post -> request -> accept.
+# SUITE=full (main, nightly, on demand): everything.
+SUITE=${SUITE:-full}
 
+[ "$SUITE" = full ] && flow 00-new-rider-signs-up     check-00-signed-up
 flow 01-driver-posts-trip     check-01-trip-posted
 flow 02-rider-requests-seat   check-02-seat-requested
 flow 03-driver-accepts        check-03-accepted
+if [ "$SUITE" = smoke ]; then
+  echo "Smoke flows passed (the full set runs on main and every night)"
+  exit 0
+fi
 sql sql/trip-day.sql
 flow 04-rider-did-you-ride    check-04-rider-answered
 flow 05-driver-overdue-start  check-05-started

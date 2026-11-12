@@ -44,6 +44,8 @@ how we test something that normally takes an hour of waiting.
 
 On GitHub: the "End-to-end" workflow runs on pull requests that change the app or the
 database, after every merge to main, every night, and from the Actions tab (Run workflow).
+Pull requests run the **smoke** set (flows 01-03: post, request, accept); main, the nightly
+run and Run workflow run the **full** set. Locally, `SUITE=smoke bash e2e/run.sh` does the same.
 
 A design-only pull request (colours, spacing, fonts, icons, copy, animation) can skip it
 with the label **design**. The full run still follows on main and that night. Don't use it
