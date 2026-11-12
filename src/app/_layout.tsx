@@ -11,7 +11,8 @@ import {
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -45,6 +46,10 @@ function RootLayout() {
 
   return (
     // Light, dark or follow the phone (Settings > Appearance, src/theme/theme.tsx).
+    // One gesture root for the whole app (Home's search layer lives at this level and swipes).
+    // A gesture root inside a view that sits over every screen takes every touch on Android,
+    // even while that view lets touches through, so it has to be here instead.
+    <GestureHandlerRootView style={StyleSheet.absoluteFill}>
     <ThemeProvider>
       {/* Tracks where the keyboard really is, frame by frame (used by Home's search). On
           Android it changes how screens make room for the keyboard, so there the search
@@ -58,6 +63,7 @@ function RootLayout() {
         </SessionProvider>
       </KeyboardProvider>
     </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

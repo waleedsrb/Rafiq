@@ -50,7 +50,7 @@ import {
   View,
   type TextInputInstance,
 } from 'react-native';
-import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-native-gesture-handler';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import { useKeyboardController, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, {
   Easing,
@@ -444,7 +444,7 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
   const showDays = !picking;
 
   return (
-    <GestureHandlerRootView
+    <View
       style={StyleSheet.absoluteFill}
       pointerEvents={live ? 'box-none' : 'none'}
       importantForAccessibility={live ? 'auto' : 'no-hide-descendants'}
@@ -619,7 +619,7 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
           />
         ) : null}
       </Animated.View>
-    </GestureHandlerRootView>
+    </View>
   );
 });
 
