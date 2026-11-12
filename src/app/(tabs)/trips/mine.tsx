@@ -1,91 +1,56 @@
 // My trips: Upcoming (seats you booked), As driver (trips you drive), and Past
 // (finished trips on both sides, with the rating you gave).
 
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { SkeletonTripRows } from '@/components/skeleton';
 import { TripRow } from '@/components/trip-row';
 import { Body, Button, Choice, GlassButton, TabScreen, ltr } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useBookingChanges } from '@/lib/live';
+import { prefetch } from '@/lib/cache';
+import { driverTripQuery, myTripsQuery, tripCardQuery, type MyTrips } from '@/lib/queries';
 import { useSession, useT } from '@/lib/session';
 import { openTrip } from '@/lib/trip-layer';
-import { supabase } from '@/lib/supabase';
-import type { City } from '@/lib/trip-form';
+import { useCached } from '@/lib/use-cached';
 import { space } from '@/theme/tokens';
 
-type Trip = {
-  id: string;
-  origin: City;
-  destination: City;
-  departs_at: string;
-  seats_total: number;
-  price_ils: number;
-  finished_at: string | null;
-};
-type DriverTrip = Trip & { bookings: { status: string }[] };
-type Booking = { id: string; status: string; trips: Trip };
+type Trip = MyTrips['seats'][number]['trips'];
 type Tab = 'upcoming' | 'driver' | 'past';
 // One past row, from either side.
 type Past = { key: string; trip: Trip; detail: string; rateBooking?: string; asDriver: boolean };
-
-// Trips that left in the last few hours stay in Upcoming until they finish (trip day).
-const LOOKBACK_MS = 5 * 60 * 60 * 1000;
-const TRIP_COLS = 'id, origin, destination, departs_at, seats_total, price_ils, finished_at';
 
 export default function MyTrips() {
   const { t } = useT();
   const { session } = useSession();
   const [tab, setTab] = useState<Tab>('upcoming');
-  const [trips, setTrips] = useState<DriverTrip[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [past, setPast] = useState<Past[] | null>(null);
+  // From the cache (src/lib/cache.ts): the list you saw last time draws at once, and is
+  // asked for again each time the tab comes into view. The tabs prefetch it at start.
+  const res = useCached(session ? myTripsQuery(session.user.id) : null);
+  const data = res.data;
+  useBookingChanges(() => void res.refresh());
+  const loading = data === undefined && !res.failed;
+  const trips = data?.drives ?? [];
+  const bookings = data?.seats ?? [];
 
-  const load = useCallback(async () => {
-    if (!session) return;
-    const me = session.user.id;
-    const since = new Date(Date.now() - LOOKBACK_MS).toISOString();
-    const [driveRes, seatRes, pastSeats, pastDrives, mine] = await Promise.all([
-      supabase
-        .from('trips')
-        .select(`${TRIP_COLS}, bookings(status)`)
-        .eq('driver_id', me)
-        .is('cancelled_at', null)
-        .is('finished_at', null)
-        .gte('departs_at', since)
-        .order('departs_at'),
-      supabase
-        .from('bookings')
-        .select(`id, status, trips!inner(${TRIP_COLS})`)
-        .eq('passenger_id', me)
-        .is('trips.finished_at', null)
-        .gte('trips.departs_at', since),
-      supabase
-        .from('bookings')
-        .select(`id, status, trips!inner(${TRIP_COLS})`)
-        .eq('passenger_id', me)
-        .in('status', ['completed', 'no_show', 'not_confirmed', 'disputed'])
-        .limit(30),
-      supabase
-        .from('trips')
-        .select(`${TRIP_COLS}, bookings(status)`)
-        .eq('driver_id', me)
-        .not('finished_at', 'is', null)
-        .order('departs_at', { ascending: false })
-        .limit(30),
-      supabase.from('ratings').select('booking_id, stars').eq('rater_id', me),
-    ]);
+  // Trips open filled in: the next few load in the background, and any trip starts
+  // loading as your finger lands on it (a tap takes long enough to win the race).
+  const me = session?.user.id;
+  const seatCard = (tripId: string) => me && prefetch(tripCardQuery(tripId, me));
+  const driveCard = (tripId: string) => prefetch(driverTripQuery(tripId));
+  useEffect(() => {
+    if (!data || !me) return;
+    data.seats.slice(0, 3).forEach((b) => prefetch(tripCardQuery(b.trips.id, me), 30_000));
+    data.drives.slice(0, 3).forEach((d) => prefetch(driverTripQuery(d.id), 30_000));
+  }, [data, me]);
 
-    setTrips((driveRes.data as DriverTrip[] | null) ?? []);
-    const seats = (seatRes.data as unknown as Booking[] | null) ?? [];
-    seats.sort((a, b) => a.trips.departs_at.localeCompare(b.trips.departs_at));
-    setBookings(seats);
-
-    const given = new Map(((mine.data as { booking_id: string; stars: number }[] | null) ?? []).map((r) => [r.booking_id, r.stars]));
+  const past = useMemo<Past[] | null>(() => {
+    if (!data) return null;
     const rows: Past[] = [];
-    for (const b of (pastSeats.data as unknown as Booking[] | null) ?? []) {
-      const stars = given.get(b.id);
+    for (const b of data.pastSeats) {
+      const stars = data.given[b.id];
       rows.push({
         key: b.id,
         trip: b.trips,
@@ -99,7 +64,7 @@ export default function MyTrips() {
         rateBooking: b.status === 'completed' && !stars ? b.id : undefined,
       });
     }
-    for (const trip of (pastDrives.data as DriverTrip[] | null) ?? []) {
+    for (const trip of data.pastDrives) {
       const riders = trip.bookings.filter((b) => b.status === 'completed').length;
       // A trip nobody started in the app, and nobody confirmed afterwards.
       const unconfirmed = riders === 0 && trip.bookings.some((b) => b.status === 'not_confirmed');
@@ -111,15 +76,8 @@ export default function MyTrips() {
       });
     }
     rows.sort((a, b) => b.trip.departs_at.localeCompare(a.trip.departs_at));
-    setPast(rows);
-  }, [session, t]);
-
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
-  useBookingChanges(load);
+    return rows;
+  }, [data, t]);
 
   return (
     <TabScreen
@@ -139,7 +97,7 @@ export default function MyTrips() {
 
       {tab === 'upcoming' ? (
         <>
-          {bookings.length === 0 ? <Body muted>{t('noBookings')}</Body> : null}
+          {loading ? <SkeletonTripRows /> : bookings.length === 0 ? <Body muted>{t('noBookings')}</Body> : null}
           {bookings.map((b) => (
             <TripRow
               key={b.id}
@@ -149,6 +107,7 @@ export default function MyTrips() {
               priceIls={b.trips.price_ils}
               signal={b.status === 'requested' || b.status === 'queued' ? t(`status_${b.status}` as StringKey) : undefined}
               detail={b.status === 'requested' || b.status === 'queued' ? undefined : t(`status_${b.status}` as StringKey)}
+              onPressIn={() => seatCard(b.trips.id)}
               onPress={(from) => openTrip(b.trips.id, from)}
             />
           ))}
@@ -157,7 +116,7 @@ export default function MyTrips() {
 
       {tab === 'driver' ? (
         <>
-          {trips.length === 0 ? <Body muted>{t('noDrives')}</Body> : null}
+          {loading ? <SkeletonTripRows /> : trips.length === 0 ? <Body muted>{t('noDrives')}</Body> : null}
           {trips.map((trip) => {
             const pending = trip.bookings.filter((b) => b.status === 'requested').length;
             return (
@@ -169,6 +128,7 @@ export default function MyTrips() {
                 priceIls={trip.price_ils}
                 detail={`${trip.seats_total} ${t('seatsCount')}`}
                 signal={pending > 0 ? `${pending} ${t('pendingRequests')}` : undefined}
+                onPressIn={() => driveCard(trip.id)}
                 onPress={() => router.push({ pathname: '/trips/requests/[id]', params: { id: trip.id } })}
               />
             );
@@ -186,7 +146,7 @@ export default function MyTrips() {
 
       {tab === 'past' ? (
         <>
-          {past && past.length === 0 ? <Body muted>{t('noPastTrips')}</Body> : null}
+          {loading ? <SkeletonTripRows /> : past && past.length === 0 ? <Body muted>{t('noPastTrips')}</Body> : null}
           {past?.map((p) => (
             <TripRow
               key={p.key}
@@ -196,6 +156,7 @@ export default function MyTrips() {
               priceIls={p.trip.price_ils}
               detail={p.detail}
               signal={p.rateBooking ? t('rateTrip') : undefined}
+              onPressIn={() => (p.asDriver ? !p.rateBooking && driveCard(p.trip.id) : seatCard(p.trip.id))}
               onPress={(from) =>
                 p.asDriver
                   ? p.rateBooking

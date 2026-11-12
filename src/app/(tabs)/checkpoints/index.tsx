@@ -14,10 +14,12 @@ import { Pressable, TextInput, View } from 'react-native';
 
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { Icon } from '@/components/icon';
+import { SkeletonList } from '@/components/skeleton';
 import { Body, GlassButton, ListRow, SectionTitle, TabScreen, inputAlign, ltr, useFont } from '@/components/ui';
 import { byGovernorate, confidence, matchesQuery, reportsKey } from '@/lib/checkpoints';
 import { useSession, useT } from '@/lib/session';
-import { supabase } from '@/lib/supabase';
+import { checkpointsQuery, followsQuery } from '@/lib/queries';
+import { useCached } from '@/lib/use-cached';
 import { makeStyles, useTheme } from '@/theme/theme';
 
 export default function Checkpoints() {
@@ -27,28 +29,27 @@ export default function Checkpoints() {
   const { session } = useSession();
   const { f, rtl } = useFont();
   const ago = useAgo();
-  const [rows, setRows] = useState<Overview[] | null>(null);
-  const [follows, setFollows] = useState<Set<string>>(new Set());
+  // From the cache (src/lib/cache.ts), so the list is there as the tab opens; the tabs
+  // prefetch it at start, and each checkpoint's page opens from the same answer.
+  const overview = useCached(checkpointsQuery());
+  const followed_ = useCached(session ? followsQuery(session.user.id) : null);
+  const rows = overview.data ?? null;
+  const follows = useMemo(() => new Set(followed_.data ?? []), [followed_.data]);
   const [q, setQ] = useState('');
   const [now, setNow] = useState(() => new Date());
+  const { refresh: refreshOverview } = overview;
+  const { refresh: refreshFollows } = followed_;
 
-  const load = useCallback(async () => {
-    const [overview, followed] = await Promise.all([
-      supabase.rpc('checkpoint_overview'),
-      session ? supabase.from('checkpoint_follows').select('checkpoint_id').eq('user_id', session.user.id) : Promise.resolve({ data: [] }),
-    ]);
-    setRows((overview.data as Overview[] | null) ?? []);
-    setFollows(new Set(((followed.data as { checkpoint_id: string }[] | null) ?? []).map((r) => r.checkpoint_id)));
-    setNow(new Date());
-  }, [session]);
-
-  // Fresh on every visit, and every minute while the tab is open.
+  // Fresh on every visit (useCached), and every minute while the tab is open.
   useFocusEffect(
     useCallback(() => {
-      load();
-      const timer = setInterval(load, 60_000);
+      setNow(new Date());
+      const timer = setInterval(() => {
+        void refreshOverview().then(() => setNow(new Date()));
+        void refreshFollows();
+      }, 60_000);
       return () => clearInterval(timer);
-    }, [load]),
+    }, [refreshOverview, refreshFollows]),
   );
 
   const all = rows ?? [];
@@ -118,6 +119,7 @@ export default function Checkpoints() {
           {t('noCheckpointFound')}
         </Body>
       ) : null}
+      {rows === null && !overview.failed ? <SkeletonList rows={6} /> : null}
       {section(t('checkpointsFollowing'), followed)}
       {searching ? null : section(t('checkpointsReported'), recent)}
       {groups.map((g) => section(g.name ?? t('checkpointsOtherArea'), g.rows))}

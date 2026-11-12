@@ -9,6 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { deviceLanguage, t as translate, type Gender, type Language } from '@/i18n';
 import type { StringKey } from '@/i18n/strings';
 import { createAuthSync } from '@/lib/auth-sync';
+import { cache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 
 export type Profile = {
@@ -57,6 +58,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return (data as Profile | null) ?? null;
       },
       (nextSession, nextProfile) => {
+        // Signed out, or someone else signed in: forget what the last person's pages loaded.
+        if (sessionRef.current?.user.id !== nextSession?.user.id) cache.clear();
         sessionRef.current = nextSession;
         setSession(nextSession);
         setProfile(nextProfile);

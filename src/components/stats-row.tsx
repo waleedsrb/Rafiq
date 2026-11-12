@@ -3,6 +3,7 @@
 
 import { Text, View } from 'react-native';
 
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { ltr, useFont } from '@/components/ui';
 import { useT } from '@/lib/session';
 import { ratingText, reliabilityText, type Stats } from '@/lib/stats';
@@ -27,6 +28,21 @@ export function StatsRow({ stats }: { stats: Stats }) {
         </View>
       ))}
     </View>
+  );
+}
+
+/** The same three cells while the numbers load, so nothing below jumps when they land. */
+export function StatsRowSkeleton() {
+  const styles = useStyles();
+  return (
+    <SkeletonGroup style={styles.stats}>
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={[styles.stat, i > 0 && styles.statLine]}>
+          <Skeleton width={36} height={22} style={{ marginVertical: 3 }} />
+          <Skeleton width={52} height={11} style={{ marginVertical: 3.5 }} />
+        </View>
+      ))}
+    </SkeletonGroup>
   );
 }
 

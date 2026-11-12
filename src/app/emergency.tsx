@@ -1,38 +1,42 @@
 // Emergency contact: one person who can be sent your trip link (Share my trip and
 // the Emergency button use it, slice 12). Stored on your profile row.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { Body, Button, Field, Screen, TextLink, Title } from '@/components/ui';
 import { goBack } from '@/lib/nav';
 import { formatPhone, normalizeContactPhone } from '@/lib/phone';
 import { useSession, useT } from '@/lib/session';
+import { detailsQuery, type MyDetails } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
+import { useCached } from '@/lib/use-cached';
 import { space } from '@/theme/tokens';
 
 export default function Emergency() {
   const { t } = useT();
   const { session } = useSession();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [hasOne, setHasOne] = useState(false);
+  // Account already loaded these, so the form opens filled in (src/lib/cache.ts).
+  const details = useCached(session ? detailsQuery(session.user.id) : null);
+  const saved = details.data;
+  const [name, setName] = useState(saved?.emergency_phone ? (saved.emergency_name ?? '') : '');
+  const [phone, setPhone] = useState(saved?.emergency_phone ? formatPhone(saved.emergency_phone) : '');
+  const hasOne = !!saved?.emergency_phone;
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Opened before that answer came? Fill in once it lands, unless you've started typing.
+  const filled = useRef(saved !== undefined);
   useEffect(() => {
-    if (!session) return;
-    supabase
-      .rpc('my_profile')
-      .select('emergency_name, emergency_phone')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.emergency_phone) return;
-        setName(data.emergency_name ?? '');
-        setPhone(formatPhone(data.emergency_phone));
-        setHasOne(true);
-      });
-  }, [session]);
+    if (filled.current || saved === undefined) return;
+    filled.current = true;
+    if (!saved?.emergency_phone || name || phone) return;
+    setName(saved.emergency_name ?? '');
+    setPhone(formatPhone(saved.emergency_phone));
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After a save, Account and Settings show the new name straight away.
+  const remember = (patch: Partial<MyDetails>) => details.set((old) => (old ? { ...old, ...patch } : old) as MyDetails | null);
 
   async function save() {
     if (!session) return;
@@ -48,6 +52,7 @@ export default function Emergency() {
       .eq('id', session.user.id);
     setSaving(false);
     if (err) return setError(t('somethingWrong'));
+    remember({ emergency_name: cleanName, emergency_phone: normalized });
     goBack();
   }
 
@@ -61,6 +66,7 @@ export default function Emergency() {
       .eq('id', session.user.id);
     setSaving(false);
     if (err) return setError(t('somethingWrong'));
+    remember({ emergency_name: null, emergency_phone: null });
     goBack();
   }
 

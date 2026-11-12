@@ -8,15 +8,18 @@ import { Text, View } from 'react-native';
 import { StatusCircle, StatusWord, useAgo, type Overview } from '@/components/checkpoint-badge';
 import { FollowBell } from '@/components/follow-bell';
 import { HoldToReport } from '@/components/hold-to-report';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Body, Label, ListRow, Screen, SectionTitle, Title, ltr, useFont } from '@/components/ui';
 import { STATUSES, confidence, governorate, reportsKey, type CheckpointStatus } from '@/lib/checkpoints';
 import { formatTime } from '@/lib/format';
 import { warnFeel } from '@/lib/haptics';
 import type { StringKey } from '@/i18n/strings';
 import { useSession, useT } from '@/lib/session';
+import { cache } from '@/lib/cache';
+import { checkpointsQuery, followsQuery } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 import { makeStyles } from '@/theme/theme';
-import { space } from '@/theme/tokens';
+import { radii, space } from '@/theme/tokens';
 
 type Report = { created_at: string; status: CheckpointStatus; source: 'passenger' | 'driver' | 'channel' };
 
@@ -26,13 +29,17 @@ export default function CheckpointDetail() {
   const { t, lang } = useT();
   const { f } = useFont();
   const ago = useAgo();
-  const [cp, setCp] = useState<Overview | null>(null);
+  const { session } = useSession();
+  // Opened from the Checkpoints tab, which already has every status: draw it at once.
+  const [cp, setCp] = useState<Overview | null>(() => cache.get<Overview[]>(checkpointsQuery().key)?.find((r) => r.id === id) ?? null);
   const [reports, setReports] = useState<Report[]>([]);
   const [now, setNow] = useState(() => new Date());
   const [sending, setSending] = useState<CheckpointStatus | null>(null);
   const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
-  const { session } = useSession();
-  const [following, setFollowing] = useState<boolean | null>(null);
+  const [following, setFollowing] = useState<boolean | null>(() => {
+    const mine = session ? cache.get<string[]>(followsQuery(session.user.id).key) : undefined;
+    return mine && id ? mine.includes(id) : null;
+  });
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -42,7 +49,9 @@ export default function CheckpointDetail() {
       supabase.from('checkpoint_follows').select('checkpoint_id').eq('checkpoint_id', id).maybeSingle(),
     ]);
     setFollowing(!!follow.data);
-    setCp(((overview.data as Overview[] | null) ?? []).find((r) => r.id === id) ?? null);
+    const all = (overview.data as Overview[] | null) ?? null;
+    if (all) cache.set(checkpointsQuery().key, all); // the tab shows the same fresh answer
+    setCp((all ?? []).find((r) => r.id === id) ?? null);
     setReports((recent.data as Report[] | null) ?? []);
     setNow(new Date());
   }, [id]);
@@ -80,10 +89,25 @@ export default function CheckpointDetail() {
     if (error && error.code !== '23505') {
       setFollowing(!next);
       setNote({ text: t('somethingWrong'), error: true });
+      return;
     }
+    // The tab's "Following" group changes with it.
+    cache.set<string[]>(followsQuery(session.user.id).key, (old) =>
+      next ? [...(old ?? []).filter((x) => x !== id), id] : (old ?? []).filter((x) => x !== id),
+    );
   }
 
-  if (!cp) return <Screen back>{null}</Screen>;
+  if (!cp)
+    return (
+      <Screen back>
+        <SkeletonGroup style={{ gap: space.md }}>
+          <Skeleton width={90} height={12} />
+          <Skeleton width="65%" height={30} radius={10} />
+          <Skeleton width={140} height={32} radius={16} />
+          <Skeleton width="100%" height={120} radius={radii.container} style={{ marginTop: space.md }} />
+        </SkeletonGroup>
+      </Screen>
+    );
 
   return (
     <Screen

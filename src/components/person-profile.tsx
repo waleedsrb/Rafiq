@@ -5,40 +5,20 @@
 // Shown on its own screen (from a seat request) and as a step inside the trip card
 // (tap the driver on Trip details).
 
-import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon, type IconName } from '@/components/icon';
 import { Stars } from '@/components/stars';
-import { StatsRow } from '@/components/stats-row';
+import { Skeleton, SkeletonGroup, SkeletonList } from '@/components/skeleton';
+import { StatsRow, StatsRowSkeleton } from '@/components/stats-row';
 import { Body, IconCircle, Label, ListRow, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { useT } from '@/lib/session';
-import type { Stats } from '@/lib/stats';
-import { supabase } from '@/lib/supabase';
+import { personQuery, statsQuery, type Review } from '@/lib/queries';
+import { useCachedHere } from '@/lib/use-cached';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
-
-type PublicProfile = {
-  name: string;
-  id_verified: boolean;
-  member_since: string;
-  deleted: boolean;
-  car_model: string | null;
-  car_color: string | null;
-  driver_verified: boolean;
-  driving_since: string | null;
-  founding_driver: boolean;
-};
-
-type Review = {
-  stars: number;
-  tags: string[] | null;
-  note: string | null;
-  created_at: string;
-  rater_first_name: string;
-};
 
 /** Someone's page as a block: on its own screen (/people/[id]) or inside the trip card. */
 export function PersonProfile({ id }: { id: string }) {
@@ -46,32 +26,15 @@ export function PersonProfile({ id }: { id: string }) {
   const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
-  const [person, setPerson] = useState<PublicProfile | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [reviews, setReviews] = useState<Review[] | null>(null);
-  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  // Cached by person (src/lib/cache.ts): opening the same driver again is instant.
+  const loaded = useCachedHere(id ? personQuery(id) : null);
+  const statsRes = useCachedHere(id ? statsQuery(id) : null);
+  const person = loaded.data?.profile ?? null;
+  const avatarPath = loaded.data?.avatarPath ?? null;
+  const reviews = loaded.data?.reviews ?? null;
+  const stats = statsRes.data ?? null;
 
-  useEffect(() => {
-    if (!id) return;
-    supabase.rpc('public_profile', { p_person: id }).then(({ data }) => {
-      const row = Array.isArray(data) ? data[0] : data;
-      setPerson((row as PublicProfile | undefined) ?? null);
-    });
-    supabase.rpc('person_stats', { p_person: id }).then(({ data }) => {
-      const row = Array.isArray(data) ? data[0] : data;
-      setStats((row as Stats | undefined) ?? null);
-    });
-    // The photo itself only opens if you may see it (see can_see_avatar()).
-    supabase
-      .from('profiles')
-      .select('avatar_path')
-      .eq('id', id)
-      .maybeSingle()
-      .then(({ data }) => setAvatarPath((data as { avatar_path: string | null } | null)?.avatar_path ?? null));
-    supabase.rpc('person_reviews', { p_person: id, p_limit: 20 }).then(({ data }) => setReviews((data as Review[] | null) ?? []));
-  }, [id]);
-
-  if (!person) return null;
+  if (!person) return loaded.data === undefined && !loaded.failed ? <PersonSkeleton /> : null;
 
   const month = (iso: string) =>
     new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', {
@@ -114,7 +77,7 @@ export function PersonProfile({ id }: { id: string }) {
         </View>
       ) : null}
 
-      {stats ? <StatsRow stats={stats} /> : null}
+      {stats ? <StatsRow stats={stats} /> : statsRes.data === undefined && !statsRes.failed ? <StatsRowSkeleton /> : null}
 
       {isDriver ? (
         <ListRow
@@ -140,6 +103,24 @@ export function PersonProfile({ id }: { id: string }) {
           reviews.map((r, i) => <ReviewRow key={`${r.created_at}-${i}`} review={r} last={i === reviews.length - 1} />)
         )}
       </View>
+    </View>
+  );
+}
+
+/** The page's shape while it loads: photo and name, the numbers, a few reviews. */
+function PersonSkeleton() {
+  const styles = useStyles();
+  return (
+    <View style={{ gap: space.md }}>
+      <SkeletonGroup style={styles.header}>
+        <Skeleton width={72} height={72} radius={36} />
+        <View style={{ flex: 1, gap: 10 }}>
+          <Skeleton width="55%" height={20} />
+          <Skeleton width="40%" height={12} />
+        </View>
+      </SkeletonGroup>
+      <StatsRowSkeleton />
+      <SkeletonList rows={3} />
     </View>
   );
 }

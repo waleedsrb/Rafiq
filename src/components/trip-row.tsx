@@ -20,6 +20,7 @@ export function TripRow({
   detail,
   signal,
   onPress,
+  onPressIn,
 }: {
   origin: City;
   destination: City;
@@ -30,6 +31,8 @@ export function TripRow({
   signal?: string;
   /** Gets where the row is on screen, so a trip can grow out of it. */
   onPress?: (from: Rect | null) => void;
+  /** As the finger lands: start loading what the tap opens, so it opens filled in. */
+  onPressIn?: () => void;
 }) {
   const styles = useStyles();
   const ref = useRef<HostInstance>(null);
@@ -42,6 +45,7 @@ export function TripRow({
     <Pressable
       ref={ref}
       disabled={!onPress}
+      onPressIn={onPressIn}
       onPress={() => onPress && openTripFrom(ref.current, '', (_id, from) => onPress(from ?? null))}
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
       <View style={styles.main}>
