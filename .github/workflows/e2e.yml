@@ -2,10 +2,16 @@ name: End-to-end
 
 # Builds the real Android app, starts a throwaway Supabase from supabase/migrations, and
 # taps through the ride loop with Maestro on an Android emulator (e2e/README.md).
-# Slow (about 30-40 minutes), so it runs only when something the app or database is made
-# of changes, plus on demand from the Actions tab.
+# Slow (about 30 minutes), so it runs only when something the app or database is made of
+# changes, plus every night and on demand from the Actions tab.
+#
+# Design-only pull requests can skip it: add the label "design" to the PR (before or after
+# opening it). The full run still happens after the merge to main and every night, so a
+# design change that breaks a flow is caught within a day.
 on:
   pull_request:
+    # labeled/unlabeled: adding "design" cancels a run already going; removing it runs again.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - 'src/**'
       - 'assets/**'
@@ -26,6 +32,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/e2e.yml'
+  schedule:
+    - cron: '0 1 * * *' # every night, 03:00 in Ramallah
   workflow_dispatch:
 
 concurrency:
@@ -35,6 +43,7 @@ concurrency:
 jobs:
   android:
     name: Ride loop on Android
+    if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'design') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
