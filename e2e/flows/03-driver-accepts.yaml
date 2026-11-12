@@ -14,13 +14,14 @@ tags: [ride]
     visible: "New request · .*"
     timeout: 20000
 - assertVisible: ".*Amir S\\..*"
-# Sara asks now. The caption turns into "2 requests" on its own.
+# Sara asks now. The caption turns into "2 requests" on its own (the number is wrapped in
+# invisible left-to-right marks, hence the .* around it).
 - runScript:
     file: ../scripts/hook.js
     env:
       HOOK: sara-requests
 - extendedWaitUntil:
-    visible: "2 requests · .*"
+    visible: ".*2.* requests · .*"
     timeout: 30000
 - tapOn:
     id: "hero-accept"
