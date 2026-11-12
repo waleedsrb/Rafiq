@@ -51,6 +51,7 @@ export function DayPills({
   dots,
   padding,
   inset = 0,
+  glassKey,
   children,
 }: {
   /** 0 = today .. AHEAD_DAYS, or -1 when the extra pill is picked; null = none (search only). */
@@ -65,6 +66,11 @@ export function DayPills({
   /** Days with something on them (trips found), marked with a dot in the calendar. */
   dots?: number[];
   padding?: number;
+  /**
+   * Changes when the row has come to rest on screen. Liquid Glass made while its screen is
+   * still hidden or fading in stays flat, so the calendar's glass is made again once it rests.
+   */
+  glassKey?: string;
   /** What the calendar replaces while it is open (kept mounted, so it keeps its state). */
   children?: ReactNode;
 }) {
@@ -106,8 +112,9 @@ export function DayPills({
     return (
       <View style={{ gap: space.sm }}>
         <View style={{ justifyContent: 'center' }}>
-          {/* The pills fade out as they reach the calendar and slide behind it. */}
-          <FadeTowardEnd clear={inset + CIRCLE - 6} fade={PILL_FADE}>
+          {/* The pills slide under the calendar's glass and fade out by its middle, so the
+              glass always has something to bend. */}
+          <FadeTowardEnd clear={inset + CIRCLE / 2} fade={PILL_FADE}>
             <ScrollView
               ref={scroller}
               horizontal
@@ -132,6 +139,7 @@ export function DayPills({
           </FadeTowardEnd>
           <View style={[styles.pin, { end: Math.max(0, inset - 2) }, marked && styles.ring]}>
             <GlassButton
+              key={glassKey}
               label={far !== null ? `${t('pickDate')}: ${formatDay(searchDayStart(far, new Date()), lang)}` : t('pickDate')}
               onPress={toggle}
             >
@@ -405,7 +413,8 @@ function FadeTowardEnd({ clear, fade, children }: { clear: number; fade: number;
 const MaskedView = MaskedViewClass as unknown as ComponentType<MaskedViewProps>;
 
 const CELL = `${100 / 7}%` as const;
-/** How far before the search's calendar the pills start to fade. */
+/** How far before the middle of the search's calendar the pills start to fade (about 34pt
+ *  before its edge, the rest under the glass). */
 const PILL_FADE = 56;
 /** How far the fade reaches past the button toward the pills. */
 const FADE = 28;
