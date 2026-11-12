@@ -455,6 +455,8 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
 
   const nativeGlass = LIQUID_GLASS && settled && live && !picking && !restGrown;
   const showDays = !picking;
+  // Settled and open: the day row leaves the moving page (see where it is drawn below).
+  const restDays = settled && live;
 
   return (
     <View
@@ -510,21 +512,31 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
               />
             ) : null}
 
-            {/* The day row stays pinned at the top while the trips scroll under its frosted band. */}
-            {showDays ? (
+            {/* The day row, while the search moves: it rides and fades with the page. */}
+            {showDays && !restDays ? (
               <Animated.View style={[styles.days, { paddingTop: insets.top + space.sm }, list]} onLayout={(e) => setDaysH(e.nativeEvent.layout.height)}>
                 <Animated.View style={[StyleSheet.absoluteFill, page]} pointerEvents="none">
                   <BlurView intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
                   <View style={[StyleSheet.absoluteFill, styles.daysFill]} />
                 </Animated.View>
                 <Animated.View style={page}>
-                  {/* The search is built while hidden; its glass is made again once it rests. */}
-                  <DayChips s={s} inset={space.screen} glassKey={settled && live ? 'rest' : 'moving'} />
+                  <DayChips s={s} inset={space.screen} glassKey="moving" />
                 </Animated.View>
               </Animated.View>
             ) : null}
           </View>
         </Animated.View>
+
+        {/* The day row at rest, pinned at the top while the trips scroll under it. It is drawn
+            here, outside every clipping, moving or fading parent and over a plain band (no
+            blur under it), because the calendar is Liquid Glass and glass drew nothing inside
+            the moving page or over the frosted blur (Waleed, Nov 12). */}
+        {showDays && restDays ? (
+          <View style={[styles.days, { paddingTop: insets.top + space.sm }]} onLayout={(e) => setDaysH(e.nativeEvent.layout.height)}>
+            <View style={[StyleSheet.absoluteFill, styles.daysFill]} pointerEvents="none" />
+            <DayChips s={s} inset={space.screen} glassKey="rest" />
+          </View>
+        ) : null}
 
         {/* The towns dissolve just above the card and the keyboard instead of being cut off by them. */}
         <Animated.View style={[styles.cardFade, { height: screenH }, cardFade]} pointerEvents="none">
