@@ -69,11 +69,12 @@ export default function ProfileStep() {
   }
 
   return (
-    <Screen scroll footer={<Button label={t('continue')} onPress={submit} loading={saving} disabled={!valid} />}>
+    <Screen scroll footer={<Button testID="profile-continue" label={t('continue')} onPress={submit} loading={saving} disabled={!valid} />}>
       <Title>{t('nameTitle')}</Title>
       <Body muted>{t('nameHint')}</Body>
       <View style={{ gap: space.md, marginTop: space.md }}>
         <Field
+          testID="first-name"
           label={t('firstName')}
           autoFocus
           value={first}
@@ -83,6 +84,7 @@ export default function ProfileStep() {
           maxLength={40}
         />
         <Field
+          testID="last-name"
           label={t('lastName')}
           value={last}
           onChangeText={setLast}
@@ -113,6 +115,7 @@ export default function ProfileStep() {
       {needsPhone ? (
         <View style={{ gap: space.xs }}>
           <Field
+            testID="reach-phone"
             label={t('reachPhoneLabel')}
             ltr
             prefix="+970"

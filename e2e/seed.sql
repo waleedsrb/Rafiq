@@ -7,6 +7,8 @@
 --
 --   Dana Haddad   e2e-driver@rafiq.test   verified driver with a checked car
 --   Amir Saleh    e2e-rider@rafiq.test    verified passenger
+--   Sara Odeh     e2e-sara@rafiq.test     verified passenger; never signs in, her requests
+--                                         come from sql/hooks/ while a flow is on screen
 --   Admin         e2e-admin@rafiq.test    reviews the IDs (never signs in to the app)
 --
 -- Both sign in through the app with an emailed 6-digit code; the tests read the code from
@@ -32,6 +34,7 @@ select '00000000-0000-0000-0000-000000000000', id, 'authenticated', 'authenticat
   from (values
     ('00000000-0000-0000-0000-0000000e2e01'::uuid, 'e2e-driver@rafiq.test'),
     ('00000000-0000-0000-0000-0000000e2e02'::uuid, 'e2e-rider@rafiq.test'),
+    ('00000000-0000-0000-0000-0000000e2e03'::uuid, 'e2e-sara@rafiq.test'),
     ('00000000-0000-0000-0000-0000000e2ead'::uuid, 'e2e-admin@rafiq.test')
   ) as p (id, email);
 
@@ -66,9 +69,15 @@ insert into public.profiles (id, full_name, gender, language) values (auth.uid()
 update public.profiles set avatar_path = auth.uid() || '/avatar-1.jpg' where id = auth.uid();
 insert into public.verifications (user_id, kind, photos) values (auth.uid(), 'passenger', array[auth.uid() || '/id.jpg']);
 
--- The admin approves both, as from the admin site.
+-- Sara: profile, photo and ID.
+select pg_temp.as_user('00000000-0000-0000-0000-0000000e2e03');
+insert into public.profiles (id, full_name, gender, language) values (auth.uid(), 'Sara Odeh', 'f', 'en');
+update public.profiles set avatar_path = auth.uid() || '/avatar-1.jpg' where id = auth.uid();
+insert into public.verifications (user_id, kind, photos) values (auth.uid(), 'passenger', array[auth.uid() || '/id.jpg']);
+
+-- The admin approves everyone, as from the admin site.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000e2ead');
-select public.review_verification(id, true, null, case when kind = 'driver' then 'f' else 'm' end)
+select public.review_verification(id, true, null, case when kind = 'driver' or user_id = '00000000-0000-0000-0000-0000000e2e03' then 'f' else 'm' end)
   from public.verifications where status = 'pending';
 
 reset role;
@@ -80,6 +89,9 @@ begin
   end if;
   if (select id_verified_at from public.profiles where id = '00000000-0000-0000-0000-0000000e2e02') is null then
     raise exception 'seed: Amir should be verified';
+  end if;
+  if (select id_verified_at from public.profiles where id = '00000000-0000-0000-0000-0000000e2e03') is null then
+    raise exception 'seed: Sara should be verified';
   end if;
 end $$;
 

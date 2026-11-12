@@ -44,3 +44,5 @@ tags: [ride]
     visible: "Waiting for the driver to accept"
     timeout: 20000
 - takeScreenshot: 02-seat-requested
+# Privacy (PR #122): no plate before the driver accepts.
+- assertNotVisible: ".*7-1234-95.*"

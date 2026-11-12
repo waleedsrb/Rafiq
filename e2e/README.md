@@ -9,11 +9,13 @@ two people would, against a real (local, throwaway) Supabase.
 
 | Flow | Who | What it proves |
 | --- | --- | --- |
+| `00-new-rider-signs-up` | Lina (new) | Sign-up from scratch: email code, name, gender, phone, lands on Home; the name and phone are saved |
 | `01-driver-posts-trip` | Dana (driver) | Email sign-in with a code, then Post a trip: Next, Next, Next, Publish |
-| `02-rider-requests-seat` | Amir (passenger) | Finds Dana's trip from Home and requests a seat, paying cash |
-| `03-driver-accepts` | Dana | Accepts Amir from the Home card (5-second Undo, then saved) |
-| `04-rider-did-you-ride` | Amir | 50 min after departure, unstarted: the "Did you ride?" nudge is in the inbox and Home answers it |
+| `02-rider-requests-seat` | Amir (passenger) | Finds Dana's trip from Home and requests a seat, paying cash; no plate yet |
+| `03-driver-accepts` | Dana | Sara asks while Dana watches and Home updates live; Dana accepts Amir and declines Sara |
+| `04-rider-did-you-ride` | Amir | 50 min after departure, unstarted: an inbox notice opens the trip, the plate shows, he shares the trip, and answers "Did you ride?" on Home |
 | `05-driver-overdue-start` | Dana | The overdue nudge is in her inbox; "All in · Start" starts the trip |
+| `06-driver-reports-checkpoint` | Dana | On the road, holds "Closed" on Zaatara; it counts as a driver's report |
 
 After each flow, a SQL check in `sql/` looks in the database to confirm the tap really
 landed (a screen can say "Saved" while the request failed). Between flows 03 and 04,
@@ -21,6 +23,11 @@ landed (a screen can say "Saved" while the request failed). Between flows 03 and
 how we test something that normally takes an hour of waiting.
 
 ## How it fits together
+
+- **Someone else, mid-flow**: one emulator is one person at a time. When a flow needs
+  another person to act while it watches (Sara asking for a seat in flow 03), it calls
+  `scripts/hook.js`, which asks `scripts/hooks.py` (a small local server run.sh starts) to
+  run a file from `sql/hooks/` as that person.
 
 - **Supabase**: `supabase start` (config in `supabase/config.toml`) builds a database from
   every file in `supabase/migrations`, so the tests also prove the migrations apply on a

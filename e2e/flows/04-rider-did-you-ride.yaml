@@ -1,8 +1,11 @@
 # Trip day, when nobody tapped Start (PR #128). run.sh has moved the trip 50 minutes into
 # the past and run the nudge job, so Amir got "Did you ride with Dana?" in his inbox, and
-# Home asks the same question with one-tap answers.
+# Home asks the same question with one-tap answers. On the way he checks three things the
+# phone does with the trip: a tap on an inbox notice opens that trip (src/lib/push.ts uses
+# the same link), the plate is shown now that departure is near (PR #122), and he can
+# share the trip with family (src/lib/share-trip.ts).
 appId: app.rafiq
-name: Passenger answers "Did you ride?"
+name: Passenger finds the car, shares the trip and answers "Did you ride?"
 tags: [trip-day]
 ---
 - runFlow:
@@ -14,13 +17,34 @@ tags: [trip-day]
 - extendedWaitUntil:
     visible: ".*Did you ride with Dana\\?.*"
     timeout: 20000
-# The nudge also landed in the inbox.
+# The nudge also landed in the inbox, next to Dana's acceptance.
 - tapOn: "Notifications.*"
 - extendedWaitUntil:
     visible: ".*Did you ride with Dana\\?.*"
     timeout: 20000
 - takeScreenshot: 04-rider-inbox
+- tapOn: ".*Your seat is confirmed.*"
+# The trip opens, with the plate to look for (read out by its label).
+- extendedWaitUntil:
+    visible: "7-1234-95"
+    timeout: 20000
+- assertVisible: ".*Dana H\\..*"
+- takeScreenshot: 04-rider-finds-car
+# Share with family: Android's share sheet opens with the link; close it.
+- tapOn: "Share your trip with family"
+- waitForAnimationToEnd
 - back
+- extendedWaitUntil:
+    visible: "7-1234-95"
+    timeout: 10000
+# Back to Home (trip, inbox, Home), and answer.
+- repeat:
+    while:
+      notVisible:
+        id: "home-greeting"
+    times: 3
+    commands:
+      - back
 - extendedWaitUntil:
     visible:
       id: "hero-yes-rode"

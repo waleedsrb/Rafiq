@@ -1,0 +1,36 @@
+# Lina has never used Rafiq. She signs up with her email, types her name, picks how to be
+# addressed and gives a number drivers can call, and lands on Home. Guards the sign-up
+# name save (PR #135): sql/check-00 looks for her profile and phone in the database.
+appId: app.rafiq
+name: New passenger signs up
+tags: [account]
+---
+- runFlow:
+    file: common/email-code.yaml
+    env:
+      EMAIL: e2e-new@rafiq.test
+- extendedWaitUntil:
+    visible: "What should we call you\\?"
+    timeout: 30000
+- tapOn:
+    id: "first-name"
+- inputText: "Lina"
+- tapOn:
+    id: "last-name"
+- inputText: "Nasser"
+- hideKeyboard
+# How others will see her: first name and initial only.
+- assertVisible: "Lina N\\."
+- tapOn: "Female"
+- tapOn:
+    id: "reach-phone"
+- inputText: "0599123456"
+- hideKeyboard
+- tapOn:
+    id: "profile-continue"
+- extendedWaitUntil:
+    visible:
+      id: "home-greeting"
+    timeout: 30000
+- assertVisible: ".*Lina.*"
+- takeScreenshot: 00-new-rider-home

@@ -40,11 +40,19 @@ adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 
 
 sql seed.sql
 
+# Lets a flow change the database mid-flow, as someone else (scripts/hooks.py).
+python3 scripts/hooks.py 2>"$OUT/hooks.log" &
+HOOKS_PID=$!
+trap 'kill $HOOKS_PID 2>/dev/null || true' EXIT
+
+flow 00-new-rider-signs-up     check-00-signed-up
+
 flow 01-driver-posts-trip     check-01-trip-posted
 flow 02-rider-requests-seat   check-02-seat-requested
 flow 03-driver-accepts        check-03-accepted
 sql sql/trip-day.sql
 flow 04-rider-did-you-ride    check-04-rider-answered
 flow 05-driver-overdue-start  check-05-started
+flow 06-driver-reports-checkpoint check-06-checkpoint-reported
 
 echo "All end-to-end flows passed"
