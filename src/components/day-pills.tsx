@@ -101,51 +101,46 @@ export function DayPills({
   };
 
   if (pinned) {
-    const solid = open || far !== null;
+    // Picked far day or month open: the same glass button, ringed in ink, with the date on it.
+    const marked = open || far !== null;
     return (
       <View style={{ gap: space.sm }}>
         <View style={{ justifyContent: 'center' }}>
-          <ScrollView
-            ref={scroller}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ flexGrow: 0 }}
-            // Room at the end so the last pill can scroll out from under the circle.
-            contentContainerStyle={[styles.row, { paddingStart: inset, paddingEnd: inset + CIRCLE + space.sm }]}
-          >
-            <PillChips
-              labels={labels}
-              selected={selected}
-              padding={padding}
-              clearable
-              faint={faint}
-              onPick={(i) => {
-                setOpen(false);
-                if (i === selected) onClear?.();
-                else onDay(i);
-              }}
-            />
-          </ScrollView>
-          <EdgeFade width={inset + CIRCLE + FADE} />
-          <View style={[styles.pin, { end: Math.max(0, inset - 2) }]}>
-            {solid ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={far !== null ? `${t('pickDate')}: ${formatDay(searchDayStart(far, new Date()), lang)}` : t('pickDate')}
-                accessibilityState={{ expanded: open }}
-                onPress={toggle}
-                hitSlop={4}
-                style={({ pressed }) => [styles.circle, pressed && { opacity: 0.7 }]}
-              >
-                {far !== null && !open ? (
-                  <Text style={styles.circleDate}>{searchDayStart(far, new Date()).getDate()}</Text>
-                ) : (
-                  <Icon name="calendar" size={18} color={colors.onInk} />
-                )}
-              </Pressable>
-            ) : (
-              <GlassButton icon="calendar" label={t('pickDate')} onPress={toggle} />
-            )}
+          {/* The pills fade out as they reach the calendar and slide behind it. */}
+          <FadeTowardEnd clear={inset + CIRCLE - 6} fade={PILL_FADE}>
+            <ScrollView
+              ref={scroller}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 0 }}
+              // Room at the end so the last pill can scroll out from under the circle.
+              contentContainerStyle={[styles.row, { paddingStart: inset, paddingEnd: inset + CIRCLE + space.sm }]}
+            >
+              <PillChips
+                labels={labels}
+                selected={selected}
+                padding={padding}
+                clearable
+                faint={faint}
+                onPick={(i) => {
+                  setOpen(false);
+                  if (i === selected) onClear?.();
+                  else onDay(i);
+                }}
+              />
+            </ScrollView>
+          </FadeTowardEnd>
+          <View style={[styles.pin, { end: Math.max(0, inset - 2) }, marked && styles.ring]}>
+            <GlassButton
+              label={far !== null ? `${t('pickDate')}: ${formatDay(searchDayStart(far, new Date()), lang)}` : t('pickDate')}
+              onPress={toggle}
+            >
+              {far !== null && !open ? (
+                <Text style={styles.glassDate}>{searchDayStart(far, new Date()).getDate()}</Text>
+              ) : (
+                <Icon name="calendar" size={20} color={colors.ink} />
+              )}
+            </GlassButton>
           </View>
         </View>
         {open ? (
@@ -378,10 +373,40 @@ function EdgeFade({ width }: { width: number }) {
   );
 }
 
+/**
+ * Fades its content out toward the row's end: fully there, then over `fade` points to
+ * nothing, then nothing for the last `clear` points (where the calendar floats). The pills
+ * themselves fade, so they soften into the glass button instead of being cut off by it.
+ */
+function FadeTowardEnd({ clear, fade, children }: { clear: number; fade: number; children: ReactNode }) {
+  const { rtl, direction } = useFont();
+  return (
+    <MaskedView
+      style={{ flexGrow: 0 }}
+      maskElement={
+        <View style={{ flex: 1, flexDirection: 'row', direction }}>
+          <View style={{ flex: 1, backgroundColor: 'black' }} />
+          <LinearGradient
+            colors={['black', 'transparent']}
+            start={{ x: rtl ? 1 : 0, y: 0.5 }}
+            end={{ x: rtl ? 0 : 1, y: 0.5 }}
+            style={{ width: fade }}
+          />
+          <View style={{ width: clear }} />
+        </View>
+      }
+    >
+      {children}
+    </MaskedView>
+  );
+}
+
 // Its class typings predate React 19's; it is a plain view with a mask.
 const MaskedView = MaskedViewClass as unknown as ComponentType<MaskedViewProps>;
 
 const CELL = `${100 / 7}%` as const;
+/** How far before the search's calendar the pills start to fade. */
+const PILL_FADE = 56;
 /** How far the fade reaches past the button toward the pills. */
 const FADE = 28;
 /** The pinned calendar circle: the touch size, like the glass buttons on the tab pages. */
@@ -411,8 +436,9 @@ const useStyles = makeStyles((colors) => ({
   frostLift: { backgroundColor: 'transparent', shadowColor: colors.ink, shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
   frost: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong },
   frostWash: { backgroundColor: wash(colors.surface, 0.8) },
-  circle: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  circleDate: { fontFamily: fonts.en.bold, fontSize: 16, color: colors.onInk, fontVariant: ['tabular-nums'] },
+  // The calendar marked (month open, or a far day picked): an ink ring around the glass.
+  ring: { borderRadius: CIRCLE / 2 + 2, borderWidth: 2, borderColor: colors.ink, margin: -2 },
+  glassDate: { fontFamily: fonts.en.bold, fontSize: 16, color: colors.ink, fontVariant: ['tabular-nums'] },
   // At least a month tall; taller only when what it holds is (the weekly chips).
   stage: { minHeight: STAGE_H },
   layer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },

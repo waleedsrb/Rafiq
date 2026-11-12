@@ -422,7 +422,10 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
   // While closing, the page only exists above the middle of the bar, so the list reads as
   // tucked under it and Home shows below the bar as it lands. (Height of a clip with one
   // child that is laid out once: the child keeps its own size.)
+  // It only clips while closing: Liquid Glass inside a clipping parent drops to a flat,
+  // see-through look, and the day row's calendar is a glass button.
   const clip = useAnimatedStyle(() => ({
+    overflow: leaving.value ? 'hidden' : 'visible',
     height: leaving.value
       ? interpolate(p.value, [0, 1], [fromY.value + fromH.value / 2, restY + HEAD_H / 2], Extrapolation.EXTEND)
       : screenH,
@@ -699,7 +702,7 @@ function RouteFields({
 const useStyles = makeStyles((colors) => ({
   page: { backgroundColor: colors.surface },
   gone: { display: 'none' },
-  clip: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
+  clip: { position: 'absolute', top: 0, left: 0, right: 0 },
   unclip: { position: 'absolute', left: 0, right: 0 },
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
   topFade: { position: 'absolute', left: 0, right: 0 },
