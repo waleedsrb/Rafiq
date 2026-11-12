@@ -51,7 +51,7 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
-import { useKeyboardController, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import { useKeyboardController, useKeyboardHandler, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, {
   Easing,
   Extrapolation,
@@ -100,10 +100,6 @@ const HEAD_H = PAD + ROW + PAD;
 const RADIUS = ROW / 2 + PAD;
 // Gap between the card and the top of the keyboard.
 const KB_GAP = 8;
-// Room kept at the end of the town list for the tallest keyboard (with its suggestion strip),
-// so the last towns can scroll up above the card. A fixed number: measuring it as the
-// keyboard moved re-laid out the list on every frame.
-const KB_ROOM = 360;
 // Room for the docked "Alert me" (a 56pt capsule and its gap) at the end of the trips.
 const ALERT_ROOM = 56 + 12;
 // Grown for place search: the head row, then the two From/To fields.
@@ -185,6 +181,20 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
   // On Android the keyboard library takes over how screens make room for the keyboard, so it
   // is only switched on while the search is open; every other screen keeps the system's way.
   const kbController = useKeyboardController();
+  // The keyboard's height once it has landed (0 = down), so the town list ends right above
+  // the card. Set once per landing, never while it moves: measuring it every frame re-laid
+  // out the list (the old stutter), and a fixed tallest-keyboard gap let the list scroll
+  // far past its last town (Waleed, Nov 12).
+  const [kbLanded, setKbLanded] = useState(0);
+  useKeyboardHandler(
+    {
+      onEnd: (e) => {
+        'worklet';
+        runOnJS(setKbLanded)(Math.max(0, e.height));
+      },
+    },
+    [],
+  );
   useEffect(() => {
     if (Platform.OS === 'android') kbController.setEnabled(live);
   }, [live]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -422,7 +432,10 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
   // While closing, the page only exists above the middle of the bar, so the list reads as
   // tucked under it and Home shows below the bar as it lands. (Height of a clip with one
   // child that is laid out once: the child keeps its own size.)
+  // It only clips while closing: Liquid Glass inside a clipping parent drops to a flat,
+  // see-through look, and the day row's calendar is a glass button.
   const clip = useAnimatedStyle(() => ({
+    overflow: leaving.value ? 'hidden' : 'visible',
     height: leaving.value
       ? interpolate(p.value, [0, 1], [fromY.value + fromH.value / 2, restY + HEAD_H / 2], Extrapolation.EXTEND)
       : screenH,
@@ -464,7 +477,7 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                   paddingTop: showDays ? (daysH || insets.top + DAYS_ROW_H) + space.xs : insets.top + space.md,
-                  paddingBottom: picking ? bottomGap + CARD_H + KB_ROOM + FADE_H : bottomGap + HEAD_H + space.lg + ALERT_ROOM,
+                  paddingBottom: picking ? Math.max(bottomGap, kbLanded + KB_GAP) + CARD_H + space.md : bottomGap + HEAD_H + space.lg + ALERT_ROOM,
                   paddingHorizontal: space.screen,
                   direction,
                 }}
@@ -699,7 +712,7 @@ function RouteFields({
 const useStyles = makeStyles((colors) => ({
   page: { backgroundColor: colors.surface },
   gone: { display: 'none' },
-  clip: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
+  clip: { position: 'absolute', top: 0, left: 0, right: 0 },
   unclip: { position: 'absolute', left: 0, right: 0 },
   statusBand: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.surface },
   topFade: { position: 'absolute', left: 0, right: 0 },
