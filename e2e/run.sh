@@ -30,6 +30,14 @@ flow() {
   echo "::endgroup::"
 }
 
+# A freshly booted emulator is slow, and Android may cover the app with "Pixel Launcher
+# isn't responding". Hide those dialogs (the setting behind Developer options' "Show all
+# ANRs") and let the phone settle before the first flow.
+adb shell settings put global hide_error_dialogs 1 || true
+adb shell settings put secure anr_show_background 0 || true
+sleep 20
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null || true
+
 sql seed.sql
 
 flow 01-driver-posts-trip     check-01-trip-posted

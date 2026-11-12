@@ -7,6 +7,12 @@ appId: app.rafiq
     clearState: true
     permissions:
       all: allow
+# If Android still shows "... isn't responding" over the app, choose Wait.
+- runFlow:
+    when:
+      visible: ".*isn't responding.*"
+    commands:
+      - tapOn: "Wait"
 - extendedWaitUntil:
     visible: "Get started"
     timeout: 90000
