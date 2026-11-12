@@ -18,6 +18,11 @@ appId: app.rafiq
     visible: "Get started"
     timeout: 90000
 - tapOn: "Get started"
+# Welcome can take a moment to draw on a busy emulator (one run saw a blank screen here).
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-email"
+    timeout: 30000
 - tapOn:
     id: "sign-in-email"
 - tapOn:
