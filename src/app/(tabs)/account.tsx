@@ -2,14 +2,15 @@
 // (car, emergency contact, settings). Steps still to do (photo, ID check, driver check) sit
 // in their own group at the top and disappear once done; the seal by your name stays.
 
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import * as Updates from 'expo-updates';
 import { Pressable, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
-import { StatsRow } from '@/components/stats-row';
+import { SkeletonList } from '@/components/skeleton';
+import { StatsRow, StatsRowSkeleton } from '@/components/stats-row';
 import { Body, IconCircle, ListRow, SectionTitle, TabScreen, ltr, useFont } from '@/components/ui';
 import { accountSteps, type StepKey } from '@/lib/account-steps';
 import type { CheckState } from '@/lib/check-status';
@@ -19,8 +20,10 @@ import { askForPhoto } from '@/lib/photo-pick';
 import { formatPhone } from '@/lib/phone';
 import { forgetPush } from '@/lib/push';
 import { useSession, useT } from '@/lib/session';
-import type { Stats } from '@/lib/stats';
+import { prefetch } from '@/lib/cache';
+import { carQuery, detailsQuery, earningsQuery, statsQuery } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
+import { useCached } from '@/lib/use-cached';
 import { useCheckStatus } from '@/lib/verification';
 import type { StringKey } from '@/i18n/strings';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -41,8 +44,6 @@ function StepSubtitle({ stepKey, state }: { stepKey: StepKey; state: CheckState 
   );
 }
 
-type Extra = { created_at: string; emergency_name: string | null };
-
 export default function Account() {
   const { c: colors } = useTheme();
   const styles = useStyles();
@@ -51,34 +52,26 @@ export default function Account() {
   const { profile, session, refreshProfile } = useSession();
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const [car, setCar] = useState<{ car_model: string; car_color: string; plate: string } | null>(null);
-  const [extra, setExtra] = useState<Extra | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const idCheck = useCheckStatus(session?.user.id, 'passenger').status;
-  const driverCheck = useCheckStatus(session?.user.id, 'driver').status;
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!session) return;
-      const me = session.user.id;
-      supabase
-        .from('driver_details')
-        .select('car_model, car_color, plate')
-        .eq('driver_id', me)
-        .maybeSingle()
-        .then(({ data }) => setCar(data ?? null));
-      supabase
-        .rpc('my_profile')
-        .select('created_at, emergency_name')
-        .maybeSingle()
-        .then(({ data }) => setExtra((data as Extra | null) ?? null));
-      // Trips, reliability and rating (trip day, slice 9).
-      supabase.rpc('person_stats', { p_person: me }).then(({ data, error }) => {
-        const row = Array.isArray(data) ? data[0] : data;
-        setStats(error || !row ? null : (row as Stats));
-      });
-    }, [session]),
-  );
+  const me = session?.user.id;
+  // Read from the shared cache (src/lib/cache.ts): drawn at once from the last visit, and
+  // asked again in the background. Your car, Settings, Emergency contact and the ID check
+  // read the same entries, so they open with everything already filled in.
+  const carRes = useCached(me ? carQuery(me) : null);
+  const car = carRes.data;
+  const extra = useCached(me ? detailsQuery(me) : null).data;
+  const statsRes = useCached(me ? statsQuery(me) : null);
+  const stats = statsRes.data;
+  const idRes = useCheckStatus(me, 'passenger');
+  const driverRes = useCheckStatus(me, 'driver');
+  const idCheck = idRes.status;
+  const driverCheck = driverRes.status;
+  // The one page under here with its own data: start loading it before you tap.
+  useEffect(() => {
+    if (me && car) prefetch(earningsQuery(me));
+  }, [me, car]);
+  // Steps and rows wait until we know your car and checks, so nothing jumps in later.
+  // (Offline? Show the rows anyway, so Settings and Sign out are always reachable.)
+  const loaded = (car !== undefined || carRes.failed) && (!!idCheck || idRes.failed) && (!!driverCheck || driverRes.failed);
 
   const name = profile?.full_name ?? '';
   const avatarPath = profile?.avatar_path ?? null;
@@ -158,11 +151,12 @@ export default function Account() {
             </View>
           </View>
           {photoError ? <Body error>{photoError}</Body> : null}
-          {stats ? <StatsRow stats={stats} /> : null}
+          {stats ? <StatsRow stats={stats} /> : stats === undefined && !statsRes.failed ? <StatsRowSkeleton /> : null}
         </>
       }
     >
-      {steps.length > 0 ? (
+      {!loaded ? <SkeletonList rows={5} /> : null}
+      {loaded && steps.length > 0 ? (
         <View style={styles.steps}>
           <View style={styles.stepsHead}>
             <SectionTitle>{t('stepsTitle')}</SectionTitle>
@@ -180,6 +174,7 @@ export default function Account() {
           ))}
         </View>
       ) : null}
+      {loaded ? (
       <View>
         <ListRow
           icon="carProfile"
@@ -207,6 +202,7 @@ export default function Account() {
           }}
         />
       </View>
+      ) : null}
       {/* Which published version this is, so a phone test can be matched to a change. */}
       {/* Long-press sends a test crash report, to check Sentry receives them. */}
       <Text style={[styles.build, { fontFamily: f.regular }]} onLongPress={sendTestCrash}>

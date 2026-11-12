@@ -23,6 +23,8 @@ import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { byDay, countByDay, dayIndex, filterTrips, leavingSoon, AHEAD_DAYS, searchDayStart } from '@/lib/trip-search';
 import { openTripFrom, useOpenTrip, type Rect } from '@/lib/trip-layer';
+import { prefetch } from '@/lib/cache';
+import { tripCardQuery } from '@/lib/queries';
 import { useMySeatsFor, useSeatCountsFor, type MySeatStatus } from '@/lib/live';
 import { seatView, type SeatCounts, type SeatKind } from '@/lib/seat-line';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -270,7 +272,7 @@ export function SearchResults({
             {isNearby(r) && (i === 0 || !isNearby(shown[i - 1]) || (everyDay && dayOf(shown[i - 1]) !== dayOf(r))) ? (
               <Body muted small>{t('nearbyTrips')}</Body>
             ) : null}
-            <TimeFirstRow r={r} last={i === shown.length - 1 || (everyDay && dayOf(shown[i + 1]) !== dayOf(r))} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} counts={seatCounts[r.id] ?? null} mine={mySeats[r.id] ?? null} onPress={(from) => open(r.id, from)} />
+            <TimeFirstRow r={r} last={i === shown.length - 1 || (everyDay && dayOf(shown[i + 1]) !== dayOf(r))} soon={leavingSoon(r.departs_at, now)} stats={driverStats[r.id]} counts={seatCounts[r.id] ?? null} mine={mySeats[r.id] ?? null} onPressIn={() => session && prefetch(tripCardQuery(r.id, session.user.id))} onPress={(from) => open(r.id, from)} />
           </Animated.View>
         ))}
       </View>
@@ -290,6 +292,7 @@ function TimeFirstRow({
   counts,
   mine,
   onPress,
+  onPressIn,
 }: {
   r: Result;
   last: boolean;
@@ -300,6 +303,8 @@ function TimeFirstRow({
   mine: MySeatStatus | null;
   /** Gets where the row is on screen, so the trip can grow out of it. */
   onPress: (from: Rect | null) => void;
+  /** As the finger lands: the trip starts loading, so its card opens filled in. */
+  onPressIn: () => void;
 }) {
   const { c: colors } = useTheme();
   const styles = useStyles();
@@ -323,6 +328,7 @@ function TimeFirstRow({
       accessibilityRole="button"
       accessibilityLabel={`${shortTime(new Date(r.departs_at))}, ${name}, ${seatsText}, ${r.price_ils}₪`}
       ref={ref}
+      onPressIn={onPressIn}
       onPress={() => openTripFrom(ref.current, '', (_id, from) => onPress(from ?? null))}
       style={({ pressed }) => [styles.row, !last && styles.rowLine, pressed && { opacity: 0.6 }]}
     >

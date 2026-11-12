@@ -50,39 +50,16 @@ import { useDriverPosition } from '@/lib/position';
 import { isLateTripCancel } from '@/lib/rules';
 import { useSession, useT } from '@/lib/session';
 import { openEmergency, shareTrip } from '@/lib/share-trip';
+import { cache } from '@/lib/cache';
+import { driverTripQuery, type DriverTripData, type DrivenTrip, type RiderRequest } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { noShowFrom, noShowOpen, pickupOpen, ratingOpen, startOpen, tripState } from '@/lib/trip-day';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
-type Trip = {
-  id: string;
-  origin: City;
-  destination: City;
-  departs_at: string;
-  price_ils: number;
-  seats_total: number;
-  cancelled_at: string | null;
-  trip_series: { id: string; weekdays: number[]; stopped_at: string | null } | null; // weekly pattern, if any
-  started_at: string | null;
-  finished_at: string | null;
-  pickup_label: string | null; // where you meet riders (null: the city square)
-  pickup_lat: number | null;
-  pickup_lng: number | null;
-  checkpoint_ids: string[] | null; // the checkpoints on the way (empty before Nov 10)
-};
-type Request = {
-  id: string;
-  status: string;
-  seats: number;
-  respond_by: string | null;
-  created_at: string;
-  here_at: string | null;
-  boarded_at: string | null;
-  passenger_id: string;
-  profiles: { display_name: string; avatar_path: string | null }; // the passenger
-};
+type Trip = DrivenTrip;
+type Request = RiderRequest;
 
 type Step = 'details' | 'rider' | 'arrived' | 'way';
 
@@ -99,8 +76,10 @@ export default function DriverTrip() {
   const { f } = useFont();
   const { session } = useSession();
   const repeatsText = useRepeatsText();
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [requests, setRequests] = useState<Request[]>([]);
+  // Opened from My trips, which started loading this as your finger landed (src/lib/cache.ts).
+  const [seed] = useState(() => (id ? cache.get<DriverTripData>(driverTripQuery(id).key) : undefined));
+  const [trip, setTrip] = useState<Trip | null>(seed?.trip ?? null);
+  const [requests, setRequests] = useState<Request[]>(seed?.requests ?? []);
   const [rated, setRated] = useState<Record<string, number>>({}); // booking id -> stars I gave
   const [busy, setBusy] = useState<string | null>(null); // booking id (or 'trip') being updated
   const [error, setError] = useState<string | null>(null);
@@ -112,24 +91,18 @@ export default function DriverTrip() {
   // Drive mode starts in the app's look; the sun/moon button switches it for this trip.
   const [dark, setDark] = useState(() => appTheme.dark);
 
-  const load = useCallback(async () => {
+  /** `reuse`: on opening, take an answer My trips just started loading instead of asking twice. */
+  const load = useCallback(async (reuse = false) => {
     if (!id) return;
-    const [tripRes, reqRes] = await Promise.all([
-      supabase
-        .from('trips')
-        .select(
-          'id, origin, destination, departs_at, price_ils, seats_total, cancelled_at, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, trip_series(id, weekdays, stopped_at)',
-        )
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('bookings')
-        .select('id, status, seats, respond_by, created_at, here_at, boarded_at, passenger_id, profiles!bookings_passenger_id_fkey(display_name, avatar_path)')
-        .eq('trip_id', id)
-        .order('created_at'),
-    ]);
-    setTrip((tripRes.data as unknown as Trip | null) ?? null);
-    const list = (reqRes.data as unknown as Request[] | null) ?? [];
+    const query = driverTripQuery(id);
+    // Live changes (a new request, a rider checked in) always ask the server afresh.
+    const data = reuse ? await cache.load(query, 5_000) : await cache.refetch(query);
+    if (!data || cache.failed(query.key)) {
+      if (!data) setTrip(null);
+      return;
+    }
+    setTrip(data.trip);
+    const list = data.requests;
     setRequests(list);
     const done = list.filter((r) => r.status === 'completed').map((r) => r.id);
     if (done.length > 0 && session) {
@@ -141,11 +114,11 @@ export default function DriverTrip() {
   // Reload on every visit, and whenever a booking or the trip changes.
   useFocusEffect(
     useCallback(() => {
-      load();
+      load(true);
     }, [load]),
   );
-  useBookingChanges(load, id ? `trip_id=eq.${id}` : undefined);
-  useTripChanges(load, id);
+  useBookingChanges(() => load(), id ? `trip_id=eq.${id}` : undefined);
+  useTripChanges(() => load(), id);
 
   const passengerStats = usePeopleStats(requests.map((r) => r.passenger_id));
 

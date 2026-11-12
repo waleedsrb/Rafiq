@@ -5,7 +5,9 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 import { useCallback, useEffect, useState } from 'react';
 
+import { prefetch } from '@/lib/cache';
 import { useBookingChanges } from '@/lib/live';
+import { carQuery, checkQuery, checkpointsQuery, detailsQuery, followsQuery, inboxQuery, myTripsQuery, statsQuery } from '@/lib/queries';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/theme/theme';
@@ -15,6 +17,7 @@ export default function TabsLayout() {
   const { c: colors } = useTheme();
   const { t, lang } = useT();
   const waiting = useRequestsWaiting();
+  usePrefetchTabs();
   return (
     <NativeTabs
       tintColor={colors.ink}
@@ -58,6 +61,32 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
     </NativeTabs>
   );
+}
+
+/**
+ * Once Home has drawn, load what the other tabs show (and what Account's pages need) in
+ * the background, so the first tap on My trips, Checkpoints or Account is already filled
+ * in instead of empty for a moment. Small reads, once per sign-in.
+ */
+function usePrefetchTabs() {
+  const { session } = useSession();
+  const me = session?.user.id;
+  useEffect(() => {
+    if (!me) return;
+    // A short wait lets Home's own reads go first.
+    const timer = setTimeout(() => {
+      prefetch(myTripsQuery(me));
+      prefetch(checkpointsQuery());
+      prefetch(followsQuery(me));
+      prefetch(inboxQuery(me));
+      prefetch(carQuery(me));
+      prefetch(detailsQuery(me));
+      prefetch(statsQuery(me));
+      prefetch(checkQuery(me, 'passenger'));
+      prefetch(checkQuery(me, 'driver'));
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [me]);
 }
 
 /** How many seat requests on your upcoming trips are waiting for your answer. */

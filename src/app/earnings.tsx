@@ -5,17 +5,17 @@
 // not counted. When card payments come, my_earnings() switches to what was charged
 // and a payout line can join this screen.
 
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
+import { Skeleton, SkeletonGroup, SkeletonList } from '@/components/skeleton';
 import { Body, Label, ListRow, Screen, Title, ltr, useFont } from '@/components/ui';
-import { byWeek, monthRange, totals, type EarningRow } from '@/lib/earnings';
+import { byWeek, totals } from '@/lib/earnings';
 import { formatDay, shortTime } from '@/lib/format';
 import { routeName } from '@/lib/places';
-import { useT } from '@/lib/session';
+import { earningsQuery } from '@/lib/queries';
+import { useSession, useT } from '@/lib/session';
 import { tripsKey } from '@/lib/stats';
-import { supabase } from '@/lib/supabase';
+import { useCached } from '@/lib/use-cached';
 import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
@@ -23,23 +23,11 @@ export default function Earnings() {
   const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
-  const [rows, setRows] = useState<EarningRow[] | null>(null);
-  const [error, setError] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      const { from, to } = monthRange(new Date());
-      supabase
-        .rpc('my_earnings', {
-          p_from: from.toISOString(),
-          p_to: to.toISOString(),
-        })
-        .then(({ data, error: err }) => {
-          setError(!!err);
-          setRows((data as EarningRow[] | null) ?? []);
-        });
-    }, []),
-  );
+  const { session } = useSession();
+  // Account starts loading this as soon as it knows you drive, so it's usually here already.
+  const res = useCached(session ? earningsQuery(session.user.id) : null);
+  const rows = res.data ?? null;
+  const error = res.failed;
 
   const month = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', { month: 'long' }).format(new Date());
   const sum = totals(rows ?? []);
@@ -52,13 +40,25 @@ export default function Earnings() {
         <Body muted small>
           {lang === 'ar' ? `${t('earningsOf')} ${month}` : `${month} ${t('earningsOf')}`}
         </Body>
-        <Text style={[styles.big, { fontFamily: f.bold }]}>{ltr(`${sum.amount}₪`)}</Text>
-        <Body muted small>
-          {t('fromWord')} {ltr(sum.trips)} {t(tripsKey(sum.trips))}
-        </Body>
+        {rows ? (
+          <>
+            <Text style={[styles.big, { fontFamily: f.bold }]}>{ltr(`${sum.amount}₪`)}</Text>
+            <Body muted small>
+              {t('fromWord')} {ltr(sum.trips)} {t(tripsKey(sum.trips))}
+            </Body>
+          </>
+        ) : (
+          // Never a "0₪" that turns into the real amount a moment later.
+          <SkeletonGroup style={{ gap: 2 }}>
+            <Skeleton width={120} height={40} radius={10} style={{ marginVertical: 6 }} />
+            <Skeleton width={90} height={12} style={{ marginVertical: 3 }} />
+          </SkeletonGroup>
+        )}
       </View>
 
-      {rows === null ? null : rows.length === 0 ? (
+      {rows === null ? (
+        error ? <Body muted>{t('somethingWrong')}</Body> : <SkeletonList rows={3} />
+      ) : rows.length === 0 ? (
         <Body muted>{error ? t('somethingWrong') : t('noEarningsYet')}</Body>
       ) : (
         byWeek(rows).map((week) => (

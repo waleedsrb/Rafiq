@@ -14,11 +14,14 @@ import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NotificationSwipe } from '@/components/notification-swipe';
+import { SkeletonList } from '@/components/skeleton';
 import { BackButton, Body, GlassButton, IconCircle, Label, ListRow, Screen, Title, TopBar, useFont } from '@/components/ui';
+import { cache } from '@/lib/cache';
 import { formatDay, shortTime } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
 import { applyInboxChange, groupInbox, inboxIcon, inboxWords, needsYou, type InboxChange, type InboxGroup, type Notification } from '@/lib/inbox';
 import { inboxChanged } from '@/lib/notifications';
+import { inboxQuery } from '@/lib/queries';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { openTrip } from '@/lib/trip-layer';
@@ -38,7 +41,8 @@ export default function Notifications() {
   const userId = session?.user.id;
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
-  const [rows, setRows] = useState<Notification[] | null>(null);
+  // Last visit's inbox draws at once (src/lib/cache.ts); the server's answer follows.
+  const [rows, setRows] = useState<Notification[] | null>(() => (userId ? (cache.get<Notification[]>(inboxQuery(userId).key) ?? null) : null));
   const [error, setError] = useState<Failure | null>(null);
   // The one delete still waiting out its Undo time.
   const [undo, setUndo] = useState<Notification | null>(null);
@@ -46,19 +50,20 @@ export default function Notifications() {
   const undoRow = useRef<Notification | null>(null);
   const request = useRef(0);
 
+  // Keep the cached copy in step with reads, deletes and undos made here.
+  useEffect(() => {
+    if (rows && userId) cache.set(inboxQuery(userId).key, rows);
+  }, [rows, userId]);
+
   const change = (c: InboxChange) => setRows((current) => current && applyInboxChange(current, c));
 
   const load = useCallback(async () => {
     const version = ++request.current;
     if (!userId) { setRows([]); return; }
-    const { data, error: failure } = await supabase
-      .from('notifications')
-      .select('id, kind, title, body, title_ar, body_ar, title_en, body_en, url, created_at, read_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    const query = inboxQuery(userId);
+    const data = await cache.load(query, 2_000);
     if (version !== request.current) return;
-    if (failure) { setError('notificationLoadFailed'); return; }
+    if (cache.failed(query.key)) { setError('notificationLoadFailed'); return; }
     setError(null);
     // A message waiting out its Undo stays hidden even if the server still has it.
     const hidden = undoRow.current?.id;
@@ -179,6 +184,8 @@ export default function Notifications() {
             <Body muted>{t('notificationRetry')}</Body>
           </Pressable>
         ) : null}
+
+        {rows === null && !error ? <SkeletonList rows={5} /> : null}
 
         {rows !== null && rows.length === 0 ? (
           <View style={styles.empty}>

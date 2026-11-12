@@ -2,7 +2,7 @@
 // (the database refuses a trip without one: see require_car()).
 
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
@@ -10,9 +10,12 @@ import { PlateArt } from '@/components/plate-art';
 import { Body, Button, Field, Label, Screen, Title } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { goBack } from '@/lib/nav';
+import { cache, prefetch } from '@/lib/cache';
 import { normalizePlate } from '@/lib/plate';
+import { carQuery, checkQuery } from '@/lib/queries';
 import { useSession, useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+import { useCached } from '@/lib/use-cached';
 import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
@@ -30,30 +33,29 @@ export default function Car() {
   const styles = useStyles();
   const { t } = useT();
   const { session } = useSession();
-  const [model, setModel] = useState('');
-  const [color, setColor] = useState('');
+  const me = session?.user.id;
+  // Account already loaded your car, so the form opens filled in (src/lib/cache.ts).
+  const saved = useCached(me ? carQuery(me) : null).data;
+  const [model, setModel] = useState(saved?.car_model ?? '');
+  const [color, setColor] = useState(saved?.car_color ?? '');
   const [otherColor, setOtherColor] = useState(false);
-  const [plate, setPlate] = useState('');
+  const [plate, setPlate] = useState(saved?.plate ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const swatchNames = SWATCHES.map((s) => t(s.key));
 
-  // Fill in the form if the car is already saved.
+  // Opened before Account had an answer? Fill the form in when it lands (only once,
+  // and never over something you've started typing).
+  const filled = useRef(saved !== undefined);
   useEffect(() => {
-    if (!session) return;
-    supabase
-      .from('driver_details')
-      .select('car_model, car_color, plate')
-      .eq('driver_id', session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) return;
-        setModel(data.car_model);
-        setColor(data.car_color);
-        setPlate(data.plate);
-      });
-  }, [session]);
+    if (filled.current || saved === undefined) return;
+    filled.current = true;
+    if (!saved || model || color || plate) return;
+    setModel(saved.car_model);
+    setColor(saved.car_color);
+    setPlate(saved.plate);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A saved colour that isn't one of the swatches shows in the text field.
   useEffect(() => {
@@ -82,7 +84,9 @@ export default function Car() {
       return setError(t('somethingWrong'));
     }
     // A new car (or a changed one) needs the driver check: go straight to its photos.
-    const { data } = await supabase.from('driver_details').select('verified_at').eq('driver_id', session.user.id).maybeSingle();
+    const data = await cache.load(carQuery(session.user.id));
+    // The driver check may need doing again; Account and the check page ask afresh.
+    prefetch(checkQuery(session.user.id, 'driver'), 0);
     setSaving(false);
     if (data && !data.verified_at) router.replace({ pathname: '/verify', params: { kind: 'driver' } });
     else goBack();

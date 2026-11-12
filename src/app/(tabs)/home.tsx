@@ -39,6 +39,9 @@ import {
   type RiderAnswer,
   type SeatHero,
 } from '@/lib/home-state';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { prefetch } from '@/lib/cache';
+import { driverTripQuery, tripCardQuery } from '@/lib/queries';
 import { useBookingChanges } from '@/lib/live';
 import { useUnreadCount } from '@/lib/notifications';
 import { NABLUS, RAMALLAH } from '@/lib/places';
@@ -375,6 +378,15 @@ export default function Home() {
 
   const greeting = now.getHours() < 12 ? t('greetingMorning') : t('greetingEvening');
   const link = hero ? heroLink(hero) : null;
+  // The hero is the likeliest tap: load the trip it opens now, so it opens filled in.
+  const heroTripId = link && 'id' in link.params ? link.params.id : null;
+  const heroPath = link?.pathname ?? null;
+  const me = session?.user.id;
+  useEffect(() => {
+    if (!heroTripId || !me) return;
+    if (heroPath === '/trips/[id]') prefetch(tripCardQuery(heroTripId, me), 30_000);
+    else if (heroPath === '/trips/requests/[id]') prefetch(driverTripQuery(heroTripId), 30_000);
+  }, [heroTripId, heroPath, me]);
   const open = () => link && router.push(link);
 
   let block = null;
@@ -446,7 +458,15 @@ export default function Home() {
         />
       }
     >
-      {link ? (
+      {!data ? (
+        // The first load after opening the app: the hero's shape, not an empty gap.
+        <SkeletonGroup style={[styles.hero, { gap: 10 }]}>
+          <Skeleton width="38%" height={12} />
+          <Skeleton width="82%" height={24} radius={8} />
+          <Skeleton width="56%" height={24} radius={8} />
+          <Skeleton width={150} height={40} radius={radii.capsule} style={{ marginTop: 6 }} />
+        </SkeletonGroup>
+      ) : link ? (
         <Pressable accessibilityRole="button" onPress={open} style={({ pressed }) => [styles.hero, pressed && { opacity: 0.7 }]}>
           <View style={styles.openCue}>
             <Icon name={rtl ? 'caretLeft' : 'caretRight'} size={14} />

@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Body, Button, IconCircle, Screen, Title, useFont } from '@/components/ui';
 import type { StringKey } from '@/i18n/strings';
 import { goBack } from '@/lib/nav';
@@ -75,7 +76,19 @@ export default function Verify() {
     goBack();
   }
 
-  if (!status) return <Screen back>{null}</Screen>;
+  // Account loads this before you tap, so this skeleton is only for a slow first visit.
+  if (!status)
+    return (
+      <Screen back>
+        <SkeletonGroup style={{ gap: space.md }}>
+          <Skeleton width="70%" height={30} radius={10} />
+          <Skeleton width="100%" height={14} />
+          <Skeleton width="80%" height={14} />
+          <Skeleton width="100%" height={76} radius={radii.container} style={{ marginTop: space.sm }} />
+          <Skeleton width="100%" height={76} radius={radii.container} />
+        </SkeletonGroup>
+      </Screen>
+    );
 
   // Already decided or waiting: a calm status page.
   if (status.state === 'approved' || status.state === 'pending') {

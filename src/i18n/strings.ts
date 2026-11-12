@@ -914,6 +914,7 @@ export const strings = {
     en: 'I need help. This is my Rafiq trip, live:',
   },
 
+  loadingContent: { ar_m: 'جارٍ التحميل', en: 'Loading' },
   somethingWrong: { ar_m: 'حدث خطأ، حاول مرة أخرى', en: 'Something went wrong, try again' },
 
   // Home hero (one block that changes with what you have going on; see src/lib/home-state.ts)

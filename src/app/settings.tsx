@@ -4,26 +4,21 @@
 // Only settings that already do something are shown. Later slices add their rows
 // here: checkpoint alerts and ride alerts (slices 14-15), auto-share (slice 12).
 
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
+import { useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Body, Label, ListRow, Screen, Title, useFont } from '@/components/ui';
 import { deleteMyAccount } from '@/lib/account';
 import { confirm } from '@/lib/dialog';
 import { useSession, useT } from '@/lib/session';
+import { detailsQuery, type MyDetails } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
+import { useCached } from '@/lib/use-cached';
 import { useTheme, type AppearancePref } from '@/theme/theme';
 import { space } from '@/theme/tokens';
-
-type Prefs = {
-  notify_trips: boolean;
-  notify_alerts: boolean;
-  notify_checkpoints: boolean;
-  ask_near_checkpoints: boolean;
-  emergency_name: string | null;
-};
 
 export default function Settings() {
   const { t, lang } = useT();
@@ -31,27 +26,19 @@ export default function Settings() {
   const { session, refreshProfile } = useSession();
   const { pref, setPref, dark, c } = useTheme();
   const colors = c;
-  const [prefs, setPrefs] = useState<Prefs | null>(null);
+  // Account already loaded these, so the switches are there the moment the page opens.
+  const details = useCached(session ? detailsQuery(session.user.id) : null);
+  const prefs = details.data ?? null;
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!session) return;
-      supabase
-        .rpc('my_profile')
-        .select('notify_trips, notify_alerts, notify_checkpoints, ask_near_checkpoints, emergency_name')
-        .maybeSingle()
-        .then(({ data }) => setPrefs((data as Prefs | null) ?? null));
-    }, [session]),
-  );
-
   async function setSwitch(key: 'notify_trips' | 'notify_alerts' | 'notify_checkpoints' | 'ask_near_checkpoints', value: boolean) {
     if (!session || !prefs) return;
-    setPrefs({ ...prefs, [key]: value }); // feels instant; put it back if saving fails
+    const flip = (v: boolean) => details.set((old) => (old ? { ...old, [key]: v } : old) as MyDetails | null);
+    flip(value); // feels instant; put it back if saving fails
     const { error: err } = await supabase.from('profiles').update({ [key]: value }).eq('id', session.user.id);
     if (err) {
-      setPrefs({ ...prefs, [key]: !value });
+      flip(!value);
       setError(t('somethingWrong'));
     }
   }
@@ -85,6 +72,13 @@ export default function Settings() {
       thumbColor={colors.onInk}
       ios_backgroundColor={colors.lineStrong}
     />
+  );
+
+  // Where a switch will be, while its setting loads (only if Account hadn't loaded it).
+  const switchSkeleton = (
+    <SkeletonGroup>
+      <Skeleton width={51} height={31} radius={16} />
+    </SkeletonGroup>
   );
 
   return (
@@ -123,26 +117,26 @@ export default function Settings() {
           icon="ticket"
           title={t('notifyTrips')}
           subtitle={t('notifyTripsNote')}
-          trailing={prefs ? toggle(prefs.notify_trips, (v) => setSwitch('notify_trips', v), t('notifyTrips')) : undefined}
+          trailing={prefs ? toggle(prefs.notify_trips, (v) => setSwitch('notify_trips', v), t('notifyTrips')) : switchSkeleton}
         />
         <ListRow
           icon="bell"
           title={t('notifyAlerts')}
           subtitle={t('notifyAlertsNote')}
-          trailing={prefs ? toggle(prefs.notify_alerts, (v) => setSwitch('notify_alerts', v), t('notifyAlerts')) : undefined}
+          trailing={prefs ? toggle(prefs.notify_alerts, (v) => setSwitch('notify_alerts', v), t('notifyAlerts')) : switchSkeleton}
         />
         <ListRow
           icon="barricade"
           title={t('notifyCheckpoints')}
           subtitle={t('notifyCheckpointsNote')}
-          trailing={prefs ? toggle(prefs.notify_checkpoints, (v) => setSwitch('notify_checkpoints', v), t('notifyCheckpoints')) : undefined}
+          trailing={prefs ? toggle(prefs.notify_checkpoints, (v) => setSwitch('notify_checkpoints', v), t('notifyCheckpoints')) : switchSkeleton}
         />
         <ListRow
           last
           icon="mapPin"
           title={t('askNearCheckpoints')}
           subtitle={t('askNearCheckpointsNote')}
-          trailing={prefs ? toggle(prefs.ask_near_checkpoints, (v) => setSwitch('ask_near_checkpoints', v), t('askNearCheckpoints')) : undefined}
+          trailing={prefs ? toggle(prefs.ask_near_checkpoints, (v) => setSwitch('ask_near_checkpoints', v), t('askNearCheckpoints')) : switchSkeleton}
         />
       </View>
 

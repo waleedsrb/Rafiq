@@ -41,6 +41,8 @@ import { freeCancel } from '@/lib/rules';
 import { seatView, type SeatKind } from '@/lib/seat-line';
 import { useSession, useT } from '@/lib/session';
 import { openEmergency, shareTrip } from '@/lib/share-trip';
+import { cache } from '@/lib/cache';
+import { personQuery, tripCardQuery, type CardTrip, type Person, type TripCard } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 import { startOpen, tripState } from '@/lib/trip-day';
 import type { City } from '@/lib/trip-form';
@@ -50,28 +52,7 @@ import { radii, space } from '@/theme/tokens';
 
 type Payment = { status: 'held' | 'charged' | 'released' | 'refunded'; total_ils: number; card_brand: string; card_last4: string };
 
-type Trip = {
-  id: string;
-  driver_id: string;
-  origin: City;
-  destination: City;
-  departs_at: string;
-  seats_total: number;
-  price_ils: number;
-  cancelled_at: string | null;
-  cancelled_late: boolean | null;
-  cancel_reason: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  // Where the driver meets riders (null on trips posted before pickups: the city square).
-  pickup_label: string | null;
-  pickup_lat: number | null;
-  pickup_lng: number | null;
-  // The checkpoints the driver goes through (empty on trips posted before Nov 10).
-  checkpoint_ids: string[] | null;
-  profiles: { display_name: string; avatar_path: string | null }; // the driver, joined through trips.driver_id
-  trip_series: { weekdays: number[]; stopped_at: string | null } | null; // set when the trip repeats weekly
-};
+type Trip = CardTrip;
 
 type Step = 'details' | 'request' | 'rate' | 'driver';
 
@@ -109,54 +90,55 @@ export function TripDetails({
   const [want, setWant] = useState<{ to: Detent; key: number } | null>(null);
   const moveTo = (to: Detent) => setWant((w) => ({ to, key: (w?.key ?? 0) + 1 }));
 
-  const [trip, setTrip] = useState<Trip | null>(null);
+  // The list you tapped started loading this as your finger landed (src/lib/cache.ts),
+  // and a trip opened before opens straight away: the card draws from that, then refreshes.
+  const [seed] = useState(() => (session ? cache.get<TripCard>(tripCardQuery(id, session.user.id).key) : undefined));
+  const seedBooking = seed?.booking ?? null;
+  const [trip, setTrip] = useState<Trip | null>(seed?.trip ?? null);
   const [driverVerified, setDriverVerified] = useState(false);
   // Car model and colour, shown while booking (plate only later, see trip_contact()).
-  const [car, setCar] = useState<{ car_model: string | null; car_color: string | null } | null>(null);
+  const [car, setCar] = useState<{ car_model: string | null; car_color: string | null } | null>(() =>
+    seed ? (cache.get<Person>(personQuery(seed.trip.driver_id).key)?.profile ?? null) : null,
+  );
   const [payment, setPayment] = useState<Payment | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [bookingId, setBookingId] = useState<string | null>(null);
-  const [respondBy, setRespondBy] = useState<string | null>(null);
-  const [acceptedAt, setAcceptedAt] = useState<string | null>(null);
-  const [createdAt, setCreatedAt] = useState<string | null>(null);
-  const [hereAt, setHereAt] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(seedBooking?.status ?? null);
+  const [bookingId, setBookingId] = useState<string | null>(seedBooking?.id ?? null);
+  const [respondBy, setRespondBy] = useState<string | null>(seedBooking?.respond_by ?? null);
+  const [acceptedAt, setAcceptedAt] = useState<string | null>(seedBooking?.accepted_at ?? null);
+  const [createdAt, setCreatedAt] = useState<string | null>(seedBooking?.created_at ?? null);
+  const [hereAt, setHereAt] = useState<string | null>(seedBooking?.here_at ?? null);
   const [myStars, setMyStars] = useState<number | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [firstLoad, setFirstLoad] = useState(true);
 
-  const load = useCallback(async () => {
+  /** `reuse`: on opening, take an answer the list just started loading instead of asking twice. */
+  const load = useCallback(async (reuse = false) => {
     if (!session || !tripId) return;
-    const [tripRes, bookingRes] = await Promise.all([
-      supabase
-        .from('trips')
-        .select(
-          'id, driver_id, origin, destination, departs_at, seats_total, price_ils, cancelled_at, cancelled_late, cancel_reason, started_at, finished_at, pickup_label, pickup_lat, pickup_lng, checkpoint_ids, profiles!trips_driver_id_fkey(display_name, avatar_path), trip_series(weekdays, stopped_at)',
-        )
-        .eq('id', tripId)
-        .single(),
-      supabase
-        .from('bookings')
-        .select('id, status, respond_by, accepted_at, created_at, here_at')
-        .eq('trip_id', tripId)
-        .eq('passenger_id', session.user.id)
-        .maybeSingle(),
-    ]);
-    const loaded = (tripRes.data as unknown as Trip | null) ?? null;
+    const query = tripCardQuery(tripId, session.user.id);
+    // Live changes (the driver accepted, started) always ask the server afresh.
+    const card = reuse ? await cache.load(query, 5_000) : await cache.refetch(query);
+    if (!card || cache.failed(query.key)) {
+      if (!card) setTrip(null);
+      return;
+    }
+    const loaded = card.trip;
     setTrip(loaded);
     if (loaded) {
       supabase.rpc('is_verified_driver', { p_driver_id: loaded.driver_id }).then(({ data }) => setDriverVerified(data === true));
-      supabase.rpc('public_profile', { p_person: loaded.driver_id }).then(({ data }) => setCar(((data as typeof car[] | null) ?? [])[0] ?? null));
+      // The driver's page loads with it, so tapping the driver opens it filled in too.
+      void cache.load(personQuery(loaded.driver_id), 30_000).then((p) => setCar(p?.profile ?? null));
     }
-    setStatus(bookingRes.data?.status ?? null);
-    setBookingId(bookingRes.data?.id ?? null);
-    setRespondBy(bookingRes.data?.respond_by ?? null);
-    setAcceptedAt(bookingRes.data?.accepted_at ?? null);
-    setCreatedAt(bookingRes.data?.created_at ?? null);
-    setHereAt(bookingRes.data?.here_at ?? null);
-    const bid = bookingRes.data?.id;
-    if (bid && bookingRes.data?.status === 'completed') {
+    const b = card.booking;
+    setStatus(b?.status ?? null);
+    setBookingId(b?.id ?? null);
+    setRespondBy(b?.respond_by ?? null);
+    setAcceptedAt(b?.accepted_at ?? null);
+    setCreatedAt(b?.created_at ?? null);
+    setHereAt(b?.here_at ?? null);
+    const bid = b?.id;
+    if (bid && b?.status === 'completed') {
       const { data: r } = await supabase.from('ratings').select('stars').eq('booking_id', bid).eq('rater_id', session.user.id).maybeSingle();
       setMyStars((r as { stars: number } | null)?.stars ?? null);
     } else setMyStars(null);
@@ -167,7 +149,7 @@ export function TripDetails({
   }, [tripId, session]);
 
   useEffect(() => {
-    load();
+    load(true);
   }, [load]);
 
   // On the road, open on the bar so the map leads.
