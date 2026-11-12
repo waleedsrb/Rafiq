@@ -36,7 +36,7 @@ Full reveal, in milliseconds from the first animation frame:
 
 The ink around the mark shrinks onto the R as the outline filled plus a round-joined stroke whose width animates (the R grown evenly in every direction). This keeps the edge smooth at every size; an earlier union of disks at 80 sampled points left scalloped spikes while the R formed, and rebuilt a large path every frame.
 
-**Dark look** (follows the app's Appearance setting): the same timeline, but the road is drawn in light on graphite. It dims into the dark from 4250–5050 as the pullback starts, then the R lights up from graphite to the dark-mode ink from 5450–6300, landing on the light mark the app shows in dark mode. The road and R change colour one after the other so they never pass through the same grey, and the zoomed-in screen stays dark.
+**Dark look** (follows the app's Appearance setting): the same timeline, but the road is drawn in light on graphite. As the pullback starts it dims (4250–5250) while the R glows from graphite to the dark-mode ink (4950–6300), one overlapping hand-off with no dark pause, landing on the light mark the app shows in dark mode. The two colours cross while both are still dark, so the swap never shows as a muddy mid-grey.
 
 Returning launches map the same artwork onto 1.8 seconds: 400 ms to draw the road, 1250 ms through the pullback, then 150 ms of rest. These are branding durations, not a promise about total startup time: fonts, local storage, and session readiness can add time. The native graphite splash remains until the first launch scene has laid out.
 

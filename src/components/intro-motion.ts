@@ -43,17 +43,17 @@ export function inkSpread(time: number) {
 
 /**
  * Dark look only. The road is drawn in light on graphite (a road at night).
- * When the camera starts pulling back the road dims into the dark, and then the
- * R lights up around it. Doing it in two steps keeps the colours from passing
- * through each other as a muddy grey, and keeps the zoomed-in screen dark.
+ * As the camera pulls back the road dims while the R starts to glow, one
+ * overlapping hand-off with no dark pause. They cross while both are still
+ * dark, so the swap never shows as a muddy mid-grey.
  */
 export function nightRoadFade(time: number) {
   'worklet';
-  return progress(time, 4250, 5050);
+  return progress(time, 4250, 5250);
 }
 export function nightInkRise(time: number) {
   'worklet';
-  return progress(time, 5450, 6300);
+  return progress(time, 4950, 6300);
 }
 
 export function sceneTransform(time: number, centerY: number) {
