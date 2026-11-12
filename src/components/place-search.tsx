@@ -1,7 +1,7 @@
 // Place search in place (design A, "grow the bar you tapped"). Tapping From or To never
 // opens a new page: the route itself grows into two fields, the one you tapped ready to
 // type, and the town list takes the place of whatever was under it. Picking a town shrinks
-// it back. Used by the search header (search-morph.tsx), the results screen and step 1 of
+// it back. Used by the search header (search-layer.tsx), the results screen and step 1 of
 // Post a trip.
 //
 // Before you type: the big cities. As you type: towns and villages from search_places()
@@ -149,7 +149,21 @@ export function PlaceFields({
  * The towns for what's typed (the big cities before typing). `onPick` gets a West Bank
  * place; the end at the other side is left out, so a route can't be A to A.
  */
-export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch; exclude?: City; onPick: (id: City) => void }) {
+export function PlaceResults({
+  search,
+  exclude,
+  onPick,
+  recent,
+  current,
+}: {
+  search: PlaceSearch;
+  exclude?: City;
+  onPick: (id: City) => void;
+  /** Towns picked lately, listed first before you type. */
+  recent?: City[];
+  /** The town this end has now: marked with a check. */
+  current?: City;
+}) {
   const { c: colors } = useTheme();
   const styles = useStyles();
   const { t, lang } = useT();
@@ -158,6 +172,9 @@ export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch;
   const name = (h: Hit) => (lang === 'ar' ? h.name_ar : h.name_en);
   const governorate = (h: Hit) => (lang === 'ar' ? (place(h.id)?.governorate ?? '') : (h.governorate ?? '').replace(/ Governorate$/, ''));
   const flag: Record<Region, string> = { settlement: t('flagSettlement'), jerusalem: t('flagJerusalem'), outside: t('flagOutside'), west_bank: '' };
+  // While typing, the first town is what the keyboard's Return key picks: it is lit.
+  const typed = search.q.trim();
+  const top = topPick(search, exclude);
 
   const pick = (id: City) => {
     selectFeel();
@@ -168,41 +185,79 @@ export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch;
     notify({ title: t(key).replace('{place}', name(h)), body: t('outsideBody'), ok: t('pickAnotherPlace'), tone: 'neutral' });
   };
 
-  const row = (key: string, label: string, sub: string, onPress: () => void, faded?: string) => (
-    <Pressable
-      key={key}
-      accessibilityRole="button"
-      accessibilityLabel={[label, sub, faded].filter(Boolean).join(', ')}
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, { direction }, pressed && { opacity: 0.6 }]}
-    >
-      <View style={styles.rowIcon}>
-        <Icon name="mapPin" size={18} color={faded ? colors.inkSecondary : colors.ink} />
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
+  // What's typed is drawn bolder inside the town's name, so you can see why it matched.
+  const title = (label: string, faded?: string) => {
+    const at = typed ? label.toLocaleLowerCase().indexOf(typed.toLocaleLowerCase()) : -1;
+    const base = [styles.rowTitle, { fontFamily: typed ? f.regular : f.medium }, faded ? { color: colors.inkSecondary } : null];
+    if (at < 0) {
+      return (
         <Text style={[styles.rowTitle, { fontFamily: f.medium }, faded ? { color: colors.inkSecondary } : null]} numberOfLines={1}>
           {label}
         </Text>
-        {sub ? (
-          <Text style={[styles.rowSub, { fontFamily: f.regular }]} numberOfLines={1}>
-            {sub}
-          </Text>
-        ) : null}
-      </View>
-      {faded ? (
-        <View style={styles.flag}>
-          <Text style={[styles.flagText, { fontFamily: f.medium }]}>{faded}</Text>
+      );
+    }
+    return (
+      <Text style={base} numberOfLines={1}>
+        {label.slice(0, at)}
+        <Text style={{ fontFamily: f.bold }}>{label.slice(at, at + typed.length)}</Text>
+        {label.slice(at + typed.length)}
+      </Text>
+    );
+  };
+
+  const row = (
+    key: string,
+    id: string,
+    label: string,
+    sub: string,
+    onPress: () => void,
+    opts: { faded?: string; icon?: 'mapPin' | 'clock'; last?: boolean } = {},
+  ) => {
+    const lit = !!typed && id === top;
+    const chosen = id === current;
+    return (
+      <Pressable
+        key={key}
+        accessibilityRole="button"
+        accessibilityState={{ selected: chosen }}
+        accessibilityLabel={[label, sub, opts.faded].filter(Boolean).join(', ')}
+        onPress={onPress}
+        style={({ pressed }) => [styles.row, { direction }, lit && styles.rowLit, pressed && styles.rowPressed]}
+      >
+        <View style={[styles.rowIcon, lit && styles.rowIconLit]}>
+          <Icon name={opts.icon ?? 'mapPin'} size={18} color={opts.faded ? colors.inkSecondary : colors.ink} />
         </View>
-      ) : null}
-    </Pressable>
-  );
+        <View style={[styles.rowText, opts.last || lit ? styles.rowTextLast : null]}>
+          <View style={{ flex: 1, gap: 1 }}>
+            {title(label, opts.faded)}
+            {sub ? (
+              <Text style={[styles.rowSub, { fontFamily: f.regular }]} numberOfLines={1}>
+                {sub}
+              </Text>
+            ) : null}
+          </View>
+          {opts.faded ? (
+            <View style={styles.flag}>
+              <Text style={[styles.flagText, { fontFamily: f.medium }]}>{opts.faded}</Text>
+            </View>
+          ) : chosen ? (
+            <Icon name="check" size={18} color={colors.ink} />
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
   const group = (label: string) => <Text style={[styles.group, { fontFamily: f.medium }]}>{label}</Text>;
 
   if (hits === null) {
+    const lately = (recent ?? []).filter((id) => id !== exclude && !!place(id));
+    const cities = CITIES.filter((id) => id !== exclude && !lately.includes(id));
     return (
       <View>
+        {lately.length ? group(t('recentPlaces')) : null}
+        {lately.map((id, i) => row(`r-${id}`, id, placeName(id, lang), '', () => pick(id), { icon: 'clock', last: i === lately.length - 1 }))}
         {group(t('bigTowns'))}
-        {CITIES.filter((id) => id !== exclude).map((id) => row(id, placeName(id, lang), '', () => pick(id)))}
+        {cities.map((id, i) => row(id, id, placeName(id, lang), '', () => pick(id), { last: i === cities.length - 1 }))}
       </View>
     );
   }
@@ -211,14 +266,20 @@ export function PlaceResults({ search, exclude, onPick }: { search: PlaceSearch;
   return (
     <View>
       {inside.length ? group(t('townsAndVillages')) : null}
-      {inside.map((h) => row(h.id, name(h), governorate(h), () => pick(h.id)))}
+      {inside.map((h, i) => row(h.id, h.id, name(h), governorate(h), () => pick(h.id), { last: i === inside.length - 1 }))}
       {flagged.length ? group(t('outsideWestBank')) : null}
-      {flagged.map((h) => row(h.id, name(h), '', () => blocked(h), flag[h.region]))}
+      {flagged.map((h, i) => row(h.id, h.id, name(h), '', () => blocked(h), { faded: flag[h.region], last: i === flagged.length - 1 }))}
       {!search.loading && hits.length === 0 ? (
         <Text style={[styles.rowSub, { fontFamily: f.regular, marginTop: space.md }]}>{t('noPlaceFound')}</Text>
       ) : null}
     </View>
   );
+}
+
+/** The town the keyboard's Return key picks: the first West Bank match for what's typed. */
+export function topPick(search: PlaceSearch, exclude?: City): City | null {
+  if (!search.q.trim() || !search.hits) return null;
+  return search.hits.find((h) => h.region === 'west_bank' && h.id !== exclude)?.id ?? null;
 }
 
 /** Height PlaceFields takes (two fields and the gap): the search header grows by this. */
@@ -234,9 +295,25 @@ const useStyles = makeStyles((colors) => ({
   fieldOn: { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.ink, paddingHorizontal: 12 },
   fieldText: { flex: 1, fontSize: 15, color: colors.ink },
   input: { flex: 1, fontSize: 15, color: colors.ink, paddingVertical: 0 },
-  group: { fontSize: 13, color: colors.inkSecondary, marginTop: space.md, marginBottom: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
+  group: { fontSize: 13, color: colors.inkSecondary, marginTop: space.lg, marginBottom: space.xs },
+  // Rows sit a little in from the list's edges, so the lit row's soft fill has room around
+  // its text; the separator starts after the icon (iOS list style).
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingStart: 6, minHeight: 56, borderRadius: 16, marginHorizontal: -6 },
+  rowLit: { backgroundColor: colors.fill },
+  rowPressed: { backgroundColor: colors.fill },
+  rowText: {
+    flex: 1,
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingEnd: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
+  },
+  rowTextLast: { borderBottomWidth: 0 },
   rowIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.sunken, alignItems: 'center', justifyContent: 'center' },
+  rowIconLit: { backgroundColor: colors.card },
   rowTitle: { fontSize: 16, color: colors.ink },
   rowSub: { fontSize: 13, color: colors.inkSecondary },
   flag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.capsule, backgroundColor: colors.sunken },

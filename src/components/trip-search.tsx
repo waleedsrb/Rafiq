@@ -2,7 +2,7 @@
 // for one direction load once, and picking a day only filters what is already here, so the
 // list changes in place without waiting. No day picked (how it opens) = every trip in the
 // next 30 days, earliest first, with a small heading starting each day (Waleed, Nov 11).
-// Used by the search that grows out of Home's "Where to?" bar (search-morph.tsx)
+// Used by the search that grows out of Home's "Where to?" bar (search-layer.tsx)
 // and by the stand-alone results screen that other screens link to.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
