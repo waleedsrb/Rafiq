@@ -384,7 +384,7 @@ export default function NewTrip() {
         <ListRow last icon="bell" title={t('tripPostedNext')} />
       </View>
     );
-    footer = <Button label={t('done')} onPress={close} />;
+    footer = <Button testID="post-done" label={t('done')} onPress={close} />;
     mini = { sub: title, tone: 'ok', action: { label: t('done'), onPress: close } };
   } else {
     const form = step as FormStep;
@@ -555,7 +555,7 @@ export default function NewTrip() {
             {error}
           </Body>
         ) : null}
-        <Button label={nextLabel} onPress={next} disabled={!stepOk} loading={saving} />
+        <Button testID="post-next" label={nextLabel} onPress={next} disabled={!stepOk} loading={saving} />
       </>
     );
     mini = {

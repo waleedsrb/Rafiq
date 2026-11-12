@@ -125,7 +125,7 @@ export function useRequestSeat(
           {errorLine}
         </>
       ),
-      footer: <Button label={t('sendRequest')} onPress={requestCash} loading={paying} />,
+      footer: <Button testID="send-request" label={t('sendRequest')} onPress={requestCash} loading={paying} />,
     };
   }
 

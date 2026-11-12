@@ -19,6 +19,10 @@ test('published builds report, tagged with channel, short sha and update id', ()
   assert.equal(o.dsn, APP_DSN);
 });
 
+test('the end-to-end test build never reports', () => {
+  assert.equal(crashOptions({ isDev: false, build: 'e2e' }).enabled, false);
+});
+
 test('a store build with no channel counts as production', () => {
   assert.equal(crashOptions({ isDev: false, channel: null }).environment, 'production');
   assert.equal(crashOptions({ isDev: false }).dist, 'embedded');

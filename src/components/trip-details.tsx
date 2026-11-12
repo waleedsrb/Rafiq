@@ -536,7 +536,7 @@ export function TripDetails({
         <Body muted small style={{ textAlign: 'center' }}>
           {t('detailsAfterAccept')}
         </Body>
-        <Button label={`${t(joinsLine ? 'joinLine' : 'requestSeat')} · ${price}`} onPress={request} />
+        <Button testID="request-seat" label={`${t(joinsLine ? 'joinLine' : 'requestSeat')} · ${price}`} onPress={request} />
       </>
     );
     mini = { sub: `${route} · ${price}`, action: { label: t(joinsLine ? 'joinLine' : 'requestSeat'), onPress: request } };

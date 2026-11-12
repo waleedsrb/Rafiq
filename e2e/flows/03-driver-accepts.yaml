@@ -1,0 +1,24 @@
+# Dana opens the app and accepts Amir straight from the Home card. The answer waits
+# 5 seconds for Undo, then goes to the database (src/components/hero-actions.tsx).
+appId: app.rafiq
+name: Driver accepts the request from Home
+tags: [ride]
+---
+- runFlow:
+    file: common/sign-in.yaml
+    env:
+      EMAIL: e2e-driver@rafiq.test
+- extendedWaitUntil:
+    visible: "New request · .*"
+    timeout: 20000
+- tapOn:
+    id: "hero-accept"
+- assertVisible: ".*Accepted Amir.*"
+# The Undo window closes, the answer is sent, and Home moves on.
+- extendedWaitUntil:
+    notVisible: "Undo.*"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: "New request · .*"
+    timeout: 20000
+- takeScreenshot: 03-request-accepted

@@ -228,7 +228,7 @@ export function SeatBlock({
     footer =
       step === 'ask' ? (
         <ActionRow>
-          <Capsule variant="solid" label={t('heroYesRode')} onPress={() => answer('rode', 'heroSavedRode')} />
+          <Capsule testID="hero-yes-rode" variant="solid" label={t('heroYesRode')} onPress={() => answer('rode', 'heroSavedRode')} />
           <Capsule label={t('heroNo')} a11y={t('heroNoA11y')} onPress={() => setStep('why')} />
         </ActionRow>
       ) : (
@@ -502,6 +502,7 @@ export function DriveBlock({
         <ActionRow>
           <Capsule
             variant="solid"
+            testID="hero-all-in-start"
             label={t('heroAllInStart')}
             a11y={t('heroAllInStartA11y')}
             onPress={() => run(t('heroSavedStart'), () => supabase.rpc('start_trip_all_in', { p_trip_id: drive.tripId }))}
@@ -652,6 +653,7 @@ export function RequestBlock({
               <Capsule
                 hug
                 variant="solid"
+                testID="hero-accept"
                 label={t('accept')}
                 a11y={t('acceptName').replace('{name}', first)}
                 onPress={() => run(t('heroSavedAccept').replace('{name}', first), () => decide('accepted'))}

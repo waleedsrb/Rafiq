@@ -1,0 +1,43 @@
+# Dana, a verified driver, signs in and posts Ramallah → Nablus with the card's
+# ready-made answers: Next, Next, Next, Publish (src/app/trips/new.tsx).
+appId: app.rafiq
+name: Driver signs in and posts a trip
+tags: [ride]
+---
+- runFlow:
+    file: common/sign-in.yaml
+    env:
+      EMAIL: e2e-driver@rafiq.test
+- assertVisible: ".*Dana.*"
+- tapOn: "Driving anyway\\? Post a trip"
+- extendedWaitUntil:
+    visible: "Where are you going\\?"
+    timeout: 20000
+- tapOn:
+    id: "post-next"
+- extendedWaitUntil:
+    visible: "Where do you meet riders\\?"
+    timeout: 10000
+- tapOn:
+    id: "post-next"
+- extendedWaitUntil:
+    visible: "When do you leave\\?"
+    timeout: 10000
+- tapOn:
+    id: "post-next"
+- extendedWaitUntil:
+    visible: "Seats and price"
+    timeout: 10000
+- assertVisible: "Publish trip · .*"
+- tapOn:
+    id: "post-next"
+- extendedWaitUntil:
+    visible: "Your trip is posted"
+    timeout: 20000
+- takeScreenshot: 01-trip-posted
+- tapOn:
+    id: "post-done"
+- extendedWaitUntil:
+    visible:
+      id: "home-greeting"
+    timeout: 20000

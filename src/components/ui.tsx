@@ -377,6 +377,7 @@ export function Button({
   loading,
   variant = 'primary',
   icon,
+  testID,
 }: {
   label: string;
   onPress: () => void;
@@ -384,6 +385,8 @@ export function Button({
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'plain';
   icon?: IconName;
+  /** A stable name for the end-to-end tests (e2e/), which tap it without depending on the words. */
+  testID?: string;
 }) {
   const { c: colors } = useTheme();
   const styles = useStyles();
@@ -392,6 +395,7 @@ export function Button({
   const color = primary ? colors.onInk : colors.ink;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: disabled || loading }}
       disabled={disabled || loading}

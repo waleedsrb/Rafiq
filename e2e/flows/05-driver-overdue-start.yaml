@@ -1,0 +1,33 @@
+# Same trip, driver's side: Dana was nudged ("Your trip was due at …") and Home shows the
+# overdue card. "All in · Start" ticks everyone in and starts the trip.
+appId: app.rafiq
+name: Driver starts an overdue trip from Home
+tags: [trip-day]
+---
+- runFlow:
+    file: common/sign-in.yaml
+    env:
+      EMAIL: e2e-driver@rafiq.test
+- extendedWaitUntil:
+    visible: ".*Due .* min ago · .*"
+    timeout: 20000
+- tapOn: "Notifications.*"
+- extendedWaitUntil:
+    visible: ".*Your trip was due at .*"
+    timeout: 20000
+- takeScreenshot: 05-driver-inbox
+- back
+- extendedWaitUntil:
+    visible:
+      id: "hero-all-in-start"
+    timeout: 20000
+- tapOn:
+    id: "hero-all-in-start"
+- assertVisible: ".*Starting the trip.*"
+- extendedWaitUntil:
+    notVisible: "Undo.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*On the road.*"
+    timeout: 20000
+- takeScreenshot: 05-on-the-road

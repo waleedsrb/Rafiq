@@ -38,11 +38,12 @@ export default function EmailStep() {
   }
 
   return (
-    <Screen back footer={<Button label={t('sendCode')} onPress={submit} loading={sending} disabled={!raw.trim()} />}>
+    <Screen back footer={<Button testID="send-code" label={t('sendCode')} onPress={submit} loading={sending} disabled={!raw.trim()} />}>
       <Title>{t('emailTitle')}</Title>
       <Body muted>{t('emailHint')}</Body>
       <View style={{ marginTop: space.md }}>
         <Field
+          testID="email-input"
           label={t('emailLabel')}
           ltr
           autoFocus
