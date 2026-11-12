@@ -518,7 +518,8 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
                   <View style={[StyleSheet.absoluteFill, styles.daysFill]} />
                 </Animated.View>
                 <Animated.View style={page}>
-                  <DayChips s={s} inset={space.screen} />
+                  {/* The search is built while hidden; its glass is made again once it rests. */}
+                  <DayChips s={s} inset={space.screen} glassKey={settled && live ? 'rest' : 'moving'} />
                 </Animated.View>
               </Animated.View>
             ) : null}

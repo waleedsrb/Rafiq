@@ -113,7 +113,7 @@ export function useTripSearch(start?: { origin?: City; destination?: City; day?:
  *  changes in place; tapping it again goes back to every day. The calendar stays pinned at
  *  the end (the pills slide under its glass) and reaches further days. `inset`: the row's
  *  side margin, when it runs edge to edge. */
-export function DayChips({ s, inset }: { s: SearchState; inset?: number }) {
+export function DayChips({ s, inset, glassKey }: { s: SearchState; inset?: number; glassKey?: string }) {
   return (
     <DayPills
       day={s.day}
@@ -123,6 +123,7 @@ export function DayChips({ s, inset }: { s: SearchState; inset?: number }) {
       dots={s.week ? s.counts : undefined}
       padding={14}
       inset={inset}
+      glassKey={glassKey}
     />
   );
 }
