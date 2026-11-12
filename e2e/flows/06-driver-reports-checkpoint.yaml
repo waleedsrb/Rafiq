@@ -1,0 +1,25 @@
+# Dana is on the road and finds Zaatara closed. She finds it in the Checkpoints tab and
+# holds "Closed" for a second to report it (hold to report, so a pocket tap can't).
+# sql/check-06 confirms the report counts as a driver's, since her trip is underway.
+appId: app.rafiq
+name: Driver reports a closed checkpoint
+tags: [checkpoints]
+---
+- runFlow:
+    file: common/sign-in.yaml
+    env:
+      EMAIL: e2e-driver@rafiq.test
+- tapOn: "Checkpoints"
+- tapOn: "Search checkpoints"
+# Part of the name, so the search box's own text doesn't match the row.
+- inputText: "Zaatar"
+- hideKeyboard
+- tapOn: "Zaatara"
+- extendedWaitUntil:
+    visible: "Closed"
+    timeout: 20000
+- longPressOn: "Closed"
+- extendedWaitUntil:
+    visible: "Thanks, your report is in."
+    timeout: 20000
+- takeScreenshot: 06-checkpoint-reported

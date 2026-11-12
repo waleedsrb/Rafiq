@@ -1,42 +1,10 @@
-# Signs in from a fresh install, the way a new phone would: intro, Welcome, Email, then the
-# 6-digit code from the email (read from Mailpit by scripts/email-code.js).
-# Needs EMAIL. Ends on Home.
+# Signs in someone who already has an account. Needs EMAIL. Ends on Home.
 appId: app.rafiq
 ---
-- launchApp:
-    clearState: true
-    permissions:
-      all: allow
-# If Android still shows "... isn't responding" over the app, choose Wait.
 - runFlow:
-    when:
-      visible: ".*isn't responding.*"
-    commands:
-      - tapOn: "Wait"
-- extendedWaitUntil:
-    visible: "Get started"
-    timeout: 90000
-- tapOn: "Get started"
-- tapOn:
-    id: "sign-in-email"
-- tapOn:
-    id: "email-input"
-- inputText: ${EMAIL}
-# The keyboard covers the Send code button; the keyboard's own Enter sends it too.
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Enter the code"
-    timeout: 30000
-- retry:
-    maxRetries: 3
-    commands:
-      - runScript:
-          file: ../../scripts/email-code.js
-          env:
-            EMAIL: ${EMAIL}
-- tapOn:
-    id: "code-input"
-- inputText: ${output.code}
+    file: email-code.yaml
+    env:
+      EMAIL: ${EMAIL}
 - extendedWaitUntil:
     visible:
       id: "home-greeting"
