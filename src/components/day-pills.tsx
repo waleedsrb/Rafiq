@@ -51,7 +51,7 @@ export function DayPills({
   dots,
   padding,
   inset = 0,
-  glassKey,
+  standIn,
   children,
 }: {
   /** 0 = today .. AHEAD_DAYS, or -1 when the extra pill is picked; null = none (search only). */
@@ -67,10 +67,10 @@ export function DayPills({
   dots?: number[];
   padding?: number;
   /**
-   * Changes when the row has come to rest on screen. Liquid Glass made while its screen is
-   * still hidden or fading in stays flat, so the calendar's glass is made again once it rests.
+   * The row is still moving (the search opening): Liquid Glass can't draw yet, so the calendar
+   * is a plain white circle that looks the same, swapped for real glass once the row rests.
    */
-  glassKey?: string;
+  standIn?: boolean;
   /** What the calendar replaces while it is open (kept mounted, so it keeps its state). */
   children?: ReactNode;
 }) {
@@ -109,6 +109,19 @@ export function DayPills({
   if (pinned) {
     // Picked far day or month open: the same glass button, ringed in ink, with the date on it.
     const marked = open || far !== null;
+    const calLabel = far !== null ? `${t('pickDate')}: ${formatDay(searchDayStart(far, new Date()), lang)}` : t('pickDate');
+    // Picked or open: the icon fills in (no ring around the glass, Waleed Nov 12), at the same
+    // size. A far day shows its date inside the filled calendar.
+    const calIcon = marked ? (
+      <View style={styles.filled}>
+        <Icon name="calendarFill" size={20} color={colors.ink} />
+        {far !== null && !open ? (
+          <Text style={[styles.glassDate, { color: colors.surface }]}>{searchDayStart(far, new Date()).getDate()}</Text>
+        ) : null}
+      </View>
+    ) : (
+      <Icon name="calendar" size={20} color={colors.ink} />
+    );
     return (
       <View style={{ gap: space.sm }}>
         <View style={{ justifyContent: 'center' }}>
@@ -138,27 +151,17 @@ export function DayPills({
             </ScrollView>
           </FadeTowardEnd>
           <View style={[styles.pin, { end: Math.max(0, inset - 2) }]}>
-            <GlassButton
-              key={glassKey}
+            {standIn ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={calLabel} onPress={toggle} style={styles.standIn}>
+                {calIcon}
+              </Pressable>
+            ) : (
               // The row's band is the page's own colour: a white body makes the glass read as a
               // raised button instead of vanishing into it. No edge line (Waleed, Nov 12).
-              tint={colors.glassFill}
-              label={far !== null ? `${t('pickDate')}: ${formatDay(searchDayStart(far, new Date()), lang)}` : t('pickDate')}
-              onPress={toggle}
-            >
-              {/* Picked or open: the icon fills in (no ring around the glass, Waleed Nov 12).
-                  A far day shows its date inside the filled calendar. */}
-              {marked ? (
-                <View style={styles.filled}>
-                  <Icon name="calendarFill" size={20} color={colors.ink} />
-                  {far !== null && !open ? (
-                    <Text style={[styles.glassDate, { color: colors.surface }]}>{searchDayStart(far, new Date()).getDate()}</Text>
-                  ) : null}
-                </View>
-              ) : (
-                <Icon name="calendar" size={20} color={colors.ink} />
-              )}
-            </GlassButton>
+              <GlassButton tint={colors.glassFill} label={calLabel} onPress={toggle}>
+                {calIcon}
+              </GlassButton>
+            )}
           </View>
         </View>
         {open ? (
@@ -456,6 +459,7 @@ const useStyles = makeStyles((colors) => ({
   frost: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong },
   frostWash: { backgroundColor: wash(colors.surface, 0.8) },
   // The calendar marked (month open, or a far day picked): an ink ring around the glass.
+  standIn: { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.glassFill },
   // The same 20pt as the outline icon (Waleed, Nov 12).
   filled: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   // Sits in the calendar's body, below its top bar.

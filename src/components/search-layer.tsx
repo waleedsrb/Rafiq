@@ -455,8 +455,10 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
 
   const nativeGlass = LIQUID_GLASS && settled && live && !picking && !restGrown;
   const showDays = !picking;
-  // Settled and open: the day row leaves the moving page (see where it is drawn below).
-  const restDays = settled && live;
+  // Open: the day row sits still in its final spot from the first frame, outside the moving
+  // page, so its glass is there at once like on every other page (Waleed, Nov 12). Only while
+  // closing does it ride and fade with the page.
+  const restDays = live;
 
   return (
     <View
@@ -512,7 +514,7 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
               />
             ) : null}
 
-            {/* The day row, while the search moves: it rides and fades with the page. */}
+            {/* The day row while the search closes: it rides and fades with the page. */}
             {showDays && !restDays ? (
               <Animated.View style={[styles.days, { paddingTop: insets.top + space.sm }, list]} onLayout={(e) => setDaysH(e.nativeEvent.layout.height)}>
                 <Animated.View style={[StyleSheet.absoluteFill, page]} pointerEvents="none">
@@ -520,21 +522,21 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
                   <View style={[StyleSheet.absoluteFill, styles.daysFill]} />
                 </Animated.View>
                 <Animated.View style={page}>
-                  <DayChips s={s} inset={space.screen} glassKey="moving" />
+                  <DayChips s={s} inset={space.screen} standIn />
                 </Animated.View>
               </Animated.View>
             ) : null}
           </View>
         </Animated.View>
 
-        {/* The day row at rest, pinned at the top while the trips scroll under it. It is drawn
+        {/* The day row while open, pinned at the top while the trips scroll under it. It is drawn
             here, outside every clipping, moving or fading parent and over a plain band (no
             blur under it), because the calendar is Liquid Glass and glass drew nothing inside
             the moving page or over the frosted blur (Waleed, Nov 12). */}
         {showDays && restDays ? (
           <View style={[styles.days, { paddingTop: insets.top + space.sm }]} onLayout={(e) => setDaysH(e.nativeEvent.layout.height)}>
             <View style={[StyleSheet.absoluteFill, styles.daysFill]} pointerEvents="none" />
-            <DayChips s={s} inset={space.screen} glassKey="rest" />
+            <DayChips s={s} inset={space.screen} />
           </View>
         ) : null}
 
