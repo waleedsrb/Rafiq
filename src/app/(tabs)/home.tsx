@@ -225,7 +225,7 @@ export default function Home() {
     const since = new Date(Date.now() - LOOKBACK_MS).toISOString();
     const dayAgo = new Date(Date.now() - DAY_MS).toISOString();
     const nowIso = new Date().toISOString();
-    const tripCols = 'id, origin, destination, departs_at, started_at, driver:profiles(display_name)';
+    const tripCols = 'id, origin, destination, departs_at, started_at, driver:profiles!trips_driver_id_fkey(display_name)';
 
     const [seats, drives, cancelled, ended, ratings, lastSeat, lastDrive, car] = await Promise.all([
       // Your next seat (asked for or confirmed).
@@ -251,7 +251,7 @@ export default function Home() {
       // A seat whose driver cancelled in the last day, for a trip that hasn't left yet.
       supabase
         .from('bookings')
-        .select(`id, trips!inner(id, departs_at, cancelled_at, finished_at, driver:profiles(display_name))`)
+        .select(`id, trips!inner(id, departs_at, cancelled_at, finished_at, driver:profiles!trips_driver_id_fkey(display_name))`)
         .eq('passenger_id', me)
         .eq('status', 'cancelled')
         .not('trips.cancelled_at', 'is', null)
@@ -261,7 +261,7 @@ export default function Home() {
       // A trip you finished in the last day, to rate.
       supabase
         .from('bookings')
-        .select(`id, trips!inner(id, departs_at, finished_at, driver:profiles(display_name))`)
+        .select(`id, trips!inner(id, departs_at, finished_at, driver:profiles!trips_driver_id_fkey(display_name))`)
         .eq('passenger_id', me)
         .eq('status', 'completed')
         .gte('trips.finished_at', dayAgo)
