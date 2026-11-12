@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View, type HostInstance } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
   CancelledBlock,
@@ -23,11 +24,11 @@ import {
 } from '@/components/home-hero';
 import { Icon } from '@/components/icon';
 import { RouteCheckpoints } from '@/components/route-checkpoints';
-import { SearchMorph, type Rect } from '@/components/search-morph';
-import { useTripSearch } from '@/components/trip-search';
 import { Body, GlassButton, ListRow, TabScreen, useFont } from '@/components/ui';
 import { formatLongDay } from '@/lib/format';
 import { tapFeel } from '@/lib/haptics';
+import { openSearch, searchCoversBar, setUsualRoute } from '@/lib/search-layer';
+import type { Rect } from '@/lib/trip-layer';
 import {
   heroLink,
   pickHero,
@@ -171,10 +172,9 @@ export default function Home() {
   const [now, setNow] = useState(() => new Date());
   const firstName = profile?.full_name.split(' ')[0] ?? '';
 
-  // The search that grows out of the "Where to?" bar. It starts on your usual route.
+  // The search that grows out of the "Where to?" bar lives in its own layer, built ahead
+  // and woken by the tap (src/components/search-layer.tsx). It starts on your usual route.
   const barRef = useRef<HostInstance>(null);
-  const [search, setSearch] = useState<{ from: Rect; parked: boolean; closing: boolean } | null>(null);
-  const searchState = useTripSearch();
   // Where the bar is gets measured as the finger lands, so by the time it lifts (the tap)
   // the search can start at once instead of waiting a frame for the measurement.
   const barRect = useRef<Rect | null>(null);
@@ -183,31 +183,18 @@ export default function Home() {
       barRect.current = { x, y, width, height };
       then?.(barRect.current);
     });
-  const openSearch = () => {
-    const open = (from: Rect) => setSearch({ from, parked: false, closing: false });
+  const startSearch = () => {
     tapFeel();
-    if (barRect.current) open(barRect.current);
-    else measureBar(open);
+    if (barRect.current) openSearch(barRect.current);
+    else measureBar(openSearch);
   };
-  // Start from your usual direction once we know it. The week loads now, while you're
-  // still on Home, so the trips are already there when the bar opens.
+  // Home's bar steps aside, on the UI thread, while the search's copy of it is on screen.
+  const barHidden = useAnimatedStyle(() => ({ opacity: searchCoversBar.value ? 0 : 1 }));
   const usualOrigin = data?.route?.origin;
   const usualDestination = data?.route?.destination;
-  const { setOrigin, setDestination } = searchState;
   useEffect(() => {
-    if (usualOrigin && usualDestination && !search) {
-      setOrigin(usualOrigin);
-      setDestination(usualDestination);
-    }
-  }, [usualOrigin, usualDestination]); // eslint-disable-line react-hooks/exhaustive-deps
-  // A page opened from inside the search (the ID check from a trip card): the search steps
-  // aside while it's up, and is back as you left it when you return.
-  useFocusEffect(
-    useCallback(() => {
-      setSearch((v) => (v?.parked ? { ...v, parked: false } : v));
-      return () => setSearch((v) => (v && !v.parked ? { ...v, parked: true } : v));
-    }, []),
-  );
+    if (usualOrigin && usualDestination) setUsualRoute(usualOrigin, usualDestination);
+  }, [usualOrigin, usualDestination]);
 
   useEffect(() => {
     AsyncStorage.getItem(LATER_KEY)
@@ -477,24 +464,26 @@ export default function Home() {
         <View style={styles.hero}>{block}</View>
       )}
 
-      {/* Tapping the bar grows it into the search right here (search-morph.tsx). */}
-      <Pressable
-        ref={barRef}
-        accessibilityRole="button"
-        onPressIn={() => {
-          barRect.current = null; // never start from an old spot
-          measureBar();
-        }}
-        onPress={openSearch}
-        style={[styles.whereTo, search && { opacity: 0 }]}
-      >
-        <Icon name="search" />
-        <Text style={[styles.whereToText, { fontFamily: f.bold }]}>{t('findSeatTitle')}</Text>
-        <View style={styles.dayPill}>
-          <Icon name="clock" size={14} />
-          <Text style={[styles.dayPillText, { fontFamily: f.medium }]}>{t('today')}</Text>
-        </View>
-      </Pressable>
+      {/* Tapping the bar grows it into the search right here (search-layer.tsx). */}
+      <Animated.View style={barHidden}>
+        <Pressable
+          ref={barRef}
+          accessibilityRole="button"
+          onPressIn={() => {
+            barRect.current = null; // never start from an old spot
+            measureBar();
+          }}
+          onPress={startSearch}
+          style={styles.whereTo}
+        >
+          <Icon name="search" />
+          <Text style={[styles.whereToText, { fontFamily: f.bold }]}>{t('findSeatTitle')}</Text>
+          <View style={styles.dayPill}>
+            <Icon name="clock" size={14} />
+            <Text style={[styles.dayPillText, { fontFamily: f.medium }]}>{t('today')}</Text>
+          </View>
+        </Pressable>
+      </Animated.View>
 
       {data ? <RouteCheckpoints origin={heroRoute.origin} destination={heroRoute.destination} reportedOnly limit={3} /> : null}
 
@@ -512,16 +501,6 @@ export default function Home() {
         />
       ) : null}
 
-      {search ? (
-        <SearchMorph
-          from={search.from}
-          s={searchState}
-          hidden={search.parked}
-          closing={search.closing}
-          onRequestClose={() => setSearch((v) => (v ? { ...v, closing: true } : v))}
-          onClosed={() => setSearch(null)}
-        />
-      ) : null}
     </TabScreen>
   );
 }

@@ -1,6 +1,6 @@
 // Results on a screen of their own, for links from elsewhere in the app (Home's hero,
 // a driver's cancellation). Home's "Where to?" bar opens the same search in place instead
-// (src/components/search-morph.tsx). The day changes right here; with none picked, every day shows.
+// (src/components/search-layer.tsx). The day changes right here; with none picked, every day shows.
 
 import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';

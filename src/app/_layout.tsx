@@ -11,11 +11,15 @@ import {
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { Platform, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 
 import { DialogHost } from '@/components/dialog-host';
 import { LaunchGate } from '@/components/launch-gate';
+import { SearchLayerHost } from '@/components/search-layer';
 import { TripLayerHost } from '@/components/trip-layer-host';
 import { setCrashUser, wrapRoot } from '@/lib/crash';
 import { usePush } from '@/lib/push';
@@ -42,14 +46,24 @@ function RootLayout() {
 
   return (
     // Light, dark or follow the phone (Settings > Appearance, src/theme/theme.tsx).
+    // One gesture root for the whole app (Home's search layer lives at this level and swipes).
+    // A gesture root inside a view that sits over every screen takes every touch on Android,
+    // even while that view lets touches through, so it has to be here instead.
+    <GestureHandlerRootView style={StyleSheet.absoluteFill}>
     <ThemeProvider>
-      <SessionProvider>
-        <ThemedStatusBar />
-        {fontsLoaded ? <Routes /> : null}
-        {/* Rafiq's own pop-ups (src/lib/dialog.ts), drawn above every screen. */}
-        {fontsLoaded ? <DialogHost /> : null}
-      </SessionProvider>
+      {/* Tracks where the keyboard really is, frame by frame (used by Home's search). On
+          Android it changes how screens make room for the keyboard, so there the search
+          switches it on only while it is open. */}
+      <KeyboardProvider enabled={Platform.OS === 'ios'} statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge>
+        <SessionProvider>
+          <ThemedStatusBar />
+          {fontsLoaded ? <Routes /> : null}
+          {/* Rafiq's own pop-ups (src/lib/dialog.ts), drawn above every screen. */}
+          {fontsLoaded ? <DialogHost /> : null}
+        </SessionProvider>
+      </KeyboardProvider>
     </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -113,6 +127,8 @@ function Routes() {
           </Stack.Protected>
         </Stack>
       )}
+      {/* Home's search: built ahead, asleep until "Where to?" is tapped (src/lib/search-layer.ts). */}
+      {ready ? <SearchLayerHost /> : null}
       {/* Trips open as a card over the page you're on (src/lib/trip-layer.ts). */}
       {ready ? <TripLayerHost /> : null}
     </LaunchGate>

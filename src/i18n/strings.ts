@@ -1044,6 +1044,8 @@ export const strings = {
   whereTo: { ar_m: 'إلى أين؟', en: 'Where to?' },
   searchTownPlaceholder: { ar_m: 'ابحث عن مدينة أو قرية', ar_f: 'ابحثي عن مدينة أو قرية', en: 'Search for a town or village' },
   bigTowns: { ar_m: 'المدن', en: 'Cities' },
+  recentPlaces: { ar_m: 'الأخيرة', en: 'Recent' },
+  clearTyping: { ar_m: 'امسح', ar_f: 'امسحي', en: 'Clear' },
   townsAndVillages: { ar_m: 'مدن وقرى', en: 'Towns and villages' },
   outsideWestBank: { ar_m: 'خارج الضفة الغربية', en: 'Outside the West Bank' },
   flagOutside: { ar_m: 'خارج الضفة', en: 'Outside' },

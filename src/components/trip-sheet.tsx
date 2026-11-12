@@ -10,7 +10,7 @@
 // Motion: two values on the UI thread. `p` is the morph (0 = the row you tapped, 1 = in
 // place); `pos` is the height (0 = bar, 1 = middle, 2 = full). The card's frame is worked
 // out from both every frame. Apple's Liquid Glass (tinted) goes on the card and the bar once
-// they've settled: native glass turns into a grey slab while its size animates (see search-morph).
+// they've settled: native glass turns into a grey slab while its size animates (see search-layer).
 
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
