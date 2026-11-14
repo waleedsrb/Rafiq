@@ -32,7 +32,6 @@
 // grey block if it moves or is resized every frame); once it has settled at the bottom, real
 // Liquid Glass (iOS 26) takes over.
 
-import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname } from 'expo-router';
@@ -67,6 +66,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Frost } from '@/components/frost';
 import { Icon } from '@/components/icon';
 import { PlaceResults, PLACE_FIELDS_H, topPick, usePlaceSearch, type End, type PlaceSearch } from '@/components/place-search';
 import { TripDetails } from '@/components/trip-details';
@@ -89,6 +89,7 @@ import type { City } from '@/lib/trip-form';
 import type { Rect } from '@/lib/trip-layer';
 import { useScreenCorners } from '@/theme/screen-corners';
 import { inkWash } from '@/theme/palettes';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { motion, space } from '@/theme/tokens';
 
@@ -151,7 +152,7 @@ export function SearchLayerHost() {
 }
 
 const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequest | null; parked: boolean }) {
-  const { scheme: themeScheme, c: colors } = useTheme();
+  const { scheme: themeScheme, c: colors, solid } = useTheme();
   const styles = useStyles();
   const { t, lang } = useT();
   const { f, rtl, direction } = useFont();
@@ -459,7 +460,8 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
     return { opacity: grow.value, transform: [{ translateY: screenH - top - FADE_H }] };
   });
 
-  const nativeGlass = LIQUID_GLASS && settled && live && !picking && !restGrown;
+  // Reduce Transparency on: the solid bar, never glass.
+  const nativeGlass = LIQUID_GLASS && settled && live && !picking && !restGrown && !solid;
   const showDays = !picking;
   // Open: the day row sits still in its final spot from the first frame, outside the moving
   // page, so its glass is there at once like on every other page (Waleed, Nov 12). Only while
@@ -523,7 +525,7 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
             {showDays && !restDays ? (
               <Animated.View style={[styles.days, { paddingTop: insets.top + space.sm }, list]} onLayout={(e) => setDaysH(e.nativeEvent.layout.height)}>
                 <Animated.View style={[StyleSheet.absoluteFill, page]} pointerEvents="none">
-                  <BlurView intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
+                  <Frost intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
                   <View style={[StyleSheet.absoluteFill, styles.daysFill]} />
                 </Animated.View>
                 <Animated.View style={page}>
@@ -583,7 +585,10 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
                 {/* Home's bar, so the first frame looks exactly like what you tapped. */}
                 <Animated.View style={[styles.face, { direction }, face]} pointerEvents="none">
                   <Icon name="search" />
-                  <Text style={[styles.faceText, { fontFamily: f.bold }]}>{t('findSeatTitle')}</Text>
+                  {/* The bar is a fixed 62pt capsule: its text grows only up to BAR_TEXT_MAX. */}
+                  <Text style={[styles.faceText, { fontFamily: f.bold }]} maxFontSizeMultiplier={BAR_TEXT_MAX}>
+                    {t('findSeatTitle')}
+                  </Text>
                 </Animated.View>
 
                 {/* The one-line bar: close, the route (tap From or To), swap. */}
@@ -604,9 +609,11 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
                           accessibilityRole="button"
                           accessibilityLabel={t(end === 'origin' ? 'fromPlace' : 'toPlace').replace('{place}', placeName(s[end], lang))}
                           onPress={() => startPicking(end)}
-                          hitSlop={{ top: 2, bottom: 2 }}
+                          // Each line reaches to the bar's edge on its side, so From and To get the whole bar between them.
+                          hitSlop={end === 'origin' ? { top: PAD, bottom: 2 } : { top: 2, bottom: PAD }}
                         >
-                          <Text style={[styles.route, { fontFamily: f.bold }]} numberOfLines={1}>
+                          {/* Two lines already fill the 44pt row, so these keep their size. */}
+                          <Text style={[styles.route, { fontFamily: f.bold }]} numberOfLines={1} maxFontSizeMultiplier={1}>
                             {placeName(s[end], lang)}
                           </Text>
                         </Pressable>
@@ -703,11 +710,13 @@ function RouteFields({
           returnKeyType={end === 'origin' ? 'next' : 'search'}
           submitBehavior="submit"
           onSubmitEditing={onSubmit}
+          // The fields are a fixed 44pt (the bar grows into them): text grows only up to BAR_TEXT_MAX.
+          maxFontSizeMultiplier={BAR_TEXT_MAX}
           style={[styles.input, { fontFamily: f.medium, textAlign: inputAlign(rtl), writingDirection: direction }]}
         />
         {active && places.loading ? <ActivityIndicator size="small" color={colors.inkSecondary} /> : null}
         {active && !places.loading && places.q ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={t('clearTyping')} onPress={() => places.setQ('')} hitSlop={8} style={styles.clear}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('clearTyping')} onPress={() => places.setQ('')} hitSlop={13} style={styles.clear}>
             <Icon name="x" size={12} color={colors.surface} />
           </Pressable>
         ) : null}

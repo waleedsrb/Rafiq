@@ -23,6 +23,7 @@ import { useFont } from '@/components/ui';
 import { HOLD_MS, TOO_SHORT_MS, humGap, humPattern, type CheckpointStatus } from '@/lib/checkpoints';
 import { confirmFeel, humPulse, startHumAndroid, stopHum } from '@/lib/haptics';
 import { useT } from '@/lib/session';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radii, sizes } from '@/theme/tokens';
 
@@ -177,9 +178,9 @@ export function HoldToReport({
         ) : look.icon ? (
           <Icon name={look.icon} size={18} color={holding ? look.color : colors.ink} />
         ) : (
-          <Text style={[styles.mark, { color: ink }]}>!</Text>
+          <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.mark, { color: ink }]}>!</Text>
         )}
-        <Text style={[styles.label, { fontFamily: f.medium, color: ink }]} numberOfLines={1}>
+        <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.label, { fontFamily: f.medium, color: ink }]} numberOfLines={1}>
           {done ? t('reportSent') : t(look.word)}
         </Text>
       </Pressable>

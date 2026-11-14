@@ -11,6 +11,7 @@ import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { successFeel, tapFeel } from '@/lib/haptics';
 import { inkWash, palettes } from '@/theme/palettes';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 
 const KNOB = 52;
 const PAD = 4;
@@ -81,7 +82,7 @@ export function SlideToConfirm({
   if (reader) {
     return (
       <Pressable accessibilityRole="button" onPress={done} style={[styles.track, { backgroundColor: ink, justifyContent: 'center' }]}>
-        <Text style={[styles.label, { fontFamily: f.medium, color: onInk }]}>{label}</Text>
+        <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.label, { fontFamily: f.medium, color: onInk }]}>{label}</Text>
       </Pressable>
     );
   }
@@ -92,7 +93,7 @@ export function SlideToConfirm({
       onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
       accessibilityLabel={label}
     >
-      <Animated.Text style={[styles.label, { fontFamily: f.medium, color: ink }, fade]} numberOfLines={1}>
+      <Animated.Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.label, { fontFamily: f.medium, color: ink }, fade]} numberOfLines={1}>
         {label}
       </Animated.Text>
       <GestureDetector gesture={pan}>

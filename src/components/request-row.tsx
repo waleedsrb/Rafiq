@@ -14,6 +14,7 @@ import { StatsLine } from '@/components/stats-line';
 import { ltr, useFont } from '@/components/ui';
 import type { Stats } from '@/lib/stats';
 import { useT } from '@/lib/session';
+import { useOneLine } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { fonts, space } from '@/theme/tokens';
 
@@ -56,6 +57,7 @@ export function RequestRow({
   const styles = useStyles();
   const { t } = useT();
   const { f, rtl } = useFont();
+  const one = useOneLine();
   const left = Math.max(0, Math.min(1, progress));
   const first = name.split(' ')[0];
 
@@ -96,7 +98,7 @@ export function RequestRow({
       </View>
 
       <View style={styles.who}>
-        <Text numberOfLines={1} style={[styles.name, { fontFamily: f.medium }]}>
+        <Text numberOfLines={one} style={[styles.name, { fontFamily: f.medium }]}>
           {name}
           <Text style={[styles.seats, { fontFamily: f.regular }]}>
             {'  ·  '}
@@ -158,7 +160,8 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'center',
   },
   accept: {
-    height: 40,
+    minHeight: 40,
+    paddingVertical: 6,
     minWidth: 76,
     paddingHorizontal: space.md,
     borderRadius: 20,

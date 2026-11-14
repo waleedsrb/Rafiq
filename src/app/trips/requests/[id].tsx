@@ -752,7 +752,8 @@ const useStyles = makeStyles((colors) => ({
   riderEnd: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   // 40pt targets plus 4pt hitSlop keep the 48pt tap area, same as the request rows.
   inCar: {
-    height: 40,
+    minHeight: 40,
+    paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1.5,

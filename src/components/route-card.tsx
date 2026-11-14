@@ -7,6 +7,7 @@ import { useFont } from '@/components/ui';
 import { placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import type { City } from '@/lib/trip-form';
+import { useOneLine } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radii, space } from '@/theme/tokens';
 
@@ -30,13 +31,14 @@ export function RouteCard({
   const styles = useStyles();
   const { t, lang } = useT();
   const { f, rtl } = useFont();
+  const one = useOneLine();
   const row = (city: City, label: string, mark: 'start' | 'end') => {
     const inner = (
       <>
         <View style={mark === 'start' ? styles.markStart : styles.markEnd} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardLabel, { fontFamily: f.regular }]}>{label}</Text>
-          <Text style={[styles.cardCity, { fontFamily: f.medium }]} numberOfLines={1}>{placeName(city, lang)}</Text>
+          <Text style={[styles.cardCity, { fontFamily: f.medium }]} numberOfLines={one}>{placeName(city, lang)}</Text>
         </View>
         {mark === 'start' && note ? <Text style={[styles.cardLabel, { fontFamily: f.regular }]}>{note}</Text> : null}
         {onPick ? <Icon name={rtl ? 'caretLeft' : 'caretRight'} size={16} color={colors.inkSecondary} /> : null}
@@ -62,7 +64,7 @@ export function RouteCard({
         {row(destination, t('toLabel'), 'end')}
       </View>
       {onSwap ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={t('swapDirection')} onPress={onSwap} style={styles.swap}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('swapDirection')} onPress={onSwap} hitSlop={4} style={styles.swap}>
           <Icon name="arrowsDownUp" size={20} />
         </Pressable>
       ) : null}

@@ -12,7 +12,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SystemUI from 'expo-system-ui';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Appearance, Platform, StyleSheet, useColorScheme } from 'react-native';
+import { AccessibilityInfo, Appearance, Platform, StyleSheet, useColorScheme } from 'react-native';
 
 import { DEFAULT_PREF, nativeOverride, palettes, parsePref, resolveScheme, type AppearancePref, type Palette, type Scheme } from './palettes';
 
@@ -28,9 +28,14 @@ type Theme = {
   /** What the person picked in Settings. */
   pref: AppearancePref;
   setPref: (pref: AppearancePref) => void;
+  /**
+   * iPhone Settings > Accessibility > Display & Text Size > Reduce Transparency.
+   * When it is on, glass and blur are drawn as solid surfaces (see frost.tsx).
+   */
+  solid: boolean;
 };
 
-const fallback: Theme = { c: palettes.light, scheme: 'light', dark: false, pref: DEFAULT_PREF, setPref: () => {} };
+const fallback: Theme = { c: palettes.light, scheme: 'light', dark: false, pref: DEFAULT_PREF, setPref: () => {}, solid: false };
 const ThemeContext = createContext<Theme>(fallback);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -59,20 +64,40 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     SystemUI.setBackgroundColorAsync(c.surface).catch(() => {});
   }, [c.surface]);
 
+  const solid = useReduceTransparency();
+
   const setPref = useCallback((next: AppearancePref) => {
     setPrefState(next);
     AsyncStorage.setItem(KEY, next).catch(() => {});
   }, []);
 
   const value = useMemo<Theme>(
-    () => ({ c, scheme, dark: scheme === 'dark', pref: pref ?? DEFAULT_PREF, setPref }),
-    [c, scheme, pref, setPref],
+    () => ({ c, scheme, dark: scheme === 'dark', pref: pref ?? DEFAULT_PREF, setPref, solid }),
+    [c, scheme, pref, setPref, solid],
   );
 
   // Hold the first frame until the saved pick is read (a few ms, under the splash),
   // so a dark-mode person never sees a light flash.
   if (!pref) return null;
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+/** Reduce Transparency, live: flipping it in Settings redraws the app without a restart. iOS only. */
+function useReduceTransparency(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    let alive = true;
+    AccessibilityInfo.isReduceTransparencyEnabled()
+      .then((v) => alive && setOn(v))
+      .catch(() => {});
+    const sub = AccessibilityInfo.addEventListener('reduceTransparencyChanged', setOn);
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, []);
+  return on;
 }
 
 export function useTheme(): Theme {

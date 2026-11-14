@@ -19,6 +19,7 @@ import { Icon } from '@/components/icon';
 import { useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
 import { clampNotificationSwipe, notificationSwipeArmed, notificationSwipeResult, type NotificationSwipeAction } from '@/lib/notification-swipe';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { motion, sizes, space } from '@/theme/tokens';
 
@@ -132,7 +133,7 @@ function Action({ kind, label, armed, font, reduced, onPress }: {
   const content = (color: string) => (
     <>
       <Icon name={icon} size={22} color={color} />
-      <Text numberOfLines={1} style={[styles.label, { fontFamily: font, color }]}>{label}</Text>
+      <Text maxFontSizeMultiplier={BAR_TEXT_MAX} numberOfLines={1} style={[styles.label, { fontFamily: font, color }]}>{label}</Text>
     </>
   );
   return (

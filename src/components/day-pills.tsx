@@ -18,11 +18,11 @@
 
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import MaskedViewClass, { type MaskedViewProps } from '@react-native-masked-view/masked-view';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { Frost } from '@/components/frost';
 import { Icon } from '@/components/icon';
 import { GlassButton, PillChips, useFont } from '@/components/ui';
 import { formatChipDay, formatDay, formatMonth, weekdayLetters } from '@/lib/format';
@@ -308,6 +308,8 @@ function MonthGrid({ day, onPick, dots }: { day: number; onPick: (d: number) => 
                   selectFeel();
                   onPick(d);
                 }}
+                // A 38pt circle; 3pt around it makes the 44pt Apple asks for.
+                hitSlop={3}
                 style={({ pressed }) => [styles.dayBtn, d === 0 && !on && styles.today, on && styles.dayOn, pressed && { opacity: 0.6 }]}
               >
                 <Text style={[styles.dayText, !ok && styles.dayOff, on && styles.dayTextOn]}>{date.getDate()}</Text>
@@ -361,7 +363,7 @@ function FrostedCircle({ size, label, expanded, onPress }: { size: number; label
       style={({ pressed }) => [round, styles.frostLift, pressed && { transform: [{ scale: 0.94 }] }]}
     >
       <View style={[round, styles.frost]}>
-        <BlurView intensity={60} tint={themeScheme} style={StyleSheet.absoluteFill} />
+        <Frost intensity={60} tint={themeScheme} style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, styles.frostWash]} />
         <Icon name="calendar" size={18} color={colors.ink} />
       </View>
@@ -388,7 +390,7 @@ function EdgeFade({ width }: { width: number }) {
       style={[styles.fade, { width, end: 0 }]}
       maskElement={<LinearGradient colors={['transparent', 'black', 'black']} locations={[0, 0.55, 1]} start={from} end={to} style={StyleSheet.absoluteFill} />}
     >
-      <BlurView intensity={24} tint={themeScheme} style={StyleSheet.absoluteFill} />
+      <Frost intensity={24} tint={themeScheme} style={StyleSheet.absoluteFill} />
       <View style={[StyleSheet.absoluteFill, styles.fadeWash]} />
     </MaskedView>
   );
@@ -470,7 +472,7 @@ const useStyles = makeStyles((colors) => ({
   centred: { flex: 1, minHeight: STAGE_H, justifyContent: 'center', gap: space.md },
   // Flat on the card: no box of its own, just the month.
   month: { gap: 2 },
-  monthHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingStart: 4, height: 40 },
+  monthHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingStart: 4, minHeight: 40 },
   monthTitle: { fontSize: 17, color: colors.ink },
   arrows: { flexDirection: 'row', gap: 4 },
   arrow: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },

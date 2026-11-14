@@ -53,6 +53,6 @@ const useStyles = makeStyles((colors) => ({
   ui: { position: 'absolute', left: space.lg, right: space.lg, gap: 10 },
   name: { fontSize: 40, lineHeight: 48, color: colors.ink, textAlign: 'center', letterSpacing: -0.4 },
   line: { fontSize: 16, lineHeight: 24, color: colors.inkSecondary, textAlign: 'center', marginBottom: 18 },
-  secondary: { height: 44, alignItems: 'center', justifyContent: 'center' },
+  secondary: { minHeight: 44, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { fontSize: 16, color: colors.ink },
 }));

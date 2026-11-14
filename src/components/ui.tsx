@@ -4,7 +4,6 @@
 // Layout rules from the mockups: 20pt side margins, glass buttons on top,
 // content from the top, the main action pinned at the bottom.
 
-import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
@@ -32,6 +31,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Frost } from '@/components/frost';
+import { useBigText } from '@/theme/text-size';
 import { pillBase, usePillBorder, usePillColor, usePillSlide, usePillStyle, type PillSlide } from '@/components/pill-slide';
 import { isRTL } from '@/i18n';
 import { goBack } from '@/lib/nav';
@@ -166,8 +167,10 @@ export function GlassButton({
   iconColor?: string;
   children?: ReactNode;
 }) {
-  const { scheme: themeScheme } = useTheme();
+  const { scheme: themeScheme, solid } = useTheme();
   const styles = useStyles();
+  // Reduce Transparency on: a solid button instead of glass.
+  const glass = LIQUID_GLASS && !solid;
   const content = icon ? <Icon name={icon} flip={flip} color={iconColor} /> : children;
   return (
     <Pressable
@@ -175,9 +178,9 @@ export function GlassButton({
       accessibilityLabel={label}
       onPress={onPress}
       // Real glass reacts to the touch itself; the blur fallback dims instead.
-      style={({ pressed }) => [styles.glassButton, LIQUID_GLASS && styles.glassButtonLiquid, !LIQUID_GLASS && pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.glassButton, glass && styles.glassButtonLiquid, !glass && pressed && { opacity: 0.7 }]}
     >
-      {LIQUID_GLASS ? (
+      {glass ? (
         // The same untinted "regular" glass as the system tab bar. The icon lives inside the
         // glass (and lets touches through to it), so it stretches and morphs with the glass.
         <GlassView
@@ -193,7 +196,7 @@ export function GlassButton({
         </GlassView>
       ) : (
         <>
-          <BlurView intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
+          <Frost intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
           <View style={styles.glassFill} />
           <View style={styles.glassContent}>{content}</View>
         </>
@@ -305,7 +308,7 @@ export function TabScreen({
 
       <View pointerEvents="box-none" style={[styles.tabBar, { height: barH }]}>
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, frost]}>
-          <BlurView intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
+          <Frost intensity={40} tint={themeScheme} style={StyleSheet.absoluteFill} />
           <View style={styles.glassFill} />
         </Animated.View>
         <Animated.View pointerEvents="none" style={[styles.tabLine, { bottom: 0 }, line]} />
@@ -339,15 +342,16 @@ export function Body({
   signal?: boolean;
   small?: boolean;
   style?: StyleProp<TextStyle>;
-  /** Keep to this many lines, ending with "…" (the Home hero keeps every line to one). */
+  /** Keep to this many lines, ending with "…" (the Home hero keeps every line to one). Larger Text lets it wrap. */
   numberOfLines?: number;
 }) {
   const { c: colors } = useTheme();
   const styles = useStyles();
   const { f } = useFont();
+  const big = useBigText();
   return (
     <Text
-      numberOfLines={numberOfLines}
+      numberOfLines={big ? undefined : numberOfLines}
       style={[
         small ? styles.small : styles.body,
         { fontFamily: f.regular },
@@ -375,6 +379,9 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   const { f } = useFont();
   return <Text style={[styles.sectionTitle, { fontFamily: f.bold }]}>{children}</Text>;
 }
+
+/** Chips and segments are 36-40pt tall; this reaches Apple's 44pt minimum without changing the look. */
+const CHIP_SLOP = { top: 4, bottom: 4 } as const;
 
 /** Full-width capsule button. `primary` is graphite; `secondary` is an outline. */
 export function Button({
@@ -507,6 +514,7 @@ export function Chip({
       accessibilityRole="radio"
       accessibilityState={{ selected: !!selected }}
       onPress={onPress}
+      hitSlop={CHIP_SLOP}
       style={[styles.chip, selected && styles.chipSelected]}
     >
       {icon ? <Icon name={icon} size={14} color={selected ? colors.onInk : colors.ink} /> : null}
@@ -617,6 +625,7 @@ function PillChip({
       accessibilityLabel={label}
       onPress={onPress}
       onLayout={pill.onItemLayout(i)}
+      hitSlop={CHIP_SLOP}
     >
       <Animated.View style={[styles.chip, { paddingHorizontal: padding }, faint && { opacity: 0.45 }, border]}>
         <Animated.Text style={[styles.chipText, { fontFamily: f.medium }, text]}>{label}</Animated.Text>
@@ -674,6 +683,7 @@ function SegmentItem({ i, pill, label, on, onPress }: { i: number; pill: PillSli
       accessibilityState={{ selected: on }}
       onPress={onPress}
       onLayout={pill.onItemLayout(i)}
+      hitSlop={CHIP_SLOP}
       style={styles.segmentItem}
     >
       <Animated.Text style={[styles.segmentText, { fontFamily: f.medium }, text]}>{label}</Animated.Text>
@@ -703,6 +713,8 @@ export function Stepper({
         selectFeel();
         onChange(next);
       }}
+      // 40pt circle, 48pt to the finger.
+      hitSlop={4}
       style={[styles.stepBtn, disabled && { opacity: 0.3 }]}
     >
       <Icon name={icon} size={18} />
@@ -808,7 +820,7 @@ export function Countdown({ label, remaining, progress }: { label: string; remai
   return (
     <View style={{ gap: space.sm }}>
       <View style={styles.countdownRow}>
-        <Text style={[styles.countdownText, { fontFamily: f.medium }]}>{label}</Text>
+        <Text style={[styles.countdownText, { fontFamily: f.medium, flexShrink: 1 }]}>{label}</Text>
         <Text style={[styles.countdownText, { fontFamily: fonts.en.medium }]}>{ltr(remaining)}</Text>
       </View>
       <View style={styles.countdownTrack}>
@@ -873,8 +885,11 @@ const useStyles = makeStyles((colors) => ({
   label: { fontSize: 13, lineHeight: 18, color: colors.inkSecondary },
   sectionTitle: { fontSize: 17, lineHeight: 24, color: colors.ink, marginTop: space.sm },
 
+  // minHeight, not height: with Larger Text the label wraps and the capsule grows.
   button: {
-    height: sizes.button,
+    minHeight: sizes.button,
+    paddingVertical: 12,
+    paddingHorizontal: space.lg,
     borderRadius: radii.capsule,
     alignItems: 'center',
     justifyContent: 'center',
@@ -883,7 +898,7 @@ const useStyles = makeStyles((colors) => ({
   },
   buttonPrimary: { backgroundColor: colors.ink },
   buttonSecondary: { borderWidth: 1, borderColor: colors.ink, backgroundColor: 'transparent' },
-  buttonText: { fontSize: 17 },
+  buttonText: { fontSize: 17, textAlign: 'center', flexShrink: 1 },
   textLink: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
   textLinkText: { fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
 
@@ -919,7 +934,8 @@ const useStyles = makeStyles((colors) => ({
   chipScroll: { flexGrow: 0 },
   chipRow: { flexDirection: 'row', gap: space.sm },
   chip: {
-    height: sizes.controlSm,
+    minHeight: sizes.controlSm,
+    paddingVertical: 6,
     paddingHorizontal: space.md,
     borderRadius: sizes.controlSm / 2,
     borderWidth: 1,
@@ -931,7 +947,7 @@ const useStyles = makeStyles((colors) => ({
   },
   chipSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipPill: { backgroundColor: colors.ink, borderRadius: radii.capsule },
-  chipText: { fontSize: 13, color: colors.ink },
+  chipText: { fontSize: 13, color: colors.ink, textAlign: 'center' },
 
   segment: {
     flexDirection: 'row',
@@ -940,10 +956,10 @@ const useStyles = makeStyles((colors) => ({
     padding: 4,
     gap: 4,
   },
-  segmentItem: { flex: 1, height: 40, borderRadius: radii.capsule, alignItems: 'center', justifyContent: 'center' },
+  segmentItem: { flex: 1, minHeight: 40, paddingVertical: 6, paddingHorizontal: space.sm, borderRadius: radii.capsule, alignItems: 'center', justifyContent: 'center' },
   // No Android elevation: it would lift the pill over the labels it slides under.
   segmentSelected: { backgroundColor: colors.card, borderRadius: radii.capsule, ...shadows.float, shadowOpacity: 0.06, elevation: 0 },
-  segmentText: { fontSize: 14, color: colors.ink },
+  segmentText: { fontSize: 14, color: colors.ink, textAlign: 'center' },
 
   stepper: { flexDirection: 'row', alignItems: 'center', gap: space.md, alignSelf: 'flex-start' },
   stepBtn: {

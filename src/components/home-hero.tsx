@@ -27,6 +27,7 @@ import { reliabilityText, type Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
 import { SETTLE_AFTER_HOURS, START_OPENS_MIN } from '@/lib/trip-day';
+import { useOneLine } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { fonts, space } from '@/theme/tokens';
 
@@ -49,11 +50,12 @@ function Big({
   const { c: colors } = useTheme();
   const styles = useStyles();
   const { f } = useFont();
+  const one = useOneLine();
   return (
     <View style={{ gap: space.xs }}>
       <View style={styles.captionRow}>
         <Text
-          numberOfLines={1}
+          numberOfLines={one}
           style={[styles.caption, styles.captionText, { fontFamily: captionSignal ? f.medium : f.regular }, captionSignal && { color: colors.clay }]}
         >
           {caption}
@@ -74,7 +76,8 @@ function BackLink({ onPress }: { onPress: () => void }) {
   const { t } = useT();
   const { f } = useFont();
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={12}>
+    // An 18pt line; 14pt above and below make it a 46pt target.
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={14}>
       <Text style={[styles.back, { fontFamily: f.medium }]}>{t('heroBack')}</Text>
     </Pressable>
   );
@@ -576,6 +579,7 @@ export function RequestBlock({
   const styles = useStyles();
   const { t, lang } = useT();
   const { f } = useFont();
+  const one = useOneLine();
   const { time, pm } = timeParts(drive.departsAt);
   const first = shortName(request.name).split(' ')[0];
   const left = new Date(request.respondBy).getTime() - now.getTime();
@@ -636,7 +640,7 @@ export function RequestBlock({
             </Svg>
             <Avatar path={request.avatarPath} name={request.name} seed={request.seed} size={30} />
           </View>
-          <Text numberOfLines={1} style={[styles.requestName, { fontFamily: f.medium }]}>
+          <Text numberOfLines={one} style={[styles.requestName, { fontFamily: f.medium }]}>
             {shortName(request.name)}
           </Text>
           {request.fits ? (

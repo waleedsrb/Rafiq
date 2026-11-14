@@ -11,12 +11,12 @@
 //
 // The map behind is the trip's route with the car on it (src/components/route-map.tsx).
 
-import { BlurView } from 'expo-blur';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Frost } from '@/components/frost';
 import { Avatar } from '@/components/avatar';
 import { statusLookFor, useAgo } from '@/components/checkpoint-badge';
 import { Icon, type IconName } from '@/components/icon';
@@ -32,12 +32,13 @@ import type { City } from '@/lib/trip-form';
 import { useScreenCorners } from '@/theme/screen-corners';
 import { palettes, type Palette } from '@/theme/palettes';
 import { fonts, space } from '@/theme/tokens';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 
 export type Rider = { id: string; name: string; avatarPath: string | null; seed: string };
 
-type Look = { ink: string; sub: string; panel: string; line: string; button: string; blur: 'light' | 'dark' };
+type Look = { ink: string; sub: string; panel: string; solid: string; line: string; button: string; blur: 'light' | 'dark' };
 
-const look = (p: Palette, blur: 'light' | 'dark'): Look => ({ ink: p.ink, sub: p.inkSecondary, panel: p.panel, line: p.hairline, button: p.fillStrong, blur });
+const look = (p: Palette, blur: 'light' | 'dark'): Look => ({ ink: p.ink, sub: p.inkSecondary, panel: p.panel, solid: p.surface, line: p.hairline, button: p.fillStrong, blur });
 const DAY = look(palettes.light, 'light');
 const NIGHT = look(palettes.dark, 'dark');
 
@@ -138,22 +139,22 @@ export function DriveMode({
       <View style={[styles.top, { top: insets.top + 6, direction }]}>
         <RoundButton icon="x" label={t('leaveDriveMode')} onPress={onLeave} c={c} />
         <View style={[styles.banner, { backgroundColor: closed ? colors.alarm : c.panel }]}>
-          {closed ? null : <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, styles.round]} />}
+          {closed ? null : <Frost intensity={40} tint={c.blur} solidColor={c.solid} style={[StyleSheet.absoluteFill, styles.round]} />}
           <View style={[styles.bannerIcon, { backgroundColor: closed ? colors.alarmFill : c.button }]}>
             <Icon name={bannerIcon} size={22} color={closed ? colors.white : statusTint} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text numberOfLines={1} style={[styles.bannerTitle, { fontFamily: f.bold, color: bannerInk }]}>
+            <Text maxFontSizeMultiplier={BAR_TEXT_MAX} numberOfLines={1} style={[styles.bannerTitle, { fontFamily: f.bold, color: bannerInk }]}>
               {bannerTitle}
             </Text>
-            <Text numberOfLines={1} style={[styles.bannerSub, { fontFamily: f.regular, color: bannerSubInk }]}>
+            <Text maxFontSizeMultiplier={BAR_TEXT_MAX} numberOfLines={1} style={[styles.bannerSub, { fontFamily: f.regular, color: bannerSubInk }]}>
               {bannerSub}
             </Text>
           </View>
           {dist ? (
-            <Text style={[styles.dist, { color: bannerInk }]}>
+            <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.dist, { color: bannerInk }]}>
               {ltr(dist.n)}
-              <Text style={[styles.unit, { fontFamily: f.regular, color: bannerSubInk }]}> {t(dist.unit === 'km' ? 'kmUnit' : 'mUnit')}</Text>
+              <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.unit, { fontFamily: f.regular, color: bannerSubInk }]}> {t(dist.unit === 'km' ? 'kmUnit' : 'mUnit')}</Text>
             </Text>
           ) : null}
         </View>
@@ -167,9 +168,9 @@ export function DriveMode({
             disabled={goingAround}
             style={({ pressed }) => [styles.wayButton, { backgroundColor: c.panel }, pressed && { opacity: 0.7 }]}
           >
-            <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+            <Frost intensity={40} tint={c.blur} solidColor={c.solid} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
             <Icon name="barricade" size={18} color={c.ink} />
-            <Text style={[styles.panelButtonText, { fontFamily: f.medium, color: c.ink }]}>{t('goingAroundName').replace('{name}', cp.name)}</Text>
+            <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.panelButtonText, { fontFamily: f.medium, color: c.ink }]}>{t('goingAroundName').replace('{name}', cp.name)}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -191,14 +192,14 @@ export function DriveMode({
           },
         ]}
       >
-        <BlurView intensity={50} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: corners.card }]} />
+        <Frost intensity={50} tint={c.blur} solidColor={c.solid} style={[StyleSheet.absoluteFill, { borderRadius: corners.card }]} />
         <View style={styles.statsRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.eta, { color: c.ink }]}>
+            <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.eta, { color: c.ink }]}>
               {etaClock.time}
-              <Text style={[styles.unit, { fontFamily: f.regular, color: c.sub }]}> {etaClock.pm ? t('pm') : t('am')}</Text>
+              <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.unit, { fontFamily: f.regular, color: c.sub }]}> {etaClock.pm ? t('pm') : t('am')}</Text>
             </Text>
-            <Text style={[styles.etaLabel, { fontFamily: f.regular, color: c.sub }]}>{t('expectedArrival')}</Text>
+            <Text maxFontSizeMultiplier={BAR_TEXT_MAX} style={[styles.etaLabel, { fontFamily: f.regular, color: c.sub }]}>{t('expectedArrival')}</Text>
           </View>
           <View style={styles.faces} accessibilityLabel={riders.map((r) => r.name).join(', ')}>
             {riders.slice(0, 4).map((r, i) => (
@@ -228,7 +229,7 @@ function RoundButton({ icon, label, onPress, c }: { icon: IconName; label: strin
       hitSlop={6}
       style={({ pressed }) => [styles.roundButton, { backgroundColor: c.panel }, pressed && { opacity: 0.7 }]}
     >
-      <BlurView intensity={40} tint={c.blur} style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
+      <Frost intensity={40} tint={c.blur} solidColor={c.solid} style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
       <Icon name={icon} size={22} color={c.ink} />
     </Pressable>
   );
@@ -243,7 +244,7 @@ function PanelButton({ icon, label, onPress, c }: { icon: IconName; label: strin
       style={({ pressed }) => [styles.panelButton, { backgroundColor: c.button }, pressed && { opacity: 0.7 }]}
     >
       <Icon name={icon} size={20} color={c.ink} />
-      <Text numberOfLines={1} style={[styles.panelButtonText, { fontFamily: f.medium, color: c.ink }]}>
+      <Text maxFontSizeMultiplier={BAR_TEXT_MAX} numberOfLines={1} style={[styles.panelButtonText, { fontFamily: f.medium, color: c.ink }]}>
         {label}
       </Text>
     </Pressable>
