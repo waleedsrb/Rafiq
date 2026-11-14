@@ -12,7 +12,6 @@
 // out from both every frame. Apple's Liquid Glass (tinted) goes on the card and the bar once
 // they've settled: native glass turns into a grey slab while its size animates (see search-layer).
 
-import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -43,6 +42,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Frost } from '@/components/frost';
 import { Icon } from '@/components/icon';
 import { RouteMap } from '@/components/route-map';
 import { GlassButton, useFont } from '@/components/ui';
@@ -54,6 +54,7 @@ import type { Rect } from '@/lib/trip-layer';
 import type { City } from '@/lib/trip-form';
 import { useScreenCorners } from '@/theme/screen-corners';
 import { inkWash, wash } from '@/theme/palettes';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { fonts, shadows, sizes, space } from '@/theme/tokens';
 
@@ -151,7 +152,7 @@ export function TripSheet({
   /** The card can't grow to full height, only drop to the bar (Post a trip's time step, Nov 11). */
   noFull?: boolean;
 }) {
-  const { scheme: themeScheme } = useTheme();
+  const { scheme: themeScheme, solid } = useTheme();
   const { c: colors } = useTheme();
   const styles = useStyles();
   const { t } = useT();
@@ -431,7 +432,8 @@ export function TripSheet({
   // Apple's Liquid Glass on the card and the bar whenever they rest. While the card moves or
   // changes size (a drag, a step asking for room, the open and close morph) it's a frosted
   // stand-in instead: native glass turns into a grey slab while its size animates.
-  const glass = LIQUID_GLASS && mapOn && !moving && !closing;
+  // Reduce Transparency on: the solid card, never glass.
+  const glass = LIQUID_GLASS && mapOn && !moving && !closing && !solid;
 
   // Steps: the new one slides in a little from the side it comes from (deeper: from the end,
   // back: from the start) while fading up, and the list starts at the top again.
@@ -515,7 +517,7 @@ export function TripSheet({
             </>
           ) : (
             <>
-              <BlurView intensity={60} tint={themeScheme} style={StyleSheet.absoluteFill} />
+              <Frost intensity={60} tint={themeScheme} style={StyleSheet.absoluteFill} />
               <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassFill }]} />
               <Animated.View style={[StyleSheet.absoluteFill, styles.cardFill, cardFill]} />
             </>
@@ -530,7 +532,8 @@ export function TripSheet({
                   accessibilityRole="adjustable"
                   accessibilityLabel={t('sheetHandle')}
                   onPress={() => moveTo(noFull ? (at === 'mid' ? 'mini' : 'mid') : at === 'full' ? 'mid' : 'full')}
-                  hitSlop={8}
+                  // The zone is 23pt tall around the 5pt handle; 11pt above and below make it 45.
+                  hitSlop={{ top: 11, bottom: 11, left: 8, right: 8 }}
                   style={styles.grabZone}
                 >
                   <View style={styles.grab} />
@@ -581,9 +584,13 @@ export function TripSheet({
                 }}
                 style={styles.barText}
               >
-                <Text style={styles.barTime}>{time}</Text>
+                {/* The bar is a fixed height: its text grows only up to BAR_TEXT_MAX. */}
+                <Text style={styles.barTime} maxFontSizeMultiplier={BAR_TEXT_MAX}>
+                  {time}
+                </Text>
                 <Text
                   numberOfLines={1}
+                  maxFontSizeMultiplier={BAR_TEXT_MAX}
                   style={[
                     styles.barSub,
                     { fontFamily: f.regular },
@@ -604,7 +611,10 @@ export function TripSheet({
                   {mini.action.loading ? (
                     <ActivityIndicator size="small" color={mini.action.secondary ? colors.ink : colors.onInk} />
                   ) : (
-                    <Text style={[styles.barButtonText, { fontFamily: f.medium }, mini.action.secondary && { color: colors.ink }]}>
+                    <Text
+                      maxFontSizeMultiplier={BAR_TEXT_MAX}
+                      style={[styles.barButtonText, { fontFamily: f.medium }, mini.action.secondary && { color: colors.ink }]}
+                    >
                       {mini.action.label}
                     </Text>
                   )}

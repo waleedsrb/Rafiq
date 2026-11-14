@@ -7,6 +7,7 @@ import { formatPhone } from '@/lib/phone';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/lib/track';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 import { makeStyles } from '@/theme/theme';
 import { fonts, space } from '@/theme/tokens';
 
@@ -79,7 +80,7 @@ export default function CodeStep() {
           const active = i === Math.min(code.length, LENGTH - 1) && !checking;
           return (
             <View key={i} style={[styles.box, active && styles.boxActive]}>
-              <Text style={styles.digit}>{code[i] ?? ''}</Text>
+              <Text style={styles.digit} maxFontSizeMultiplier={BAR_TEXT_MAX}>{code[i] ?? ''}</Text>
             </View>
           );
         })}

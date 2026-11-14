@@ -377,10 +377,11 @@ const useStyles = makeStyles((colors) => ({
   rowIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.sunken, alignItems: 'center', justifyContent: 'center' },
   rowText: { flex: 1, fontSize: 16, color: colors.ink },
   buttons: { gap: space.xs, marginTop: space.xs },
-  button: { height: sizes.button, borderRadius: radii.capsule, alignItems: 'center', justifyContent: 'center' },
-  buttonText: { fontSize: 17, color: colors.onInk },
-  quiet: { height: sizes.touch + 4, alignItems: 'center', justifyContent: 'center' },
-  quietText: { fontSize: 16, color: colors.ink },
+  // minHeight: with Larger Text a long answer wraps and its button grows.
+  button: { minHeight: sizes.button, paddingVertical: 12, paddingHorizontal: space.lg, borderRadius: radii.capsule, alignItems: 'center', justifyContent: 'center' },
+  buttonText: { fontSize: 17, color: colors.onInk, textAlign: 'center' },
+  quiet: { minHeight: sizes.touch + 4, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
+  quietText: { fontSize: 16, color: colors.ink, textAlign: 'center' },
 }));
 
 /**

@@ -27,6 +27,7 @@ import { prefetch } from '@/lib/cache';
 import { tripCardQuery } from '@/lib/queries';
 import { useMySeatsFor, useSeatCountsFor, type MySeatStatus } from '@/lib/live';
 import { seatView, type SeatCounts, type SeatKind } from '@/lib/seat-line';
+import { useOneLine } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { fonts, radii, shadows, sizes, space } from '@/theme/tokens';
 
@@ -312,6 +313,7 @@ function TimeFirstRow({
   const ref = useRef<HostInstance>(null);
   const { t, lang } = useT();
   const { f } = useFont();
+  const one = useOneLine();
   // Live counts when we have them; until then the free count from the search.
   const view = counts ? seatView(r.seats_total, counts) : null;
   const seatKinds: SeatKind[] = view?.seats ?? Array.from({ length: r.seats_total }, (_, i) => (i < r.seats_total - r.seats_left ? 'confirmed' : 'free'));
@@ -337,7 +339,7 @@ function TimeFirstRow({
       <Text style={[styles.time, full && { color: colors.inkSecondary }]}>{shortTime(new Date(r.departs_at))}</Text>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.nameRow}>
-          <Text style={[styles.name, { fontFamily: f.medium }, full && { color: colors.inkSecondary }]} numberOfLines={1}>
+          <Text style={[styles.name, { fontFamily: f.medium }, full && { color: colors.inkSecondary }]} numberOfLines={one}>
             {name}
           </Text>
           {r.driver_verified ? (
@@ -346,14 +348,14 @@ function TimeFirstRow({
             </View>
           ) : null}
         </View>
-        <Text style={[styles.meta, { fontFamily: f.regular }]} numberOfLines={1}>
+        <Text style={[styles.meta, { fontFamily: f.regular }]} numberOfLines={one}>
           {sub}
           {soon ? <Text style={{ color: colors.statusOpen, fontFamily: f.medium }}>{sub ? ' · ' : ''}{t('leavingSoon')}</Text> : null}
         </Text>
         {mine ? (
           <View style={styles.mineRow}>
             <Icon name={mine === 'accepted' ? 'check' : 'clock'} size={13} color={mine === 'accepted' ? colors.statusOpen : colors.clay} />
-            <Text style={[styles.meta, { fontFamily: f.medium, color: mine === 'accepted' ? colors.statusOpen : colors.clay }]} numberOfLines={1}>
+            <Text style={[styles.meta, { fontFamily: f.medium, color: mine === 'accepted' ? colors.statusOpen : colors.clay }]} numberOfLines={one}>
               {t(mine === 'accepted' ? 'seatIsConfirmed' : mine === 'queued' ? 'youAreInLine' : 'status_requested')}
             </Text>
           </View>

@@ -108,7 +108,7 @@ export default function Checkpoints() {
           style={[styles.input, { fontFamily: f.regular, textAlign: inputAlign(rtl) }]}
         />
         {searching ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={t('clear')} onPress={() => setQ('')} hitSlop={8}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('clear')} onPress={() => setQ('')} hitSlop={14}>
             <Icon name="x" size={16} color={colors.inkSecondary} />
           </Pressable>
         ) : null}
@@ -131,7 +131,7 @@ const useStyles = makeStyles((colors) => ({
   search: {
     alignItems: 'center',
     gap: 8,
-    height: 44,
+    minHeight: 44,
     borderRadius: 22,
     paddingHorizontal: 14,
     backgroundColor: colors.fill,

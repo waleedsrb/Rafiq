@@ -17,6 +17,7 @@ import { Icon, type IconName } from '@/components/icon';
 import { ltr, useFont } from '@/components/ui';
 import { tapFeel } from '@/lib/haptics';
 import { useT } from '@/lib/session';
+import { useOneLine } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 
 export const UNDO_SECONDS = 5;
@@ -53,6 +54,7 @@ export function Capsule({
   const styles = useStyles();
   const { f } = useFont();
   const solid = variant === 'solid';
+  const one = useOneLine();
   return (
     <Pressable
       testID={testID}
@@ -75,8 +77,8 @@ export function Capsule({
     >
       {icon ? <Icon name={icon} size={16} color={solid ? colors.onInk : colors.ink} /> : null}
       <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
+        numberOfLines={one}
+        adjustsFontSizeToFit={!!one}
         minimumFontScale={0.85}
         style={[styles.label, { fontFamily: f.medium }, solid && { color: colors.onInk }, variant === 'quiet' && { color: colors.inkSecondary }]}
       >
@@ -107,10 +109,11 @@ export function CallCircle({ label, onPress }: { label: string; onPress: () => v
 export function DoneLine({ label }: { label: string }) {
   const styles = useStyles();
   const { f } = useFont();
+  const one = useOneLine();
   return (
     <View style={styles.row} accessible accessibilityLabel={label}>
       <Icon name="check" size={16} />
-      <Text numberOfLines={1} style={[styles.done, { fontFamily: f.medium }]}>
+      <Text numberOfLines={one} style={[styles.done, { fontFamily: f.medium }]}>
         {label}
       </Text>
     </View>
@@ -174,10 +177,11 @@ export function UndoRow({ label, left, onUndo }: { label: string; left: number; 
   const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
+  const one = useOneLine();
   return (
     <View style={styles.row}>
       <Icon name="check" size={16} />
-      <Text numberOfLines={1} style={[styles.done, { fontFamily: f.medium }]} accessibilityLiveRegion="polite">
+      <Text numberOfLines={one} style={[styles.done, { fontFamily: f.medium }]} accessibilityLiveRegion="polite">
         {label}
       </Text>
       <Capsule hug label={`${t('notificationUndo')} · ${ltr(left)}`} a11y={t('notificationUndo')} onPress={onUndo} />
@@ -186,9 +190,11 @@ export function UndoRow({ label, left, onUndo }: { label: string; left: number; 
 }
 
 const useStyles = makeStyles((colors) => ({
-  row: { height: ROW, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  // minHeight: with Larger Text the words wrap and the row grows (same height at the default size).
+  row: { minHeight: ROW, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   capsule: {
-    height: ROW,
+    minHeight: ROW,
+    paddingVertical: 6,
     borderRadius: ROW / 2,
     borderWidth: 1.5,
     borderColor: colors.ink,
@@ -202,7 +208,7 @@ const useStyles = makeStyles((colors) => ({
   hug: { flexShrink: 0, paddingHorizontal: 18 },
   solid: { backgroundColor: colors.ink, borderColor: colors.ink },
   quiet: { borderColor: colors.hairline },
-  label: { fontSize: 15, color: colors.ink, flexShrink: 1 },
+  label: { fontSize: 15, color: colors.ink, flexShrink: 1, textAlign: 'center' },
   call: { width: ROW, height: ROW, borderRadius: ROW / 2, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   done: { flex: 1, fontSize: 14, color: colors.ink },
 }));

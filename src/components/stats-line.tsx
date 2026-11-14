@@ -9,6 +9,7 @@ import { ltr, useFont } from '@/components/ui';
 import { useT } from '@/lib/session';
 import { isNew, ratingText, reliabilityText, tripsKey, type Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
+import { useOneLine } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 
 /** Stats for a list of people, keyed by person id. */
@@ -53,6 +54,7 @@ export function StatsLine({
   const styles = useStyles();
   const { t } = useT();
   const { f } = useFont();
+  const one = useOneLine();
   if (!stats) return null;
   const parts: string[] = [];
   if (isNew(stats)) parts.push(t('newOnRafiq'));
@@ -73,7 +75,7 @@ export function StatsLine({
           <Text style={[styles.text, styles.fixed, { fontFamily: f.regular }]}>·</Text>
         </>
       ) : null}
-      <Text style={[styles.text, { fontFamily: f.regular }]} numberOfLines={1}>
+      <Text style={[styles.text, { fontFamily: f.regular }]} numberOfLines={one}>
         {parts.join(' · ')}
       </Text>
     </View>

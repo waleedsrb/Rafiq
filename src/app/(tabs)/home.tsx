@@ -50,6 +50,7 @@ import { useSession, useT } from '@/lib/session';
 import type { Stats } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { BAR_TEXT_MAX } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radii, shadows, sizes, space } from '@/theme/tokens';
 
@@ -477,7 +478,10 @@ export default function Home() {
           style={styles.whereTo}
         >
           <Icon name="search" />
-          <Text style={[styles.whereToText, { fontFamily: f.bold }]}>{t('findSeatTitle')}</Text>
+          {/* The bar keeps its 56pt: it morphs into the search bar, which has the same cap. */}
+          <Text style={[styles.whereToText, { fontFamily: f.bold }]} maxFontSizeMultiplier={BAR_TEXT_MAX}>
+            {t('findSeatTitle')}
+          </Text>
           <View style={styles.dayPill}>
             <Icon name="clock" size={14} />
             <Text style={[styles.dayPillText, { fontFamily: f.medium }]}>{t('today')}</Text>
@@ -534,7 +538,8 @@ const useStyles = makeStyles((colors) => ({
   },
   whereToText: { flex: 1, fontSize: 18, color: colors.ink },
   dayPill: {
-    height: 40,
+    minHeight: 40,
+    paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
     backgroundColor: colors.card,

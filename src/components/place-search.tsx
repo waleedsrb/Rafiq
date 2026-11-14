@@ -19,6 +19,7 @@ import { place, placeName } from '@/lib/places';
 import { useT } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { City } from '@/lib/trip-form';
+import { BAR_TEXT_MAX, useOneLine } from '@/theme/text-size';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radii, space } from '@/theme/tokens';
 
@@ -107,6 +108,8 @@ export function PlaceFields({
             autoCorrect={false}
             returnKeyType="search"
             onBlur={onBlur}
+            // The two fields are a fixed 44pt each (the search bar grows into them), so text grows only so far.
+            maxFontSizeMultiplier={BAR_TEXT_MAX}
             style={[styles.input, { fontFamily: f.medium, textAlign: inputAlign(rtl), writingDirection: direction }]}
           />
           {search.loading ? <ActivityIndicator size="small" color={colors.inkSecondary} /> : null}
@@ -124,7 +127,7 @@ export function PlaceFields({
         }}
         style={({ pressed }) => [styles.field, { direction }, pressed && { opacity: 0.6 }]}
       >
-        <Text style={[styles.fieldText, { fontFamily: f.medium }]} numberOfLines={1}>
+        <Text style={[styles.fieldText, { fontFamily: f.medium }]} numberOfLines={1} maxFontSizeMultiplier={BAR_TEXT_MAX}>
           {placeName(value, lang)}
         </Text>
       </Pressable>
@@ -168,6 +171,7 @@ export function PlaceResults({
   const styles = useStyles();
   const { t, lang } = useT();
   const { f, direction } = useFont();
+  const one = useOneLine();
   const hits = search.hits?.filter((h) => h.id !== exclude) ?? null;
   const name = (h: Hit) => (lang === 'ar' ? h.name_ar : h.name_en);
   const governorate = (h: Hit) => (lang === 'ar' ? (place(h.id)?.governorate ?? '') : (h.governorate ?? '').replace(/ Governorate$/, ''));
@@ -191,13 +195,13 @@ export function PlaceResults({
     const base = [styles.rowTitle, { fontFamily: typed ? f.regular : f.medium }, faded ? { color: colors.inkSecondary } : null];
     if (at < 0) {
       return (
-        <Text style={[styles.rowTitle, { fontFamily: f.medium }, faded ? { color: colors.inkSecondary } : null]} numberOfLines={1}>
+        <Text style={[styles.rowTitle, { fontFamily: f.medium }, faded ? { color: colors.inkSecondary } : null]} numberOfLines={one}>
           {label}
         </Text>
       );
     }
     return (
-      <Text style={base} numberOfLines={1}>
+      <Text style={base} numberOfLines={one}>
         {label.slice(0, at)}
         <Text style={{ fontFamily: f.bold }}>{label.slice(at, at + typed.length)}</Text>
         {label.slice(at + typed.length)}
@@ -231,7 +235,7 @@ export function PlaceResults({
           <View style={{ flex: 1, gap: 1 }}>
             {title(label, opts.faded)}
             {sub ? (
-              <Text style={[styles.rowSub, { fontFamily: f.regular }]} numberOfLines={1}>
+              <Text style={[styles.rowSub, { fontFamily: f.regular }]} numberOfLines={one}>
                 {sub}
               </Text>
             ) : null}

@@ -83,14 +83,15 @@ export default function Welcome() {
               <View style={styles.markWrap}>
                 <RafiqMark size={20} />
               </View>
-              <Text style={[styles.wordmarkAr, { fontFamily: fonts.ar.bold }]}>رفيق</Text>
-              <Text style={[styles.wordmarkEn, { fontFamily: fonts.en.medium }]}>Rafiq</Text>
+              <Text maxFontSizeMultiplier={1} style={[styles.wordmarkAr, { fontFamily: fonts.ar.bold }]}>رفيق</Text>
+              <Text maxFontSizeMultiplier={1} style={[styles.wordmarkEn, { fontFamily: fonts.en.medium }]}>Rafiq</Text>
             </View>
           }
           end={
             <Pressable
               accessibilityRole="button"
               onPress={() => setChosenLanguage(lang === 'ar' ? 'en' : 'ar')}
+              hitSlop={4}
               style={styles.langButton}
             >
               <Icon name="globe" size={14} />
@@ -206,6 +207,8 @@ function Segment({ state, progress }: { state: 'done' | 'now' | 'next'; progress
 }
 
 /** Story 1: a car glides from Ramallah to Nablus while your seat fills in. */
+// The stories are drawings of the app (a seat, a driver, checkpoints): their words are part of
+// the picture and keep their size, like the logo. The story title and body under them grow.
 function SeatStory() {
   const { c: colors } = useTheme();
   const styles = useStyles();
@@ -221,16 +224,16 @@ function SeatStory() {
 
   return (
     <View style={{ alignItems: 'center', gap: 18 }}>
-      <Text style={styles.heroTime}>{ltr('7:30')}</Text>
+      <Text maxFontSizeMultiplier={1} style={styles.heroTime}>{ltr('7:30')}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Text style={[styles.cardLabel, { fontFamily: f.medium }]}>{t('ramallah')}</Text>
+        <Text maxFontSizeMultiplier={1} style={[styles.cardLabel, { fontFamily: f.medium }]}>{t('ramallah')}</Text>
         <View style={{ width: TRACK, height: 26, justifyContent: 'center', direction: 'ltr' }}>
           <View style={styles.dottedRoad} />
           <Animated.View style={[styles.carChip, car]}>
             <Icon name="carProfile" size={14} color={card.bg} flip={rtl} />
           </Animated.View>
         </View>
-        <Text style={[styles.cardLabel, { fontFamily: f.medium }]}>{t('nablus')}</Text>
+        <Text maxFontSizeMultiplier={1} style={[styles.cardLabel, { fontFamily: f.medium }]}>{t('nablus')}</Text>
       </View>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
         <View style={[styles.seat, { backgroundColor: colors.white }]} />
@@ -242,8 +245,8 @@ function SeatStory() {
         <View style={[styles.seat, styles.seatEmpty]} />
       </View>
       <Animated.View entering={FadeInDown.delay(950).duration(280).easing(calm)} style={styles.priceChip}>
-        <Text style={[styles.priceText, { fontFamily: fonts.en.bold }]}>{ltr('25₪')}</Text>
-        <Text style={[styles.priceText, { fontFamily: f.regular, color: card.muted }]}> · {t('cash')}</Text>
+        <Text maxFontSizeMultiplier={1} style={[styles.priceText, { fontFamily: fonts.en.bold }]}>{ltr('25₪')}</Text>
+        <Text maxFontSizeMultiplier={1} style={[styles.priceText, { fontFamily: f.regular, color: card.muted }]}> · {t('cash')}</Text>
       </Animated.View>
     </View>
   );
@@ -264,7 +267,7 @@ function DriverStory() {
     <View style={{ alignItems: 'center', gap: 16 }}>
       <View>
         <View style={styles.avatar}>
-          <Text style={[styles.avatarText, { fontFamily: f.bold }]}>{t('demoDriver').charAt(0)}</Text>
+          <Text maxFontSizeMultiplier={1} style={[styles.avatarText, { fontFamily: f.bold }]}>{t('demoDriver').charAt(0)}</Text>
         </View>
         <Animated.View entering={ZoomIn.delay(250).duration(260).easing(calm)} style={styles.avatarBadge}>
           <Icon name="check" size={14} color={card.bg} />
@@ -274,7 +277,7 @@ function DriverStory() {
         {checks.map(([icon, key], k) => (
           <Animated.View key={key} entering={FadeInDown.delay(380 + k * 140).duration(280).easing(calm)} style={styles.checkChip}>
             <Icon name={icon} size={12} color={colors.white} />
-            <Text style={[styles.checkText, { fontFamily: f.medium }]}>{t(key)}</Text>
+            <Text maxFontSizeMultiplier={1} style={[styles.checkText, { fontFamily: f.medium }]}>{t(key)}</Text>
           </Animated.View>
         ))}
       </View>
@@ -326,8 +329,8 @@ function CpPill({ name, status, color, delay, f }: { name: string; status: strin
   const styles = useStyles();
   return (
     <Animated.View entering={FadeIn.delay(delay).duration(260)} style={styles.cpPill}>
-      <Text numberOfLines={1} style={[styles.cpText, { fontFamily: f }]}>
-        {name} <Text style={{ color }}>{status}</Text>
+      <Text maxFontSizeMultiplier={1} numberOfLines={1} style={[styles.cpText, { fontFamily: f }]}>
+        {name} <Text maxFontSizeMultiplier={1} style={{ color }}>{status}</Text>
       </Text>
     </Animated.View>
   );
@@ -382,7 +385,7 @@ function WomenStory() {
       </View>
       <Animated.View entering={ZoomIn.delay(520).duration(260).easing(calm)} style={styles.womenChip}>
         <FemaleIcon />
-        <Text style={[styles.womenText, { fontFamily: f.bold }]}>{t('womenOnly')}</Text>
+        <Text maxFontSizeMultiplier={1} style={[styles.womenText, { fontFamily: f.bold }]}>{t('womenOnly')}</Text>
       </Animated.View>
     </View>
   );
@@ -498,8 +501,9 @@ const useStyles = makeStyles((colors) => ({
   markWrap: { alignSelf: 'center' },
   wordmarkAr: { fontSize: 22, color: colors.ink },
   wordmarkEn: { fontSize: 13, color: colors.inkSecondary },
+  // 36pt tall; hitSlop makes it 44 to the finger.
   langButton: {
-    height: 36,
+    minHeight: 36,
     paddingHorizontal: 14,
     borderRadius: 18,
     borderWidth: 1,
@@ -638,7 +642,8 @@ const useStyles = makeStyles((colors) => ({
   orText: { fontSize: 13, color: colors.inkSecondary },
   way: {
     flex: 1,
-    height: sizes.control,
+    minHeight: sizes.control,
+    paddingVertical: 6,
     borderRadius: radii.capsule,
     borderWidth: 1,
     borderColor: colors.lineStrong,

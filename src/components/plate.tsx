@@ -11,9 +11,10 @@ export function Plate({ plate, size = 'md' }: { plate: string; size?: 'sm' | 'md
   const small = size === 'sm';
   return (
     <View style={[styles.plate, small && { height: 34 }]} accessibilityLabel={plate}>
-      <Text style={[styles.text, small && { fontSize: 17, paddingHorizontal: 10 }]}>{plate}</Text>
+      {/* A copy of a real plate: its letters keep their size, like the plate itself. */}
+      <Text maxFontSizeMultiplier={1} style={[styles.text, small && { fontSize: 17, paddingHorizontal: 10 }]}>{plate}</Text>
       <View style={[styles.side, small && { width: 22 }]}>
-        <Text style={[styles.sideText, small && { fontSize: 11 }]}>P</Text>
+        <Text maxFontSizeMultiplier={1} style={[styles.sideText, small && { fontSize: 11 }]}>P</Text>
       </View>
     </View>
   );
