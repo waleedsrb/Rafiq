@@ -32,14 +32,15 @@ export default function Results() {
             <TextLink label={t('cancel')} onPress={places.close} />
             <PlaceResults
               search={places}
-              exclude={picking === 'destination' ? s.origin : s.destination}
               onPick={(id) => {
-                // From picked: straight on to To. To picked: back to the trips.
-                if (picking === 'origin') {
+                // From picked: straight on to To. To picked, or the other end's town picked
+                // (the route swaps instead of being blocked): back to the trips.
+                if (picking === 'origin' && id !== s.destination) {
                   s.setOrigin(id);
                   places.open('destination');
                 } else {
-                  s.setDestination(id);
+                  if (picking === 'origin') s.setOrigin(id);
+                  else s.setDestination(id);
                   places.close();
                 }
               }}

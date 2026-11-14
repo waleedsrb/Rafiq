@@ -326,22 +326,28 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
     // The field's onFocus opens that end, so the card and the keyboard start together.
     inputs[end].current?.focus();
   }
-  /** A town was chosen. From moves straight on to To (keyboard stays up); To folds the card. */
+  /**
+   * A town was chosen. From moves straight on to To (keyboard stays up); To folds the card.
+   * Picking the town the other end already has swaps the route instead of being blocked
+   * (Ramallah in To, Ramallah typed in From: From = Ramallah, To = the old From), and the
+   * route is complete, so the card folds (Waleed, Nov 14).
+   */
   function pickTown(id: City) {
     rememberPlace(id);
-    if (places.end === 'origin') {
+    if (places.end === 'origin' && id !== s.destination) {
       s.setOrigin(id);
       places.open('destination');
       inputs.destination.current?.focus();
     } else {
-      s.setDestination(id);
+      if (places.end === 'origin') s.setOrigin(id);
+      else s.setDestination(id);
       places.close();
       Keyboard.dismiss();
     }
   }
   /** The keyboard's Return key picks the lit (first) town. */
   function pickTop() {
-    const id = topPick(places, places.end === 'origin' ? s.destination : s.origin);
+    const id = topPick(places);
     if (id) {
       selectFeel();
       pickTown(id);
@@ -494,7 +500,6 @@ const SearchLayer = memo(function SearchLayer({ req, parked }: { req: SearchRequ
                   <Animated.View style={[placesFade, picking ? null : styles.gone]}>
                     <PlaceResults
                       search={places}
-                      exclude={picking === 'origin' ? s.destination : s.origin}
                       current={picking ? s[picking] : undefined}
                       recent={recentPlaces()}
                       onPick={pickTown}
