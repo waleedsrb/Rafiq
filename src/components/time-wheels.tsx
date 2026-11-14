@@ -1,8 +1,9 @@
 // "When do you leave?" as three wheels: hour, minutes (5-minute steps) and AM/PM (look B,
 // Nov 11; replaces the time ruler, which looked nice but was hard to use). Each wheel bends
 // away from you like a drum: rows above and below the middle tip back, shrink and fade.
-// The roll runs on the UI thread, with a light tick for every row that passes the middle, and
-// the card only hears the new time when the wheels come to rest.
+// The roll runs on the UI thread, with one crisp tick for every number that passes the middle,
+// and the card only hears the new time when the wheels come to rest. A wheel always stops
+// exactly on a number (Nov 14: Waleed saw it hang between two).
 //
 // Under the wheels (DemandLine) one line says, for the picked half hour, how many riders are
 // looking and how many other drivers are already going. (A day chart above the wheels was
@@ -24,13 +25,13 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Body, ltr, useFont } from '@/components/ui';
-import { selectFeel } from '@/lib/haptics';
+import { wheelTick } from '@/lib/haptics';
 import { LAST, STEP, type SlotDemand } from '@/lib/leave-time';
 import { useT } from '@/lib/session';
 import { makeStyles } from '@/theme/theme';
 import { fonts } from '@/theme/tokens';
 
-const ROW = 44;
+const ROW = 54; // one number (a bit larger on Nov 14)
 const VISIBLE = 4; // rows of height in view: the middle one plus 1.5 above and below
 const H = ROW * VISIBLE;
 const PAD = (H - ROW) / 2;
@@ -83,10 +84,10 @@ export function TimeWheels({
       }}
     >
       <View pointerEvents="none" style={styles.band} />
-      <Wheel items={HOURS} index={want.h} onRest={(i) => settle('h', i)} width={76} />
+      <Wheel items={HOURS} index={want.h} onRest={(i) => settle('h', i)} width={92} />
       <Text style={styles.colon}>:</Text>
-      <Wheel items={MINS} index={want.m} onRest={(i) => settle('m', i)} width={76} />
-      <Wheel items={[t('am'), t('pm')]} index={want.p} onRest={(i) => settle('p', i)} width={84} small />
+      <Wheel items={MINS} index={want.m} onRest={(i) => settle('m', i)} width={92} />
+      <Wheel items={[t('am'), t('pm')]} index={want.p} onRest={(i) => settle('p', i)} width={100} small />
     </View>
   );
 }
@@ -96,13 +97,41 @@ function Wheel({ items, index, onRest, width, small }: { items: string[]; index:
   const ref = useAnimatedRef<Animated.ScrollView>();
   const y = useSharedValue(index * ROW);
   const at = useSharedValue(index); // the row in the middle right now
-  const moving = useSharedValue(false);
+  const moving = useSharedValue(false); // a finger or a glide is turning it
+  const touching = useSharedValue(false); // a finger is on it
   const told = useRef(index);
   const last = items.length - 1;
+  const offsets = items.map((_, i) => i * ROW);
 
   const report = (i: number) => {
     told.current = i;
     onRest(i);
+  };
+
+  // Safety net: once the wheel has been still for a moment, if it isn't exactly on a number
+  // (a glide that ended without telling us), roll it onto the nearest one.
+  const watch = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (watch.current) clearTimeout(watch.current);
+  }, []);
+  const settleWhenStill = () => {
+    if (watch.current) clearTimeout(watch.current);
+    let prev = Number.NaN;
+    let tries = 0;
+    const check = () => {
+      if (touching.value) return;
+      const cur = y.value;
+      if (cur !== prev && tries++ < 40) {
+        prev = cur;
+        watch.current = setTimeout(check, 90);
+        return;
+      }
+      const i = Math.max(0, Math.min(last, Math.round(cur / ROW)));
+      moving.value = false;
+      if (Math.abs(cur - i * ROW) > 0.5) ref.current?.scrollTo({ y: i * ROW, animated: true });
+      if (told.current !== i) report(i);
+    };
+    watch.current = setTimeout(check, 90);
   };
   // Follow the value when it changes from outside (a chart tap, a new day, the earliest time).
   // No deps on purpose: when a roll lands on a time that isn't allowed (before the earliest
@@ -125,18 +154,22 @@ function Wheel({ items, index, onRest, width, small }: { items: string[]; index:
   const onScroll = useAnimatedScrollHandler({
     onBeginDrag: () => {
       moving.value = true;
+      touching.value = true;
     },
     onScroll: (e) => {
       y.value = e.contentOffset.y;
       const i = Math.max(0, Math.min(last, Math.round(e.contentOffset.y / ROW)));
       if (i !== at.value) {
         at.value = i;
-        if (moving.value) runOnJS(selectFeel)();
+        // One tick per number, only when you turn it (not when it rolls itself).
+        if (moving.value) runOnJS(wheelTick)();
       }
     },
     onEndDrag: (e) => {
+      touching.value = false;
       // A slow drag with no fling never sends momentum-end.
       if (Math.abs(e.velocity?.y ?? 0) < 0.05) land();
+      runOnJS(settleWhenStill)();
     },
     onMomentumEnd: () => {
       if (moving.value) land();
@@ -150,8 +183,10 @@ function Wheel({ items, index, onRest, width, small }: { items: string[]; index:
       contentContainerStyle={{ paddingVertical: PAD }}
       contentOffset={{ x: 0, y: index * ROW }}
       showsVerticalScrollIndicator={false}
-      snapToInterval={ROW}
-      decelerationRate={0.993}
+      // Stops listed one by one plus the system's quick glide: this is what makes iOS land on
+      // a number every time. The slower custom glide could coast to a stop between two.
+      snapToOffsets={offsets}
+      decelerationRate="fast"
       scrollEventThrottle={16}
       onScroll={onScroll}
       nestedScrollEnabled
@@ -206,10 +241,10 @@ export function DemandLine({ slots, minutes }: { slots: SlotDemand[]; minutes: n
 
 const useStyles = makeStyles((colors) => ({
   wheels: { height: H, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', direction: 'ltr' },
-  band: { position: 'absolute', left: 8, right: 8, top: PAD, height: ROW, borderRadius: 14, backgroundColor: colors.sunken },
+  band: { position: 'absolute', left: 4, right: 4, top: PAD, height: ROW, borderRadius: 16, backgroundColor: colors.sunken },
   row: { height: ROW, alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden' },
-  digits: { fontSize: 28, color: colors.ink, fontVariant: ['tabular-nums'] },
-  half: { fontSize: 19, color: colors.ink },
-  colon: { fontFamily: fonts.en.bold, fontSize: 28, color: colors.ink, marginTop: -4 },
+  digits: { fontSize: 34, color: colors.ink, fontVariant: ['tabular-nums'] },
+  half: { fontSize: 22, color: colors.ink },
+  colon: { fontFamily: fonts.en.bold, fontSize: 34, color: colors.ink, marginTop: -5 },
 
 }));

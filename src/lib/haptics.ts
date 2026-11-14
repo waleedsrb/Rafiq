@@ -13,6 +13,17 @@ export function selectFeel() {
   if (on) Haptics.selectionAsync().catch(() => {});
 }
 
+let lastTick = 0;
+/** One crisp tick as a number passes the middle of a time wheel, like the iPhone's own
+ *  picker. A fast spin passes many rows per frame: ticks closer than 30 ms together are
+ *  dropped so they never blur into a buzz or arrive late in a pile. */
+export function wheelTick() {
+  const now = Date.now();
+  if (now - lastTick < 30) return;
+  lastTick = now;
+  if (on) Haptics.selectionAsync().catch(() => {});
+}
+
 export function successFeel() {
   if (on) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 }
