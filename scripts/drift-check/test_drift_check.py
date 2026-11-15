@@ -39,7 +39,7 @@ class CronTest(unittest.TestCase):
 
 
 class MainTest(unittest.TestCase):
-    def run_main(self, expected, live, live_cron):
+    def run_main(self, expected, live, live_cron, extra=()):
         with tempfile.TemporaryDirectory() as tmp:
             t = Path(tmp)
             (t / "migrations").mkdir()
@@ -48,7 +48,7 @@ class MainTest(unittest.TestCase):
             code = drift_check.main([
                 "--expected", str(t / "e.json"), "--live", str(t / "l.json"),
                 "--live-cron", str(t / "c.json"), "--migrations", str(t / "migrations"),
-                "--out", str(t / "report.md"),
+                "--out", str(t / "report.md"), *extra,
             ])
             return code, (t / "report.md").read_text()
 
@@ -62,6 +62,13 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Missing live", text)
         self.assertIn("function request_seat(uuid)", text)
+
+    def test_staging_report_names_staging_and_its_fix(self):
+        code, text = self.run_main({"table trips": "x"}, {}, {}, ["--target", "staging"])
+        self.assertEqual(code, 1)
+        self.assertIn("The staging database does not match", text)
+        self.assertIn("Missing staging", text)
+        self.assertIn("Staging database -> Run workflow", text)
 
 
 if __name__ == "__main__":

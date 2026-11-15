@@ -216,7 +216,9 @@ function buildLabel() {
   const sha = (process.env.EXPO_PUBLIC_BUILD ?? 'dev').slice(0, 7);
   const at = Updates.createdAt;
   const when = at ? ` · ${at.toISOString().slice(0, 16).replace('T', ' ')} UTC` : '';
-  return `${sha}${when}`;
+  // Which database this copy talks to (docs/staging.md), so a test on staging is never mistaken for live.
+  const db = process.env.EXPO_PUBLIC_DB === 'staging' ? ' · staging' : '';
+  return `${sha}${when}${db}`;
 }
 
 const useStyles = makeStyles((colors) => ({

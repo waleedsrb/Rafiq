@@ -1,0 +1,102 @@
+# Staging database: a second Supabase project that gets every database change first.
+#
+# Every merge to main that touches supabase/migrations/ applies the new migrations to staging
+# (the Supabase CLI keeps a list of what's already applied there, so each one runs once).
+# Then it checks staging matches the repo exactly, the same way the nightly drift check does.
+# Live is still changed by hand in the SQL Editor, only after you've tried the change on staging.
+#
+# Run it by hand (Actions -> Staging database -> Run workflow) to re-apply, or tick
+# "reset test data" to reload the test people, trips and checkpoint statuses
+# (supabase/staging/*.sql). The test data also loads by itself the first time.
+#
+# Setup, once: repo Settings -> Secrets and variables -> Actions -> Secrets:
+#   STAGING_DB_URL = the staging "Session pooler" connection string, with the password filled in
+#                    (Supabase staging project -> Connect -> Session pooler)
+# Without it this workflow does nothing, so it's safe before staging exists. See docs/staging.md.
+name: Staging database
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**', 'supabase/staging/**', '.github/workflows/staging-database.yml']
+  workflow_dispatch:
+    inputs:
+      reset_test_data:
+        description: Reload the test people, trips and checkpoint statuses
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - name: Is staging set up?
+        id: setup
+        run: |
+          if [ -z "$STAGING_DB_URL" ]; then
+            echo "::notice::No STAGING_DB_URL secret yet, so nothing to do. See docs/staging.md."
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.setup.outputs.ready == 'yes'
+
+      - uses: supabase/setup-cli@v1
+        if: steps.setup.outputs.ready == 'yes'
+        with:
+          version: 3.1.0
+
+      - name: Apply new migrations to staging
+        if: steps.setup.outputs.ready == 'yes'
+        run: |
+          supabase migration list --db-url "$STAGING_DB_URL"
+          supabase db push --db-url "$STAGING_DB_URL" --include-all --yes
+
+      - name: Load test data (first time, or when asked)
+        if: steps.setup.outputs.ready == 'yes'
+        run: |
+          have=$(psql "$STAGING_DB_URL" -Atc "select count(*) from auth.users where id = '7493831f-8353-4072-89a3-eb5eef6f4d9f'")
+          if [ "$have" = "0" ] || [ "${{ inputs.reset_test_data }}" = "true" ]; then
+            for f in supabase/staging/*.sql; do
+              echo "== $f"
+              psql "$STAGING_DB_URL" -q -v ON_ERROR_STOP=1 -f "$f"
+            done
+          else
+            echo "Test data already there. Run this workflow with \"reset test data\" ticked to reload it."
+          fi
+
+      - name: Check staging matches the repo
+        if: steps.setup.outputs.ready == 'yes'
+        run: |
+          psql -q -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql
+          for f in supabase/migrations/*.sql; do psql -q -v ON_ERROR_STOP=1 -f "$f"; done
+          psql -Atc 'select public.schema_fingerprint()' > expected.json
+          psql "$STAGING_DB_URL" -Atc 'select public.schema_fingerprint()' > staging.json
+          psql "$STAGING_DB_URL" -Atc 'select public.cron_fingerprint()' > staging-cron.json
+          python3 scripts/drift-check/drift_check.py --target staging \
+            --expected expected.json --live staging.json --live-cron staging-cron.json \
+            --migrations supabase/migrations --out report.md || { cat report.md >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
