@@ -8,6 +8,10 @@
 # Setup, once: repo Settings -> Secrets and variables -> Actions -> Secrets:
 #   SUPABASE_SECRET_KEY = the server key from Supabase (Project settings -> API keys)
 # The live database needs migration 20261111090000_schema_fingerprint.sql applied first.
+#
+# The second job does the same for the staging project (docs/staging.md), reading it through
+# the STAGING_DB_URL secret, with its own issue "Staging database drift". It skips itself
+# until that secret exists.
 name: Drift check
 
 on:
@@ -94,3 +98,73 @@ jobs:
         run: |
           n=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number')
           [ -z "$n" ] || gh issue close "$n" --comment "Live database matches the migrations again ($(date -u +%F))."
+
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: Staging database drift
+    steps:
+      - name: Is staging set up?
+        id: setup
+        run: |
+          if [ -z "$STAGING_DB_URL" ]; then
+            echo "::notice::No STAGING_DB_URL secret yet, skipping staging. See docs/staging.md."
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.setup.outputs.ready == 'yes'
+
+      - name: Build the expected database and read staging
+        if: steps.setup.outputs.ready == 'yes'
+        run: |
+          psql -q -v ON_ERROR_STOP=1 -f supabase/tests/supabase_stub.sql
+          for f in supabase/migrations/*.sql; do psql -q -v ON_ERROR_STOP=1 -f "$f"; done
+          psql -Atc 'select public.schema_fingerprint()' > expected.json
+          psql "$STAGING_DB_URL" -Atc 'select public.schema_fingerprint()' > staging.json
+          psql "$STAGING_DB_URL" -Atc 'select public.cron_fingerprint()' > staging-cron.json
+
+      - name: Compare
+        if: steps.setup.outputs.ready == 'yes'
+        id: compare
+        run: |
+          set +e
+          python3 scripts/drift-check/drift_check.py --target staging \
+            --expected expected.json --live staging.json --live-cron staging-cron.json \
+            --migrations supabase/migrations --out report.md
+          echo "drift=$([ $? -eq 0 ] && echo no || echo yes)" >> "$GITHUB_OUTPUT"
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the drift issue
+        if: steps.compare.outputs.drift == 'yes'
+        run: |
+          n=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue edit "$n" --body-file report.md
+            gh issue comment "$n" --body "Still drifting on $(date -u +%F). List above is up to date."
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file report.md --assignee "${{ github.repository_owner }}"
+          fi
+          exit 1
+
+      - name: Close the drift issue once clean
+        if: steps.compare.outputs.drift == 'no'
+        run: |
+          n=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number')
+          [ -z "$n" ] || gh issue close "$n" --comment "Staging matches the migrations again ($(date -u +%F))."

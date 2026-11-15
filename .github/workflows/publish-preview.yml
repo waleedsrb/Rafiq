@@ -4,12 +4,23 @@
 # This runs on GitHub's free minutes (unlimited for public repos). It replaces the
 # EAS Workflow in .eas/workflows, whose free plan ran out of build minutes (Nov 9).
 # Needs one repository secret: EXPO_TOKEN (an Expo access token for the waleedsrb account).
+#
+# Which database: once the repo variables STAGING_SUPABASE_URL and STAGING_SUPABASE_ANON_KEY
+# exist (Settings -> Secrets and variables -> Actions -> Variables), the preview app talks to
+# the STAGING project, so testing never touches real riders. Until then it uses live.
+# Run it by hand with "live" picked to publish a "preview-live" branch that talks to live.
 name: Publish preview
 
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      database:
+        description: Which database the published app talks to
+        type: choice
+        options: [staging, live]
+        default: staging
 
 concurrency:
   group: publish-preview
@@ -31,10 +42,30 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm ci
+      - name: Pick the database
+        id: db
+        env:
+          WANT: ${{ inputs.database || 'staging' }}
+          STAGING_URL: ${{ vars.STAGING_SUPABASE_URL }}
+          STAGING_KEY: ${{ vars.STAGING_SUPABASE_ANON_KEY }}
+          # Live: public client values (they ship inside the app anyway). Never put secret keys here.
+          LIVE_URL: https://pomyvelsxfzvplkzjlou.supabase.co
+          LIVE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvbXl2ZWxzeGZ6dnBsa3pqbG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzY4OTYsImV4cCI6MjEwOTYxMjg5Nn0.W9mAoQI73fwTIusBKIKOZDtxKxiqGBZvAaaYzZOoh3M
+        run: |
+          if [ "$WANT" = staging ] && [ -n "$STAGING_URL" ] && [ -n "$STAGING_KEY" ]; then
+            { echo "url=$STAGING_URL"; echo "key=$STAGING_KEY"; echo "branch=preview"; echo "name=staging"; } >> "$GITHUB_OUTPUT"
+          elif [ "$WANT" = staging ]; then
+            echo "::notice::No staging variables yet, so preview still talks to live. See docs/staging.md."
+            { echo "url=$LIVE_URL"; echo "key=$LIVE_KEY"; echo "branch=preview"; echo "name=live"; } >> "$GITHUB_OUTPUT"
+          else
+            { echo "url=$LIVE_URL"; echo "key=$LIVE_KEY"; echo "branch=preview-live"; echo "name=live"; } >> "$GITHUB_OUTPUT"
+          fi
       - name: Publish update
         env:
           EXPO_PUBLIC_BUILD: ${{ github.sha }}
-          # Public client values (they ship inside the app anyway). Never put secret keys here.
-          EXPO_PUBLIC_SUPABASE_URL: https://pomyvelsxfzvplkzjlou.supabase.co
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvbXl2ZWxzeGZ6dnBsa3pqbG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzY4OTYsImV4cCI6MjEwOTYxMjg5Nn0.W9mAoQI73fwTIusBKIKOZDtxKxiqGBZvAaaYzZOoh3M
-        run: eas update --branch preview --platform all --message "$(git log -1 --pretty=%s)"
+          EXPO_PUBLIC_SUPABASE_URL: ${{ steps.db.outputs.url }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ steps.db.outputs.key }}
+          EXPO_PUBLIC_DB: ${{ steps.db.outputs.name }}  # Account's build line shows "staging"
+          BRANCH: ${{ steps.db.outputs.branch }}
+          DB_NAME: ${{ steps.db.outputs.name }}
+        run: eas update --branch "$BRANCH" --platform all --message "[$DB_NAME] $(git log -1 --pretty=%s)"

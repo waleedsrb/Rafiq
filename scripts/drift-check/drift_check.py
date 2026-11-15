@@ -1,4 +1,4 @@
-"""Compare the live database with what supabase/migrations/ says it should be.
+"""Compare the live (or staging) database with what supabase/migrations/ says it should be.
 
 Inputs are the JSON fingerprints from public.schema_fingerprint() (one built fresh from the
 migrations in CI, one read from live Supabase) and the live public.cron_fingerprint().
@@ -47,24 +47,29 @@ def is_clean(*diffs: dict) -> bool:
     return not any(d[k] for d in diffs for k in d)
 
 
-def report(schema: dict, cron: dict) -> str:
+def report(schema: dict, cron: dict, target: str = "live") -> str:
     if is_clean(schema, cron):
-        return "The live database matches `supabase/migrations/`. Nothing to do.\n"
-    lines = [
-        "The live database does not match `supabase/migrations/`.",
-        "",
-        "Usually a slice's SQL was not pasted into Supabase yet, or was pasted from an older copy.",
-        "Find the migration that defines each item below and run it in the SQL Editor, then run",
-        "this check again (Actions -> Drift check -> Run workflow). It closes this issue once clean.",
-        "",
-    ]
+        return f"The {target} database matches `supabase/migrations/`. Nothing to do.\n"
+    if target == "staging":
+        fix = [
+            "Staging gets every migration automatically, so this usually means a migration failed",
+            "or someone changed staging by hand. Run Actions -> Staging database -> Run workflow",
+            "(tick \"reset test data\" if needed), then run this check again. It closes this issue once clean.",
+        ]
+    else:
+        fix = [
+            "Usually a slice's SQL was not pasted into Supabase yet, or was pasted from an older copy.",
+            "Find the migration that defines each item below and run it in the SQL Editor, then run",
+            "this check again (Actions -> Drift check -> Run workflow). It closes this issue once clean.",
+        ]
+    lines = [f"The {target} database does not match `supabase/migrations/`.", "", *fix, ""]
     sections = [
-        ("Missing live (in the repo, not in Supabase)", schema["missing"]),
-        ("Different live (same name, other definition)", schema["changed"]),
-        ("Only live (in Supabase, in no migration)", schema["extra"]),
-        ("Scheduled jobs missing live", cron["missing"]),
+        (f"Missing {target} (in the repo, not in Supabase)", schema["missing"]),
+        (f"Different {target} (same name, other definition)", schema["changed"]),
+        (f"Only {target} (in Supabase, in no migration)", schema["extra"]),
+        (f"Scheduled jobs missing {target}", cron["missing"]),
         ("Scheduled jobs with another schedule or command", cron["changed"]),
-        ("Scheduled jobs only live", cron["extra"]),
+        (f"Scheduled jobs only {target}", cron["extra"]),
     ]
     for title, items in sections:
         if items:
@@ -84,6 +89,8 @@ def main(argv=None) -> int:
     parser.add_argument("--live-cron", required=True, type=Path)
     parser.add_argument("--migrations", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--target", default="live", choices=["live", "staging"],
+                        help="which Supabase project the --live files came from (wording only)")
     args = parser.parse_args(argv)
 
     expected = json.loads(args.expected.read_text())
@@ -91,7 +98,7 @@ def main(argv=None) -> int:
     live_cron = json.loads(args.live_cron.read_text())
     schema = compare(expected, live)
     cron = compare(cron_from_migrations(args.migrations), live_cron)
-    text = report(schema, cron)
+    text = report(schema, cron, args.target)
     args.out.write_text(text)
     print(text)
     return 0 if is_clean(schema, cron) else 1
