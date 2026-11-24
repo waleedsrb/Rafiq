@@ -392,6 +392,7 @@ export function Button({
   variant = 'primary',
   icon,
   testID,
+  a11y,
 }: {
   label: string;
   onPress: () => void;
@@ -399,6 +400,8 @@ export function Button({
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'plain';
   icon?: IconName;
+  /** Fuller words for VoiceOver when the visible label is short, e.g. "Alert me" → "Alert me for tomorrow's trips". */
+  a11y?: string;
   /** A stable name for the end-to-end tests (e2e/), which tap it without depending on the words. */
   testID?: string;
 }) {
@@ -411,6 +414,7 @@ export function Button({
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={a11y ?? label}
       accessibilityState={{ disabled: disabled || loading }}
       disabled={disabled || loading}
       onPress={() => {
