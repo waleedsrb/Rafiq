@@ -432,7 +432,7 @@ export function IdlePassenger({ route, verified }: { route: Route | null; verifi
       <Buttons>
         {alert !== 'saved' ? (
           <View style={{ flex: 1 }}>
-            <Button icon="bell" label={t('homeAlertTomorrow')} onPress={saveAlert} loading={alert === 'saving'} />
+            <Button icon="bell" label={t('homeAlertTomorrow')} a11y={t('homeAlertTomorrowA11y')} onPress={saveAlert} loading={alert === 'saving'} />
           </View>
         ) : null}
         <View style={{ flex: 1 }}>
